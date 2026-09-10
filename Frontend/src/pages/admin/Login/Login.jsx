@@ -4,8 +4,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import { useAuth } from "../../../auth/AuthProvider"; // adjust path as needed
 
 const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL ||
-    (import.meta.env.PROD ? "/api" : "http://localhost:5000/api");
+    import.meta.env.VITE_API_BASE_URL
 
 const SUPER_ADMIN_EMAIL = "talentcorner103@gmail.com";
 
