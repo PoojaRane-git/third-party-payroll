@@ -19,6 +19,11 @@ import {
 } from "lucide-react";
 
 import API_BASE from "../services/api";
+console.log("API_BASE:", API_BASE);
+console.log(
+  "Attendance URL:",
+  `${API_BASE}/third-party-attendance`
+);
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
