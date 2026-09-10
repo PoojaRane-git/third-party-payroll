@@ -6,7 +6,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 // =====================================================
 
 import { AuthProvider } from "./auth/AuthProvider";
-import ProtectedRoute from "./auth/ ProtectedRoute";
+import ProtectedRoute from "./auth/ProtectedRoute";
 
 // =====================================================
 // AUTH PAGES

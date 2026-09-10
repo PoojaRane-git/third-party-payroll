@@ -162,84 +162,20 @@ app.get("/api/health", (req, res) => {
 });
 
 // =====================================================
-// AUTH / CURRENT USER
+// AUTH ROUTES
+//
+// NOTE:
+// /api/auth/me, /api/auth/send-login-otp,
+// /api/auth/verify-login-otp, signup routes, etc.
+// all live inside routes/auth.js and are mounted below.
+//
+// A duplicate inline "/api/auth/me" route used to be
+// defined here directly on `app`, which shadowed the
+// real handler in routes/auth.js (Express matches routes
+// in registration order, and this one was registered
+// first). It has been removed so routes/auth.js is the
+// single source of truth for this endpoint.
 // =====================================================
-
-app.get(
-  "/api/auth/me",
-  authenticate,
-  authorize(
-    "admin",
-    "super_admin",
-    "client",
-    "employee"
-  ),
-  async (req, res) => {
-    try {
-      return res.json({
-        success: true,
-
-        user: {
-          id:
-            req.profile?.id ||
-            null,
-
-          user_id:
-            req.user?.id ||
-            null,
-
-          name:
-            req.profile?.name ||
-            req.profile?.full_name ||
-            req.profile?.company_name ||
-            null,
-
-          email:
-            req.profile?.email ||
-            req.user?.email ||
-            null,
-
-          role:
-            req.userRole ||
-            null,
-
-          status:
-            req.profile?.status ||
-            null,
-
-          client_id:
-            req.profile?.client_id ||
-            null,
-
-          employee_id:
-            req.profile?.employee_id ||
-            null,
-
-          accountType:
-            req.accountType ||
-            null,
-
-          company_name:
-            req.profile?.company_name ||
-            req.profile?.name ||
-            null,
-        },
-      });
-    } catch (error) {
-      console.error(
-        "GET /api/auth/me error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Unable to load current user",
-        error: error.message,
-      });
-    }
-  }
-);
 
 // =====================================================
 // ADMIN / COMMON ROUTES

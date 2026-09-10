@@ -1,42 +1,36 @@
-require("dotenv").config();
+const { createClient } = require("@supabase/supabase-js");
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // ============================================================
-// DEBUG: CHECK SUPABASE ENV VARS
+// FAIL FAST IF ENV VARS ARE MISSING
 // ============================================================
 
-const url = process.env.SUPABASE_URL;
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-console.log("========================================");
-console.log("SUPABASE_URL:", url || "❌ UNDEFINED");
-console.log("========================================");
-
-if (!key) {
-    console.log("❌ SUPABASE_SERVICE_ROLE_KEY is UNDEFINED.");
-    console.log("Check that .env exists and dotenv is loaded.");
-} else {
-
-    try {
-
-        const parts = key.split(".");
-
-        if (parts.length !== 3) {
-            console.log("❌ Key does not look like a valid JWT.");
-        } else {
-
-            const payload = JSON.parse(
-                Buffer.from(parts[1], "base64").toString()
-            );
-
-            console.log("Key role:", payload.role || "unknown");
-            console.log("Key project ref:", payload.ref || "unknown");
-            console.log("Key issued at:", new Date(payload.iat * 1000).toISOString());
-            console.log("Key expires at:", new Date(payload.exp * 1000).toISOString());
-        }
-
-    } catch (err) {
-        console.log("❌ Failed to decode key:", err.message);
-    }
+if (!SUPABASE_URL) {
+    throw new Error(
+        "❌ SUPABASE_URL is undefined. Check .env is loaded BEFORE this file is required."
+    );
 }
 
-console.log("========================================");
+if (!SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+        "❌ SUPABASE_SERVICE_ROLE_KEY is undefined. Check .env is loaded BEFORE this file is required."
+    );
+}
+
+const supabaseAdmin = createClient(
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+        },
+    }
+);
+
+// TEMPORARY DEBUG
+console.log("DEBUG supabaseAdmin created. Has .auth?", typeof supabaseAdmin.auth);
+
+module.exports = supabaseAdmin;

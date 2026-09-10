@@ -32,16 +32,6 @@ export function AuthProvider({ children }) {
 
         setSession(session);
 
-        /*
-         * IMPORTANT:
-         * Do NOT automatically consider the Supabase session
-         * as application login.
-         *
-         * The user is considered logged in only after:
-         * Password -> Supabase Auth -> OTP -> OTP verification
-         *
-         * Login.jsx stores the verified application user in localStorage.
-         */
         const storedUser = localStorage.getItem("user");
 
         if (storedUser) {
@@ -49,11 +39,7 @@ export function AuthProvider({ children }) {
             const parsedUser = JSON.parse(storedUser);
             setUser(parsedUser);
           } catch (error) {
-            console.error(
-              "Invalid stored user data:",
-              error
-            );
-
+            console.error("Invalid stored user data:", error);
             localStorage.removeItem("user");
             setUser(null);
           }
@@ -61,10 +47,7 @@ export function AuthProvider({ children }) {
           setUser(null);
         }
       } catch (error) {
-        console.error(
-          "Auth initialization error:",
-          error
-        );
+        console.error("Auth initialization error:", error);
 
         if (mounted) {
           setSession(null);
@@ -81,37 +64,25 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!mounted) return;
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
 
-        setSession(session);
+      setSession(session);
 
-        /*
-         * Do NOT set:
-         * setUser(session?.user ?? null)
-         *
-         * OTP verification controls application login.
-         */
-        const storedUser = localStorage.getItem("user");
+      const storedUser = localStorage.getItem("user");
 
-        if (storedUser) {
-          try {
-            setUser(JSON.parse(storedUser));
-          } catch (error) {
-            console.error(
-              "Invalid stored user data:",
-              error
-            );
-
-            localStorage.removeItem("user");
-            setUser(null);
-          }
-        } else {
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (error) {
+          console.error("Invalid stored user data:", error);
+          localStorage.removeItem("user");
           setUser(null);
         }
+      } else {
+        setUser(null);
       }
-    );
+    });
 
     return () => {
       mounted = false;
@@ -119,17 +90,27 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  // ============================================================
+  // LOGIN
+  //
+  // Call this explicitly right after OTP verification succeeds
+  // and localStorage has been written, so React context updates
+  // immediately instead of waiting for a Supabase auth event
+  // that will never fire again (the session already existed
+  // from the password step).
+  // ============================================================
+
+  const login = (userObject) => {
+    setUser(userObject);
+  };
+
   const logout = async () => {
-    const { error } =
-      await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
 
     if (error) {
       throw error;
     }
 
-    /*
-     * Clear application login data.
-     */
     localStorage.removeItem("user");
     localStorage.removeItem("access_token");
     localStorage.removeItem("client_id");
@@ -147,6 +128,7 @@ export function AuthProvider({ children }) {
         session,
         user,
         loading,
+        login,
         logout,
       }}
     >
@@ -159,9 +141,7 @@ export function useAuth() {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error(
-      "useAuth must be used inside AuthProvider"
-    );
+    throw new Error("useAuth must be used inside AuthProvider");
   }
 
   return context;

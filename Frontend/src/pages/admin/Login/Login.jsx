@@ -1,31 +1,17 @@
-import React, {
-    useState,
-} from "react";
-
-import {
-    useNavigate,
-    Link,
-} from "react-router-dom";
-
-import {
-    supabase,
-} from "../../../lib/supabaseClient";
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { supabase } from "../../../lib/supabaseClient";
+import { useAuth } from "../../../auth/AuthProvider"; // adjust path as needed
 
 const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
     (import.meta.env.PROD ? "/api" : "http://localhost:5000/api");
 
-// =====================================================
-// AUTHORIZED SUPER ADMIN
-// =====================================================
-
-const SUPER_ADMIN_EMAIL =
-    "talentcorner103@gmail.com";
+const SUPER_ADMIN_EMAIL = "talentcorner103@gmail.com";
 
 function Login() {
-
-    const navigate =
-        useNavigate();
+    const navigate = useNavigate();
+    const { login } = useAuth();
 
     // =====================================================
     // LOGIN DATA
@@ -716,6 +702,24 @@ function Login() {
                     );
 
                     // ---------------------------------------------
+                    // SYNC AUTH CONTEXT IMMEDIATELY
+                    //
+                    // Supabase's onAuthStateChange will NOT fire
+                    // again here (the session already existed from
+                    // the password step), so React context must be
+                    // updated explicitly or ProtectedRoute will see
+                    // a stale `user = null` and redirect to /login.
+                    // ---------------------------------------------
+
+                    login(authenticatedUser);
+
+                    console.log("✅ Login successful:", {
+                        role: authenticatedUser.role,
+                        email: authenticatedUser.email,
+                        redirectingTo: "/admindashboard",
+                    });
+
+                    // ---------------------------------------------
                     // ADMIN DASHBOARD
                     // ---------------------------------------------
 
@@ -756,6 +760,14 @@ function Login() {
                         authenticatedUser.company_name ||
                         "Talent Corner"
                     );
+
+                    login(authenticatedUser);
+
+                    console.log("✅ Login successful:", {
+                        role: authenticatedUser.role,
+                        email: authenticatedUser.email,
+                        redirectingTo: "/admindashboard",
+                    });
 
                     navigate(
                         "/admindashboard",
@@ -811,6 +823,14 @@ function Login() {
                         );
                     }
 
+                    login(authenticatedUser);
+
+                    console.log("✅ Login successful:", {
+                        role: authenticatedUser.role,
+                        email: authenticatedUser.email,
+                        redirectingTo: "/client-dashboard",
+                    });
+
                     navigate(
                         "/client-dashboard",
                         {
@@ -854,6 +874,14 @@ function Login() {
                             )
                         );
                     }
+
+                    login(authenticatedUser);
+
+                    console.log("✅ Login successful:", {
+                        role: authenticatedUser.role,
+                        email: authenticatedUser.email,
+                        redirectingTo: "/employee-portal",
+                    });
 
                     navigate(
                         "/employee-portal",
