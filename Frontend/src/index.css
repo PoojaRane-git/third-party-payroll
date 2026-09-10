@@ -1,0 +1,441 @@
+@import "tailwindcss";
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+      background: #f8fafc;
+      color: #0f172a;
+    }
+
+    button,
+    input {
+      font-family: inherit;
+    }
+
+    .employee-layout {
+      min-height: 100vh;
+      display: flex;
+      background: #f8fafc;
+    }
+
+    .employee-sidebar {
+      width: 250px;
+      min-height: 100vh;
+      background: #0f172a;
+      color: white;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 25px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .logo-box {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: #2563eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+    }
+
+    .sidebar-logo strong {
+      display: block;
+    }
+
+    .sidebar-logo span {
+      color: #94a3b8;
+      font-size: 12px;
+    }
+
+    .employee-sidebar nav {
+      margin-top: 25px;
+    }
+
+    .sidebar-item {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      padding: 13px 14px;
+      margin-bottom: 6px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .sidebar-item:hover {
+      background: #1e293b;
+      color: white;
+    }
+
+    .sidebar-item.active {
+      background: #2563eb;
+      color: white;
+    }
+
+    .logout-button {
+      margin-top: auto;
+      padding: 13px;
+      border: 1px solid #334155;
+      background: transparent;
+      color: #f87171;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .employee-main {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+    }
+
+    .employee-navbar {
+      height: 72px;
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 30px;
+    }
+
+    .employee-navbar h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .employee-navbar span {
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .navbar-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .navbar-user strong,
+    .navbar-user small {
+      display: block;
+    }
+
+    .navbar-user small {
+      color: #64748b;
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #dbeafe;
+      color: #1d4ed8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    .employee-content {
+      padding: 30px;
+      max-width: 1400px;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+    }
+
+    .page-header h1 {
+      margin: 0 0 5px;
+      font-size: 26px;
+    }
+
+    .page-header p {
+      margin: 0;
+      color: #64748b;
+    }
+
+    .section-title {
+      margin: 30px 0 15px;
+    }
+
+    .attendance-card,
+    .table-card,
+    .profile-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+
+    .attendance-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .attendance-card-header h3 {
+      margin: 0 0 5px;
+    }
+
+    .attendance-card-header p {
+      margin: 0;
+      color: #64748b;
+    }
+
+    .attendance-times {
+      display: grid;
+      grid-template-columns:
+        repeat(4, 1fr);
+      gap: 15px;
+      margin: 25px 0;
+    }
+
+    .time-box {
+      padding: 18px;
+      background: #f8fafc;
+      border-radius: 12px;
+    }
+
+    .time-box span {
+      display: block;
+      color: #64748b;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .time-box strong {
+      font-size: 20px;
+    }
+
+    .attendance-actions {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .btn-success,
+    .btn-primary {
+      border: none;
+      color: white;
+      padding: 13px 25px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-success {
+      background: #16a34a;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+    }
+
+    .btn-success:disabled,
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .completed-message {
+      background: #dcfce7;
+      color: #166534;
+      padding: 12px 18px;
+      border-radius: 10px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 20px;
+    }
+
+    .stat-card span {
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    .stat-card strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 28px;
+    }
+
+    .status-badge,
+    .approval-badge {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 20px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .month-input {
+      padding: 11px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 9px;
+      background: white;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: #f8fafc;
+      text-align: left;
+      color: #64748b;
+      font-size: 13px;
+      padding: 14px;
+    }
+
+    td {
+      padding: 15px 14px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 14px;
+    }
+
+    .empty-state {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 40px;
+      text-align: center;
+      color: #64748b;
+    }
+
+    .error-message {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 14px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .profile-card {
+      max-width: 900px;
+    }
+
+    .profile-avatar {
+      width: 80px;
+      height: 80px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      font-weight: 700;
+    }
+
+    .profile-card h2 {
+      margin: 15px 0 25px;
+    }
+
+    .profile-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(2, 1fr);
+      gap: 20px;
+    }
+
+    .profile-grid div {
+      padding: 15px;
+      background: #f8fafc;
+      border-radius: 10px;
+    }
+
+    .profile-grid span,
+    .profile-grid strong {
+      display: block;
+    }
+
+    .profile-grid span {
+      color: #64748b;
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    @media (max-width: 900px) {
+      .employee-sidebar {
+        width: 210px;
+      }
+
+      .employee-main {
+        margin-left: 210px;
+        width: calc(100% - 210px);
+      }
+
+      .attendance-times,
+      .stats-grid {
+        grid-template-columns:
+          repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 650px) {
+      .employee-sidebar {
+        display: none;
+      }
+
+      .employee-main {
+        margin-left: 0;
+        width: 100%;
+      }
+
+      .employee-content {
+        padding: 15px;
+      }
+
+      .attendance-times,
+      .stats-grid,
+      .profile-grid {
+        grid-template-columns: 1fr;
+      }
+    }

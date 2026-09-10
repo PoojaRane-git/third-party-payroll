@@ -1,0 +1,129 @@
+import React from "react";
+import {
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+
+import { supabase } from "../../../lib/supabaseClient";
+
+const EmployeeSidebar = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const menu = [
+    {
+      id: "dashboard",
+      icon: "🏠",
+      label: "Dashboard",
+      path: "/employee-portal",
+    },
+    {
+      id: "attendance",
+      icon: "🕐",
+      label: "Attendance",
+      path: "/employee-portal/attendance",
+    },
+    {
+      id: "monthly",
+      icon: "📅",
+      label: "Monthly Attendance",
+      path: "/employee-portal/monthly",
+    },
+    {
+      id: "payslip",
+      icon: "💰",
+      label: "Payslips",
+      path: "/employee-portal/payslips",
+    },
+    {
+      id: "profile",
+      icon: "👤",
+      label: "My Profile",
+      path: "/employee-portal/profile",
+    },
+  ];
+
+  const logout = async () => {
+    try {
+      // Logout from Supabase
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      // Remove old localStorage values if they exist
+      localStorage.removeItem("token");
+      localStorage.removeItem("employee_id");
+      localStorage.removeItem("employee_name");
+      localStorage.removeItem("employee_email");
+      localStorage.removeItem("deployment_id");
+      localStorage.removeItem("client_id");
+      localStorage.removeItem("user_role");
+
+      // Redirect to login
+      navigate("/login", { replace: true });
+    }
+  };
+
+  return (
+    <aside className="employee-sidebar">
+
+      {/* LOGO */}
+      <div className="sidebar-logo">
+
+        <div className="logo-box">
+          TC
+        </div>
+
+        <div>
+          <strong>Talent Corner</strong>
+          <span>Employee Portal</span>
+        </div>
+
+      </div>
+
+      {/* MENU */}
+      <nav>
+
+        {menu.map((item) => {
+
+          const isActive =
+            item.id === "dashboard"
+              ? location.pathname === "/employee-portal"
+              : location.pathname === item.path;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={
+                isActive
+                  ? "sidebar-item active"
+                  : "sidebar-item"
+              }
+              onClick={() => navigate(item.path)}
+            >
+              <span>{item.icon}</span>
+
+              <span>
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+
+      </nav>
+
+      {/* LOGOUT */}
+      <button
+        type="button"
+        className="logout-button"
+        onClick={logout}
+      >
+        🚪 Logout
+      </button>
+
+    </aside>
+  );
+};
+
+export default EmployeeSidebar; 

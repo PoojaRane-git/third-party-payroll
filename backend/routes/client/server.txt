@@ -1,0 +1,5262 @@
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+
+const { createClient } = require("@supabase/supabase-js");
+
+const app = express();
+
+// =====================================================
+// APP CONFIG
+// =====================================================
+
+app.use(cors());
+app.use(express.json());
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+console.log("SUPABASE URL:", supabaseUrl);
+console.log("SUPABASE KEY exists:", !!supabaseKey);
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error(
+    "ERROR: SUPABASE_URL or SUPABASE_ANON_KEY is missing."
+  );
+  process.exit(1);
+}
+
+const supabase = createClient(
+  supabaseUrl,
+  supabaseKey
+);
+
+const PORT = process.env.PORT || 5001;
+
+// =====================================================
+// HELPER FUNCTIONS
+// =====================================================
+
+function isValidPositiveInteger(value) {
+  const number = Number(value);
+
+  return (
+    Number.isInteger(number) &&
+    number > 0
+  );
+}
+
+function normalizeStatus(status) {
+  return String(status || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function getMonthRange(billingMonth) {
+  if (!/^\d{4}-\d{2}$/.test(billingMonth)) {
+    return null;
+  }
+
+  const [year, month] =
+    billingMonth.split("-").map(Number);
+
+  if (
+    month < 1 ||
+    month > 12
+  ) {
+    return null;
+  }
+
+  const firstDate =
+    `${year}-${String(month).padStart(2, "0")}-01`;
+
+  const lastDay =
+    new Date(
+      year,
+      month,
+      0
+    ).getDate();
+
+  const lastDate =
+    `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  return {
+    year,
+    month,
+    firstDate,
+    lastDate
+  };
+}
+
+// =====================================================
+// ROOT ROUTE
+// =====================================================
+
+app.get("/", (req, res) => {
+  res.send(
+    "Client Portal Payroll Management API is running successfully!"
+  );
+});
+
+/* =====================================================
+   MIDDLEWARE
+===================================================== */
+
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:5175",
+      "http://localhost:5176",
+    ],
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
+  })
+);
+
+app.use(express.json());
+
+/* =====================================================
+   HEALTH CHECK
+===================================================== */
+
+app.get("/api/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "Talent Corner API is running",
+    time: new Date().toISOString(),
+  });
+});
+
+/* =====================================================
+   JWT FUNCTIONS
+===================================================== */
+
+function createToken(user) {
+  return jwt.sign(
+    {
+      user_id: user.id,
+      email: user.email,
+      role: user.role,
+      client_id: user.client_id || null,
+      employee_id: user.employee_id || null,
+      deployment_id: user.deployment_id || null,
+    },
+    JWT_SECRET,
+    {
+      expiresIn:
+        process.env.JWT_EXPIRES_IN || "8h",
+    }
+  );
+}
+
+/* =====================================================
+   AUTHENTICATION MIDDLEWARE
+===================================================== */
+
+function authenticateToken(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication token is required",
+      });
+    }
+
+    if (!authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authorization format",
+      });
+    }
+
+    const token = authHeader.substring(7);
+
+    jwt.verify(
+      token,
+      JWT_SECRET,
+      (error, decoded) => {
+        if (error) {
+          return res.status(401).json({
+            success: false,
+            message: "Invalid or expired token",
+          });
+        }
+
+        req.user = decoded;
+
+        next();
+      }
+    );
+  } catch (error) {
+    console.error("Authentication error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Authentication failed",
+    });
+  }
+}
+
+/* =====================================================
+   ROLE MIDDLEWARE
+===================================================== */
+
+function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authenticated",
+      });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to access this resource",
+      });
+    }
+
+    next();
+  };
+}
+
+// =====================================================
+// COMMON LOGIN
+// POST /api/auth/login
+// =====================================================
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password, role } = req.body;
+
+    // =====================================================
+    // VALIDATION
+    // =====================================================
+
+    if (!email || !password || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, password and role are required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedRole = role.trim().toLowerCase();
+
+    // =====================================================
+    // VALID ROLE
+    // =====================================================
+
+    if (!["admin", "client", "employee"].includes(normalizedRole)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role",
+      });
+    }
+
+    // =====================================================
+    // FIND USER
+    // ONLY USE COLUMNS THAT EXIST IN YOUR TABLE
+    // =====================================================
+
+    const { data: user, error: userError } = await supabase
+      .from("third_party_users")
+      .select(`
+        id,
+        email,
+        password,
+        company_name,
+        role,
+        client_id,
+        auth_user_id,
+        is_active
+      `)
+      .eq("email", normalizedEmail)
+      .eq("role", normalizedRole)
+      .maybeSingle();
+
+    // =====================================================
+    // DATABASE ERROR
+    // =====================================================
+
+    if (userError) {
+      console.error("Database user lookup error:", userError);
+
+      return res.status(500).json({
+        success: false,
+        message: "Database error while logging in",
+      });
+    }
+
+    // =====================================================
+    // USER NOT FOUND
+    // =====================================================
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email, password or role",
+      });
+    }
+
+    // =====================================================
+    // ACCOUNT DISABLED
+    // =====================================================
+
+    if (user.is_active === false) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been disabled.",
+      });
+    }
+
+    // =====================================================
+    // SIMPLE PASSWORD CHECK
+    // Your database currently stores:
+    // password = ClientPass123
+    // password = AdminPassword123
+    // =====================================================
+
+    if (password !== user.password) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email, password or role",
+      });
+    }
+
+    // =====================================================
+    // SUCCESS
+    // NO JWT
+    // =====================================================
+
+    return res.json({
+      success: true,
+      message: "Login successful",
+
+      id: user.id,
+      email: user.email,
+      role: user.role,
+
+      name: user.company_name || "User",
+
+      company_name: user.company_name || null,
+
+      client_id: user.client_id || null,
+
+      auth_user_id: user.auth_user_id || null,
+    });
+
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+
+/* =====================================================
+   CURRENT LOGGED-IN USER
+   GET /api/auth/me
+===================================================== */
+
+app.get(
+  "/api/auth/me",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const {
+        data: user,
+        error,
+      } = await supabase
+        .from("third_party_users")
+        .select(`
+          id,
+          email,
+          role,
+          company_name,
+          client_id,
+          employee_id,
+          deployment_id,
+          employment_status,
+          is_active
+        `)
+        .eq("id", req.user.user_id)
+        .maybeSingle();
+
+      if (error) {
+        console.error(error);
+
+        return res.status(500).json({
+          success: false,
+          message: "Unable to fetch user",
+        });
+      }
+
+      if (!user || !user.is_active) {
+        return res.status(401).json({
+          success: false,
+          message: "User account is no longer active",
+        });
+      }
+
+      return res.json({
+        success: true,
+
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          name:
+            
+            user.company_name ||
+            "User",
+          company_name:
+            user.company_name || null,
+          client_id:
+            user.client_id || null,
+          employee_id:
+            user.employee_id || null,
+          deployment_id:
+            user.deployment_id || null,
+          employment_status:
+            user.employment_status || null,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+      });
+    }
+  }
+);
+
+/* =====================================================
+   ADMIN TEST/PROTECTED ROUTE
+===================================================== */
+
+app.get(
+  "/api/admin/dashboard",
+  authenticateToken,
+  requireRole("admin"),
+  async (req, res) => {
+    return res.json({
+      success: true,
+      message:
+        "Welcome to Talent Corner Admin Dashboard",
+      user: req.user,
+    });
+  }
+);
+
+/* =====================================================
+   CLIENT TEST/PROTECTED ROUTE
+===================================================== */
+
+app.get(
+  "/api/client/dashboard",
+  authenticateToken,
+  requireRole("client"),
+  async (req, res) => {
+    return res.json({
+      success: true,
+      message:
+        "Welcome to Talent Corner Client Dashboard",
+      user: req.user,
+    });
+  }
+);
+
+/* =====================================================
+   EMPLOYEE TEST/PROTECTED ROUTE
+===================================================== */
+
+app.get(
+  "/api/employee/dashboard",
+  authenticateToken,
+  requireRole("employee"),
+  async (req, res) => {
+    return res.json({
+      success: true,
+      message:
+        "Welcome to Talent Corner Employee Portal",
+      user: req.user,
+    });
+  }
+);
+
+/* =====================================================
+   LOGOUT
+===================================================== */
+
+app.post(
+  "/api/auth/logout",
+  authenticateToken,
+  (req, res) => {
+    /*
+      With JWT authentication, logout is handled
+      on the frontend by deleting the token.
+
+      For production, you can additionally implement
+      refresh-token/session revocation.
+    */
+
+    return res.json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  }
+);
+
+// =====================================================
+// CLIENT DASHBOARD STATS
+// =====================================================
+
+app.get(
+  "/api/client-portal/dashboard-stats",
+  async (req, res) => {
+    try {
+      const {
+        client_id
+      } = req.query;
+
+      if (!isValidPositiveInteger(client_id)) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Valid client_id is required"
+        });
+      }
+
+      const clientId =
+        Number(client_id);
+
+      // -------------------------------------------------
+      // EMPLOYEE COUNT
+      // -------------------------------------------------
+
+      const {
+        count: employeeCount,
+        error: employeeError
+      } = await supabase
+        .from("outsourced_employees")
+        .select("*", {
+          count: "exact",
+          head: true
+        })
+        .eq(
+          "client_id",
+          clientId
+        );
+
+      if (employeeError) {
+        throw employeeError;
+      }
+
+      // -------------------------------------------------
+      // JOB COUNT
+      // -------------------------------------------------
+
+      const {
+        count: jobCount,
+        error: jobError
+      } = await supabase
+        .from("job_requirements")
+        .select("*", {
+          count: "exact",
+          head: true
+        })
+        .eq(
+          "client_id",
+          clientId
+        );
+
+      if (jobError) {
+        throw jobError;
+      }
+
+      // -------------------------------------------------
+      // CLIENT
+      // -------------------------------------------------
+
+      const {
+        data: clientData,
+        error: clientError
+      } = await supabase
+        .from("clients")
+        .select("company_name")
+        .eq(
+          "id",
+          clientId
+        )
+        .maybeSingle();
+
+      if (clientError) {
+        throw clientError;
+      }
+
+      return res.json({
+        success: true,
+
+        data: {
+          total_deployed:
+            employeeCount || 0,
+
+          active_job_requirements:
+            jobCount || 0,
+
+          company_name:
+            clientData?.company_name ||
+            "Client Portal"
+        }
+      });
+
+    } catch (error) {
+      console.error(
+        "Dashboard stats error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// CONTRACTS
+// =====================================================
+
+app.get(
+  "/api/contracts",
+  async (req, res) => {
+    try {
+      const {
+        client_id
+      } = req.query;
+
+      let query = supabase
+        .from("contracts")
+        .select("*")
+        .order("id", {
+          ascending: false
+        });
+
+      if (client_id) {
+        query = query.eq(
+          "client_id",
+          Number(client_id)
+        );
+      }
+
+      const {
+        data,
+        error
+      } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      return res.json({
+        success: true,
+        data: data || []
+      });
+
+    } catch (error) {
+      console.error(
+        "Contracts error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// OUTSOURCED EMPLOYEES / ROSTER
+// =====================================================
+
+app.get(
+  "/api/emp",
+  async (req, res) => {
+    try {
+      const {
+        client_id
+      } = req.query;
+
+      let query = supabase
+        .from("outsourced_employees")
+        .select(`
+          id,
+          client_id,
+          name,
+          department,
+          designation,
+          work_location,
+          status,
+          start_date
+        `);
+
+      if (client_id) {
+        query = query.eq(
+          "client_id",
+          Number(client_id)
+        );
+      }
+
+      const {
+        data,
+        error
+      } = await query.order(
+        "id",
+        {
+          ascending: false
+        }
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      const formattedData =
+        (data || []).map(
+          employee => ({
+            ...employee,
+
+            employee_name:
+              employee.name
+          })
+        );
+
+      return res.json({
+        success: true,
+        data: formattedData
+      });
+
+    } catch (error) {
+      console.error(
+        "Employees roster error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// JOB REQUIREMENTS - GET
+// =====================================================
+
+app.get(
+  "/api/job-requirements",
+  async (req, res) => {
+    try {
+      const {
+        client_id
+      } = req.query;
+
+      let query = supabase
+        .from("job_requirements")
+        .select("*");
+
+      if (client_id) {
+        query = query.eq(
+          "client_id",
+          Number(client_id)
+        );
+      }
+
+      const {
+        data,
+        error
+      } = await query.order(
+        "created_at",
+        {
+          ascending: false
+        }
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      return res.json(
+        data || []
+      );
+
+    } catch (error) {
+      console.error(
+        "Job requirements GET error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// JOB REQUIREMENTS - POST
+// =====================================================
+
+app.post(
+  "/api/job-requirements",
+  async (req, res) => {
+    try {
+      const payload =
+        req.body || {};
+
+      const {
+        data,
+        error
+      } = await supabase
+        .from("job_requirements")
+        .insert([payload])
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      return res.status(201).json(
+        data?.[0] || null
+      );
+
+    } catch (error) {
+      console.error(
+        "Job requirement POST error:",
+        error
+      );
+
+      return res.status(400).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// JOB REQUIREMENTS - DELETE
+// =====================================================
+
+app.delete(
+  "/api/job-requirements/:id",
+  async (req, res) => {
+    try {
+      const id =
+        Number(req.params.id);
+
+      if (!isValidPositiveInteger(id)) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Valid job requirement ID is required"
+        });
+      }
+
+      const {
+        data,
+        error
+      } = await supabase
+        .from("job_requirements")
+        .delete()
+        .eq("id", id)
+        .select();
+
+      if (error) {
+        console.error(
+          "Job requirement delete error:",
+          error
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+
+      if (
+        !data ||
+        data.length === 0
+      ) {
+        return res.status(404).json({
+          success: false,
+          error:
+            "Job requirement not found"
+        });
+      }
+
+      return res.json({
+        success: true,
+        message:
+          "Job requirement removed successfully",
+        data: data[0]
+      });
+
+    } catch (error) {
+      console.error(
+        "Delete job requirement error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// CANDIDATES
+// =====================================================
+
+app.get(
+  "/api/candidates",
+  async (req, res) => {
+    try {
+      const {
+        client_id
+      } = req.query;
+
+      if (!isValidPositiveInteger(client_id)) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Valid client_id is required"
+        });
+      }
+
+      const {
+        data,
+        error
+      } = await supabase
+        .from("candidates")
+        .select(`
+          *,
+          job_requirements!inner (
+            job_title,
+            client_id
+          )
+        `)
+        .eq(
+          "job_requirements.client_id",
+          Number(client_id)
+        );
+
+      if (error) {
+        throw error;
+      }
+
+      return res.json({
+        success: true,
+        data: data || []
+      });
+
+    } catch (error) {
+      console.error(
+        "Candidates error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// GET THIRD-PARTY ATTENDANCE
+// =====================================================
+
+app.get(
+  "/api/third-party-attendance",
+  async (req, res) => {
+    try {
+      const {
+        client_id
+      } = req.query;
+
+      let query = supabase
+        .from(
+          "third_party_attendance_approval"
+        )
+        .select(`
+          id,
+          billing_month,
+          total_days,
+          present_days,
+          lop_days,
+          ot_hours,
+          status,
+          created_at,
+          client_id,
+          employee_ref_id,
+          candidates!fk_attendance_candidate (
+            id,
+
+          ),
+          clients!fk_attendance_client (
+            id,
+            company_name
+          )
+        `)
+        .order(
+          "id",
+          {
+            ascending: true
+          }
+        );
+
+      if (
+        client_id &&
+        client_id !== "null" &&
+        client_id !== "undefined"
+      ) {
+        const clientId =
+          Number(client_id);
+
+        if (!isValidPositiveInteger(clientId)) {
+          return res.status(400).json({
+            success: false,
+            error:
+              "Invalid client_id"
+          });
+        }
+
+        query = query.eq(
+          "client_id",
+          clientId
+        );
+      }
+
+      const {
+        data,
+        error
+      } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      const formattedData =
+        (data || []).map(
+          record => ({
+            ...record,
+
+            client_name:
+              record.clients?.company_name ||
+              "Unknown Client"
+          })
+        );
+
+      return res.json({
+        success: true,
+        data: formattedData
+      });
+
+    } catch (error) {
+      console.error(
+        "Third-party attendance error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// GET CLIENT ATTENDANCE APPROVALS
+//
+// SINGLE VERSION - NO DUPLICATE ROUTE
+// =====================================================
+
+app.get(
+  "/api/attendance-approval",
+  async (req, res) => {
+    try {
+      const {
+        client_id,
+        billing_month,
+        status
+      } = req.query;
+
+      if (
+        !isValidPositiveInteger(client_id)
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Valid client_id is required"
+        });
+      }
+
+      const clientId =
+        Number(client_id);
+
+      let query = supabase
+        .from(
+          "third_party_attendance_approval"
+        )
+        .select("*")
+        .eq(
+          "client_id",
+          clientId
+        )
+        .order(
+          "created_at",
+          {
+            ascending: false
+          }
+        );
+
+      if (billing_month) {
+        query = query.eq(
+          "billing_month",
+          billing_month
+        );
+      }
+
+      if (status) {
+        query = query.eq(
+          "status",
+          status
+        );
+      }
+
+      const {
+        data,
+        error
+      } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      // -------------------------------------------------
+      // GET EMPLOYEE IDs
+      // -------------------------------------------------
+
+      const employeeIds = [
+        ...new Set(
+          (data || [])
+            .map(
+              row =>
+                row.employee_ref_id
+            )
+            .filter(Boolean)
+        )
+      ];
+
+      let employeesMap = {};
+
+      if (
+        employeeIds.length > 0
+      ) {
+        const {
+          data: employees,
+          error: employeeError
+        } = await supabase
+          .from("candidates")
+          .select(`
+            id,
+            full_name,
+            email,
+            phone
+          `)
+          .in(
+            "id",
+            employeeIds
+          );
+
+        if (
+          employeeError
+        ) {
+          console.error(
+            "Employee lookup error:",
+            employeeError
+          );
+        } else {
+          employeesMap =
+            Object.fromEntries(
+              (employees || []).map(
+                employee => [
+                  employee.id,
+                  employee
+                ]
+              )
+            );
+        }
+      }
+
+      // -------------------------------------------------
+      // FORMAT
+      // -------------------------------------------------
+
+      const approvals =
+        (data || []).map(
+          row => ({
+            ...row,
+
+            employee_name:
+              employeesMap[
+                row.employee_ref_id
+              ]?.full_name ||
+              `Employee ${row.employee_ref_id}`,
+
+            employee_email:
+              employeesMap[
+                row.employee_ref_id
+              ]?.email ||
+              null,
+
+            employee_phone:
+              employeesMap[
+                row.employee_ref_id
+              ]?.phone ||
+              null
+          })
+        );
+
+      return res.json({
+        success: true,
+        approvals
+      });
+
+    } catch (error) {
+      console.error(
+        "Attendance approval GET error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// GET ATTENDANCE APPROVAL BY ID
+// =====================================================
+
+app.get(
+  "/api/attendance-approval/:id",
+  async (req, res) => {
+    try {
+      const approvalId =
+        Number(req.params.id);
+
+      if (
+        !isValidPositiveInteger(
+          approvalId
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Valid approval ID is required"
+        });
+      }
+
+      const {
+        data: approval,
+        error
+      } = await supabase
+        .from(
+          "third_party_attendance_approval"
+        )
+        .select("*")
+        .eq(
+          "id",
+          approvalId
+        )
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!approval) {
+        return res.status(404).json({
+          success: false,
+          error:
+            "Approval record not found"
+        });
+      }
+
+      return res.json({
+        success: true,
+        approval
+      });
+
+    } catch (error) {
+      console.error(
+        "Approval details error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// APPROVE ATTENDANCE
+//
+// FLOW:
+//
+// third_party_attendance_approval
+//          ↓
+//        Approved
+//          ↓
+// third_party_emp_attendance
+//          ↓
+// approval_status = Approved
+//
+// IMPORTANT:
+// No dispute_reason
+// No disputed_at
+// No approved_by
+// =====================================================
+
+app.patch(
+  "/api/attendance-approval/:id/approve",
+  async (req, res) => {
+    try {
+      const approvalId =
+        Number(req.params.id);
+
+      // -------------------------------------------------
+      // 1. VALIDATE ID
+      // -------------------------------------------------
+
+      if (
+        !isValidPositiveInteger(
+          approvalId
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Valid Approval ID is required"
+        });
+      }
+
+      // -------------------------------------------------
+      // 2. FETCH APPROVAL
+      // -------------------------------------------------
+
+      const {
+        data: approval,
+        error: fetchError
+      } = await supabase
+        .from(
+          "third_party_attendance_approval"
+        )
+        .select("*")
+        .eq(
+          "id",
+          approvalId
+        )
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error(
+          "Approval fetch error:",
+          fetchError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: fetchError.message
+        });
+      }
+
+      if (!approval) {
+        return res.status(404).json({
+          success: false,
+          error:
+            "Attendance approval record not found"
+        });
+      }
+
+      // -------------------------------------------------
+      // 3. PREVENT DOUBLE APPROVAL
+      // -------------------------------------------------
+
+      if (
+        normalizeStatus(
+          approval.status
+        ) === "approved"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "This attendance has already been approved"
+        });
+      }
+
+      // -------------------------------------------------
+      // 4. UPDATE APPROVAL TABLE
+      //
+      // ONLY EXISTING COLUMNS
+      // -------------------------------------------------
+
+      const {
+        data: updatedApproval,
+        error: updateError
+      } = await supabase
+        .from(
+          "third_party_attendance_approval"
+        )
+        .update({
+          status: "Approved",
+          approved_at:
+            new Date().toISOString()
+        })
+        .eq(
+          "id",
+          approvalId
+        )
+        .select("*")
+        .maybeSingle();
+
+      if (updateError) {
+        console.error(
+          "Approval update error:",
+          updateError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error:
+            updateError.message
+        });
+      }
+
+      if (!updatedApproval) {
+        return res.status(404).json({
+          success: false,
+          error:
+            "Approval record could not be updated"
+        });
+      }
+
+      // -------------------------------------------------
+      // 5. UPDATE DAILY ATTENDANCE
+      //
+      // CORRECT LINK:
+      //
+      // approval_record_id
+      //
+      // NOT employee_name
+      // -------------------------------------------------
+
+      const {
+        data: dailyRecords,
+        error: dailyError
+      } = await supabase
+        .from(
+          "third_party_emp_attendance"
+        )
+        .update({
+          approval_status:
+            "Approved"
+        })
+        .eq(
+          "approval_record_id",
+          approvalId
+        )
+        .select("id");
+
+      if (dailyError) {
+        console.error(
+          "Daily attendance approval error:",
+          dailyError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error:
+            dailyError.message
+        });
+      }
+
+      // -------------------------------------------------
+      // 6. SUCCESS
+      // -------------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Attendance approved successfully",
+
+        approval:
+          updatedApproval,
+
+        daily_records_updated:
+          dailyRecords?.length || 0
+      });
+
+    } catch (error) {
+      console.error(
+        "Approve attendance error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          error.message ||
+          "Unable to approve attendance"
+      });
+    }
+  }
+);
+
+// =====================================================
+// DISPUTE ATTENDANCE
+//
+// IMPORTANT:
+// NO dispute_reason
+// NO disputed_at
+// NO approved_by
+// =====================================================
+
+app.patch(
+  "/api/attendance-approval/:id/dispute",
+  async (req, res) => {
+    try {
+      const approvalId =
+        Number(req.params.id);
+
+      // -------------------------------------------------
+      // 1. VALIDATE
+      // -------------------------------------------------
+
+      if (
+        !isValidPositiveInteger(
+          approvalId
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Valid Approval ID is required"
+        });
+      }
+
+      // -------------------------------------------------
+      // 2. FETCH APPROVAL
+      // -------------------------------------------------
+
+      const {
+        data: approval,
+        error: fetchError
+      } = await supabase
+        .from(
+          "third_party_attendance_approval"
+        )
+        .select("*")
+        .eq(
+          "id",
+          approvalId
+        )
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error(
+          "Dispute fetch error:",
+          fetchError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error:
+            fetchError.message
+        });
+      }
+
+      if (!approval) {
+        return res.status(404).json({
+          success: false,
+          error:
+            "Attendance approval record not found"
+        });
+      }
+
+      // -------------------------------------------------
+      // 3. PREVENT DISPUTE AFTER APPROVAL
+      // -------------------------------------------------
+
+      if (
+        normalizeStatus(
+          approval.status
+        ) === "approved"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Approved attendance cannot be disputed"
+        });
+      }
+
+      // -------------------------------------------------
+      // 4. UPDATE APPROVAL
+      //
+      // ONLY COLUMNS KNOWN TO EXIST
+      // -------------------------------------------------
+
+      const {
+        data: updatedApproval,
+        error: updateError
+      } = await supabase
+        .from(
+          "third_party_attendance_approval"
+        )
+        .update({
+          status: "Disputed",
+          approved_at: null
+        })
+        .eq(
+          "id",
+          approvalId
+        )
+        .select("*")
+        .maybeSingle();
+
+      if (updateError) {
+        console.error(
+          "Dispute update error:",
+          updateError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error:
+            updateError.message
+        });
+      }
+
+      // -------------------------------------------------
+      // 5. UPDATE DAILY ATTENDANCE
+      //
+      // USE APPROVAL RECORD ID
+      // -------------------------------------------------
+
+      const {
+        data: dailyRecords,
+        error: dailyError
+      } = await supabase
+        .from(
+          "third_party_emp_attendance"
+        )
+        .update({
+          approval_status:
+            "Disputed"
+        })
+        .eq(
+          "approval_record_id",
+          approvalId
+        )
+        .select("id");
+
+      if (dailyError) {
+        console.error(
+          "Daily dispute update error:",
+          dailyError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error:
+            dailyError.message
+        });
+      }
+
+      // -------------------------------------------------
+      // 6. SUCCESS
+      // -------------------------------------------------
+
+      return res.json({
+        success: true,
+
+        message:
+          "Attendance disputed successfully",
+
+        approval:
+          updatedApproval,
+
+        daily_records_updated:
+          dailyRecords?.length || 0
+      });
+
+    } catch (error) {
+      console.error(
+        "Dispute attendance error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          error.message ||
+          "Unable to dispute attendance"
+      });
+    }
+  }
+);
+
+//=====================================================
+// EMP-SIDE aTTENDANCE mark
+// =====================================================
+
+app.post("/api/attendance/daily", async (req, res) => {
+  try {
+    const {
+      employee_id,
+      client_id,
+      deployment_id,
+      monthly_attendance_id,
+      attendance_date,
+      check_in,
+      status,
+      work_mode,
+      working_hours,
+      overtime_hours,
+      approval_status
+    } = req.body;
+
+    const { data, error } = await supabase
+      .from("third_party_emp_daily_attendance")
+      .insert({
+        employee_id,
+        client_id,
+        deployment_id,
+        monthly_attendance_id,
+        attendance_date,
+        check_in,
+        status,
+        work_mode,
+        working_hours: working_hours ?? 0,
+        overtime_hours: overtime_hours ?? 0,
+        approval_status: approval_status ?? "Pending"
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({
+        error: error.message
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      data
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: "Failed to mark attendance"
+    });
+  }
+});
+
+// GET DAILY ATTENDANCE
+//
+// GET /api/attendance
+// ?date=2026-09-01
+// &client_id=1
+// =====================================================
+// =====================================================
+// GET DAILY ATTENDANCE
+//
+// GET:
+// /api/attendance/daily
+// ?date=2026-09-02
+// &client_id=1
+//
+// SOURCE:
+// third_party_emp_daily_attendance
+// =====================================================
+app.get("/api/attendance/daily", async (req, res) => {
+  try {
+    const {
+      client_id,
+      date,
+    } = req.query;
+
+    console.log("Daily attendance request:", {
+      client_id,
+      date,
+    });
+
+    if (!client_id || !date) {
+      return res.status(400).json({
+        error:
+          "client_id and date are required",
+      });
+    }
+
+    /*
+     * Get only deployments belonging
+     * to this client.
+     */
+
+    const {
+      data: deployments,
+      error: deploymentError,
+    } = await supabase
+      .from("deployments")
+      .select("id")
+      .eq("client_id", client_id);
+
+    if (deploymentError) {
+      console.error(
+        "Deployment error:",
+        deploymentError
+      );
+
+      return res.status(500).json({
+        error:
+          deploymentError.message,
+      });
+    }
+
+    const deploymentIds =
+      (deployments || []).map(
+        (item) => item.id
+      );
+
+    if (!deploymentIds.length) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+
+
+    /*
+     * Fetch DAILY attendance only
+     * for this client's deployments.
+     */
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from(
+        "third_party_emp_daily_attendance"
+      )
+      .select(`
+        id,
+        employee_id,
+        deployment_id,
+        client_id,
+        monthly_attendance_id,
+        attendance_date,
+        check_in,
+        check_out,
+        working_hours,
+        overtime_hours,
+        status,
+        work_mode,
+        remarks,
+        approval_status,
+        approved_by,
+        approved_at,
+        created_at,
+        updated_at
+      `)
+
+      .eq(
+        "client_id",
+        client_id
+      )
+
+      .in(
+        "deployment_id",
+        deploymentIds
+      )
+
+      .eq(
+        "attendance_date",
+        date
+      )
+
+      .order(
+        "employee_id",
+        {
+          ascending: true,
+        }
+      );
+
+
+    if (error) {
+      console.error(
+        "Daily attendance error:",
+        error
+      );
+
+      return res.status(500).json({
+        error:
+          error.message,
+      });
+    }
+
+
+    return res.json({
+      success: true,
+      data: data || [],
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Daily attendance API error:",
+      error
+    );
+
+    return res.status(500).json({
+      error:
+        "Failed to fetch daily attendance",
+    });
+  }
+});
+
+// =====================================================
+// GENERATE MONTHLY ATTENDANCE SUMMARY
+//
+// SINGLE VERSION - NO DUPLICATE ROUTE
+//
+// POST /api/attendance/generate-summary
+//
+// BODY:
+// {
+//   "billing_month": "2026-09",
+//   "client_id": 1
+// }
+//
+// FLOW:
+//
+// Daily Attendance
+//       ↓
+// Client Deployment
+//       ↓
+// Client + Employee
+//       ↓
+// Approved Attendance
+//       ↓
+// Monthly Summary
+// =====================================================
+
+
+// =====================================================
+// GENERATE MONTHLY ATTENDANCE SUMMARY
+// =====================================================
+//
+// POST:
+// /api/attendance/generate-summary
+//
+// Body:
+// {
+//   "billing_month": "2026-09",
+//   "client_id": 1
+// }
+//
+// DATABASE RELATION:
+//
+// deployments.candidate_id
+//        ↓
+// candidates.id
+//        ↓
+// third_party_emp_attendance.employee_id
+//
+// IMPORTANT:
+// deployments DOES NOT HAVE employee_id.
+//
+// This route:
+// 1. Gets all employees deployed to the client
+// 2. Gets their attendance for the selected month
+// 3. Creates a summary for EVERY deployed employee
+// 4. Employees without attendance still get a summary
+// 5. Saves/upserts into third_party_attendance_summary
+// =====================================================
+// =====================================================
+// GENERATE MONTHLY ATTENDANCE SUMMARY
+// =====================================================
+
+app.post("/api/attendance/generate-summary", async (req, res) => {
+  try {
+    const { billing_month, client_id } = req.body || {};
+
+    // =====================================================
+    // 1. VALIDATE BILLING MONTH
+    // =====================================================
+
+    if (!billing_month) {
+      return res.status(400).json({
+        success: false,
+        error: "billing_month is required. Example: 2026-09",
+      });
+    }
+
+    if (!/^\d{4}-\d{2}$/.test(billing_month)) {
+      return res.status(400).json({
+        success: false,
+        error: "billing_month must be in YYYY-MM format",
+      });
+    }
+
+    const [year, monthNumber] = billing_month
+      .split("-")
+      .map(Number);
+
+    if (monthNumber < 1 || monthNumber > 12) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid month",
+      });
+    }
+
+    // =====================================================
+    // 2. VALIDATE CLIENT ID
+    // =====================================================
+
+    const clientId = Number(client_id);
+
+    if (!Number.isInteger(clientId) || clientId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Valid client_id is required",
+      });
+    }
+
+    // =====================================================
+    // 3. CONVERT YYYY-MM → Month YYYY
+    //
+    // 2026-08 → August 2026
+    // 2026-09 → September 2026
+    // =====================================================
+
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
+    const billingMonthLabel =
+      `${monthNames[monthNumber - 1]} ${year}`;
+
+    console.log("======================================");
+    console.log("Billing Month Input :", billing_month);
+    console.log("Billing Month Label :", billingMonthLabel);
+    console.log("Client ID           :", clientId);
+    console.log("======================================");
+
+    // =====================================================
+    // 4. CALCULATE TOTAL DAYS IN MONTH
+    // =====================================================
+
+    const totalDays = new Date(
+      year,
+      monthNumber,
+      0
+    ).getDate();
+
+    console.log("Total Days:", totalDays);
+
+    // =====================================================
+    // 5. GET DEPLOYMENTS FOR CLIENT
+    // =====================================================
+
+    const {
+      data: deployments,
+      error: deploymentError,
+    } = await supabase
+      .from("deployments")
+      .select(`
+        id,
+        candidate_id,
+        client_id,
+        project_name,
+        start_date,
+        end_date,
+        status
+      `)
+      .eq("client_id", clientId);
+
+    if (deploymentError) {
+      console.error(
+        "Deployment Error:",
+        deploymentError
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: deploymentError.message,
+      });
+    }
+
+    if (!deployments || deployments.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "No deployments found for this client",
+      });
+    }
+
+    console.log(
+      "Deployments Found:",
+      deployments.length
+    );
+
+    // =====================================================
+    // 6. GET EMPLOYEE IDs FROM DEPLOYMENTS
+    // =====================================================
+
+    const employeeIds = [
+      ...new Set(
+        deployments
+          .map((deployment) => deployment.candidate_id)
+          .filter(Boolean)
+          .map(Number)
+      ),
+    ];
+
+    const deploymentIds = [
+      ...new Set(
+        deployments
+          .map((deployment) => deployment.id)
+          .filter(Boolean)
+          .map(Number)
+      ),
+    ];
+
+    if (employeeIds.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "No employees found in client deployments",
+      });
+    }
+
+    console.log("Employee IDs:", employeeIds);
+    console.log("Deployment IDs:", deploymentIds);
+
+    // =====================================================
+    // 7. GET MONTHLY EMPLOYEE ATTENDANCE
+    //
+    // IMPORTANT:
+    // third_party_emp_attendance is MONTHLY.
+    //
+    // Therefore we DO NOT use:
+    // attendance_date
+    // check_in
+    // check_out
+    // working_hours
+    //
+    // We directly read:
+    // present_days
+    // absent_days
+    // leave_days
+    // overtime_hours
+    // =====================================================
+
+    const {
+      data: attendance,
+      error: attendanceError,
+    } = await supabase
+      .from("third_party_emp_attendance")
+      .select(`
+        id,
+        employee_id,
+        employee_name,
+        deployment_id,
+        billing_month,
+        status,
+        present_days,
+        absent_days,
+        leave_days,
+        overtime_hours,
+        approval_status,
+        approval_record_id,
+        created_at
+      `)
+      .in("employee_id", employeeIds)
+      .in("deployment_id", deploymentIds)
+      .eq("billing_month", billing_month);
+
+    if (attendanceError) {
+      console.error(
+        "Attendance Error:",
+        attendanceError
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: attendanceError.message,
+      });
+    }
+
+    console.log(
+      "Monthly Attendance Records Found:",
+      attendance?.length || 0
+    );
+
+    // =====================================================
+    // 8. CREATE DEPLOYMENT MAP
+    // =====================================================
+
+    const employeeDeploymentMap = {};
+
+    deployments.forEach((deployment) => {
+      const employeeId = Number(
+        deployment.candidate_id
+      );
+
+      employeeDeploymentMap[employeeId] =
+        deployment;
+    });
+
+    // =====================================================
+    // 9. CREATE ATTENDANCE MAP
+    //
+    // One employee = one monthly attendance record
+    // =====================================================
+
+    const attendanceMap = {};
+
+    (attendance || []).forEach((record) => {
+      const employeeId = Number(
+        record.employee_id
+      );
+
+      attendanceMap[employeeId] = record;
+    });
+
+    // =====================================================
+    // 10. BUILD SUMMARY
+    // =====================================================
+
+    const summaries = [];
+
+    employeeIds.forEach((employeeId) => {
+      const deployment =
+        employeeDeploymentMap[employeeId];
+
+      const attendanceRecord =
+        attendanceMap[employeeId];
+
+      // ---------------------------------------------------
+      // If attendance exists
+      // ---------------------------------------------------
+
+      const presentDays = Number(
+        attendanceRecord?.present_days || 0
+      );
+
+      const absentDays = Number(
+        attendanceRecord?.absent_days || 0
+      );
+
+      const leaveDays = Number(
+        attendanceRecord?.leave_days || 0
+      );
+
+      const overtimeHours = Number(
+        attendanceRecord?.overtime_hours || 0
+      );
+
+      // ---------------------------------------------------
+      // Current business rule:
+      //
+      // Absent days = LOP days
+      // Leave = payable
+      // Present = payable
+      // Half day = 0 because source table
+      // does not currently have half_days.
+      // ---------------------------------------------------
+
+      const halfDays = 0;
+
+      const lopDays = absentDays;
+
+      const payableDays =
+        presentDays +
+        leaveDays +
+        halfDays;
+
+      // ---------------------------------------------------
+      // Employee name
+      // ---------------------------------------------------
+
+      const employeeName =
+        attendanceRecord?.employee_name ||
+        `Employee ${employeeId}`;
+
+      // ---------------------------------------------------
+      // Deployment ID
+      // ---------------------------------------------------
+
+      const deploymentId =
+        Number(
+          attendanceRecord?.deployment_id ||
+          deployment?.id
+        );
+
+      // ---------------------------------------------------
+      // Create summary object
+      // ---------------------------------------------------
+
+      summaries.push({
+        employee_id: employeeId,
+
+        client_id: clientId,
+
+        deployment_id: deploymentId,
+
+        // IMPORTANT:
+        // Store human-readable month in summary table
+        //
+        // 2026-09 → September 2026
+        billing_month: billingMonthLabel,
+
+        total_days: totalDays,
+
+        present_days: presentDays,
+
+        absent_days: absentDays,
+
+        leave_days: leaveDays,
+
+        half_days: halfDays,
+
+        lop_days: lopDays,
+
+        payable_days: payableDays,
+
+        overtime_hours: overtimeHours,
+
+        status:
+          attendanceRecord?.approval_status ||
+          "PENDING",
+
+        approved_by: null,
+
+        approved_at: null,
+
+        created_at: new Date().toISOString(),
+
+        updated_at: new Date().toISOString(),
+      });
+
+      console.log(
+        `Employee ${employeeId} (${employeeName})`
+      );
+
+      console.log({
+        presentDays,
+        absentDays,
+        leaveDays,
+        halfDays,
+        lopDays,
+        payableDays,
+        overtimeHours,
+      });
+    });
+
+    // =====================================================
+    // 11. CHECK WHETHER SUMMARY EXISTS
+    //
+    // We use employee + client + billing month.
+    // =====================================================
+
+    if (summaries.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error:
+          "No attendance summary records could be generated",
+      });
+    }
+
+    // =====================================================
+    // 12. UPSERT SUMMARY
+    // =====================================================
+    //
+    // IMPORTANT:
+    //
+    // Your summary table should have:
+    //
+    // UNIQUE(employee_id, client_id, billing_month)
+    //
+    // =====================================================
+
+    const {
+      data: savedSummaries,
+      error: summaryError,
+    } = await supabase
+      .from("third_party_attendance_summary")
+      .upsert(summaries, {
+        onConflict:
+          "employee_id,client_id,billing_month",
+      })
+      .select("*");
+
+    if (summaryError) {
+      console.error(
+        "Summary Save Error:",
+        summaryError
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: summaryError.message,
+        details: summaryError,
+      });
+    }
+
+    // =====================================================
+    // 13. SUCCESS RESPONSE
+    // =====================================================
+
+    console.log(
+      "Summary saved successfully:",
+      savedSummaries
+    );
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        `Summary generated successfully for ${billingMonthLabel}. ` +
+        `${summaries.length} employees processed.`,
+
+      // Keep API input format
+      billing_month: billing_month,
+
+      // Also return database/display format
+      billing_month_label: billingMonthLabel,
+
+      client_id: clientId,
+
+      total_days: totalDays,
+
+      employees_found: employeeIds.length,
+
+      attendance_records_found:
+        attendance?.length || 0,
+
+      employees_processed:
+        summaries.length,
+
+      summary: savedSummaries,
+    });
+  } catch (error) {
+    console.error(
+      "Generate Summary Exception:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      error:
+        error.message ||
+        "Failed to generate attendance summary",
+    });
+  }
+});
+
+// =====================================================
+// GET MONTHLY ATTENDANCE SUMMARY
+//
+// GET:
+// /api/attendance/monthly-summary
+// ?billing_month=2026-09
+// &client_id=1
+// =====================================================
+
+app.get(
+  "/api/attendance/monthly-summary",
+  async (req, res) => {
+    try {
+
+      const {
+        billing_month,
+        client_id
+      } = req.query;
+
+      if (!billing_month) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "billing_month is required"
+        });
+      }
+
+      if (
+        !/^\d{4}-\d{2}$/.test(
+          billing_month
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "billing_month must be in YYYY-MM format"
+        });
+      }
+
+      let query =
+        supabase
+          .from(
+            "third_party_attendance_summary"
+          )
+          .select("*")
+          .eq(
+            "billing_month",
+            billing_month
+          )
+          .order(
+            "client_id",
+            {
+              ascending: true
+            }
+          )
+          .order(
+            "employee_id",
+            {
+              ascending: true
+            }
+          );
+
+      if (client_id) {
+
+        if (
+          !isValidPositiveInteger(
+            client_id
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+            error:
+              "Invalid client_id"
+          });
+        }
+
+        query = query.eq(
+          "client_id",
+          Number(client_id)
+        );
+      }
+
+      const {
+        data,
+        error
+      } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      return res.json({
+
+        success: true,
+
+        billing_month,
+
+        client_id:
+          client_id
+            ? Number(client_id)
+            : null,
+
+        total_records:
+          data?.length || 0,
+
+        summary:
+          data || []
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Monthly summary fetch error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          error.message ||
+          "Failed to fetch monthly summary"
+      });
+    }
+  }
+);
+
+// =====================================================
+// GET EMPLOYEES FOR CLIENT
+//
+// Used by attendance module
+// =====================================================
+
+app.get(
+  "/api/employees",
+  async (req, res) => {
+    try {
+
+      const {
+        client_id
+      } = req.query;
+
+      if (
+        !isValidPositiveInteger(
+          client_id
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Valid client_id is required"
+        });
+      }
+
+      const clientId =
+        Number(client_id);
+
+      // -------------------------------------------------
+      // 1. GET DEPLOYMENTS
+      // -------------------------------------------------
+
+      const {
+        data: deployments,
+        error: deploymentError
+      } = await supabase
+        .from("deployments")
+        .select("*")
+        .eq(
+          "client_id",
+          clientId
+        );
+
+      if (deploymentError) {
+        throw deploymentError;
+      }
+
+      if (
+        !deployments ||
+        deployments.length === 0
+      ) {
+        return res.json({
+          success: true,
+          employees: []
+        });
+      }
+
+      // -------------------------------------------------
+      // 2. GET CANDIDATE IDS
+      // -------------------------------------------------
+
+      const employeeIds = [
+        ...new Set(
+          deployments
+            .map(
+              deployment =>
+                deployment.employee_id ??
+                deployment.employee_ref_id ??
+                deployment.candidate_id
+            )
+            .filter(
+              id =>
+                id !== null &&
+                id !== undefined
+            )
+        )
+      ];
+
+      if (
+        employeeIds.length === 0
+      ) {
+        return res.json({
+          success: true,
+          employees: []
+        });
+      }
+
+      // -------------------------------------------------
+      // 3. GET CANDIDATES
+      // -------------------------------------------------
+
+      const {
+        data: candidates,
+        error: candidateError
+      } = await supabase
+        .from("candidates")
+        .select("*")
+        .in(
+          "id",
+          employeeIds
+        );
+
+      if (candidateError) {
+        throw candidateError;
+      }
+
+      // -------------------------------------------------
+      // 4. COMBINE
+      // -------------------------------------------------
+
+      const employees =
+        deployments.map(
+          deployment => {
+
+            const employeeId =
+              deployment.employee_id ??
+              deployment.employee_ref_id ??
+              deployment.candidate_id;
+
+            const candidate =
+              candidates?.find(
+                item =>
+                  String(
+                    item.id
+                  ) ===
+                  String(
+                    employeeId
+                  )
+              );
+
+            return {
+
+              id:
+                candidate?.id ??
+                employeeId,
+
+              employee_id:
+                candidate?.id ??
+                employeeId,
+
+              employee_name:
+                candidate?.full_name ??
+                deployment.employee_name ??
+                `Employee ${employeeId}`,
+
+              full_name:
+                candidate?.full_name ??
+                deployment.employee_name ??
+                `Employee ${employeeId}`,
+
+              email:
+                candidate?.email ??
+                null,
+
+              phone:
+                candidate?.phone ??
+                null,
+
+              date_of_joining:
+                candidate?.date_of_joining ??
+                null,
+
+              employment_status:
+                candidate?.employment_status ??
+                null,
+
+              client_id:
+                deployment.client_id,
+
+              deployment_id:
+                deployment.id,
+
+              work_mode:
+                deployment.work_mode ??
+                null,
+
+              status:
+                deployment.status ??
+                candidate?.employment_status ??
+                "Active"
+            };
+          }
+        );
+
+      return res.json({
+        success: true,
+        employees
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Employees API error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          "Unable to fetch employees",
+        details:
+          error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// CLIENT MONTHLY ATTENDANCE
+//
+// GET:
+// /api/attendance/monthly
+// ?month=2026-09
+// &client_id=1
+// =====================================================
+app.get(
+  "/api/attendance/monthly",
+  async (req, res) => {
+
+    try {
+
+      const {
+        client_id,
+        billing_month,
+      } = req.query;
+
+
+      if (
+        !client_id ||
+        !billing_month
+      ) {
+
+        return res.status(400).json({
+          error:
+            "client_id and billing_month are required",
+        });
+
+      }
+
+
+      /*
+       * Get deployments belonging
+       * ONLY to this client.
+       */
+
+      const {
+        data: deployments,
+        error: deploymentError,
+      } =
+        await supabase
+          .from("deployments")
+          .select("id")
+          .eq(
+            "client_id",
+            client_id
+          );
+
+
+      if (deploymentError) {
+
+        return res.status(500).json({
+          error:
+            deploymentError.message,
+        });
+
+      }
+
+
+      const deploymentIds =
+        (deployments || []).map(
+          (item) => item.id
+        );
+
+
+      if (
+        deploymentIds.length === 0
+      ) {
+
+        return res.json({
+          success: true,
+          data: [],
+        });
+
+      }
+
+
+      /*
+       * Monthly table.
+       *
+       * IMPORTANT:
+       * Do NOT query attendance_date here.
+       */
+
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            "third_party_emp_attendance"
+          )
+          .select(`
+            id,
+            employee_id,
+            employee_name,
+            billing_month,
+            deployment_id,
+            present_days,
+            absent_days,
+            leave_days,
+            half_days,
+            lop_days,
+            overtime_hours,
+            status,
+            approval_status,
+            approval_record_id,
+            created_at,
+            updated_at
+          `)
+
+          .eq(
+            "billing_month",
+            billing_month
+          )
+
+          .in(
+            "deployment_id",
+            deploymentIds
+          )
+
+          .order(
+            "employee_name",
+            {
+              ascending: true,
+            }
+          );
+
+
+      if (error) {
+
+        console.error(
+          "Monthly attendance error:",
+          error
+        );
+
+        return res.status(500).json({
+          error:
+            error.message,
+        });
+
+      }
+
+
+      return res.json({
+        success: true,
+        data: data || [],
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "Monthly attendance API error:",
+        error
+      );
+
+      return res.status(500).json({
+        error:
+          "Failed to fetch monthly attendance",
+      });
+
+    }
+
+  }
+);
+// =====================================================
+// SELECTED EMPLOYEE MONTHLY ATTENDANCE
+//
+// GET:
+// /api/attendance/monthly/employee
+// ?month=2026-09
+// &client_id=1
+// &employee_id=1
+// =====================================================
+
+
+// =====================================================
+// SELECTED EMPLOYEE MONTHLY ATTENDANCE
+//
+// GET:
+// /api/attendance/monthly/employee
+// ?month=2026-09
+// &client_id=1
+// &employee_id=1
+//
+// DATABASE RELATION:
+//
+// deployments.candidate_id
+//          ↓
+// candidates.id
+//          ↓
+// third_party_emp_attendance.employee_id
+//
+// IMPORTANT:
+// deployments DOES NOT HAVE employee_id.
+// =====================================================
+app.get(
+  "/api/attendance/monthly/employee",
+  async (req, res) => {
+
+    try {
+
+      const {
+        client_id,
+        employee_id,
+        billing_month,
+      } = req.query;
+
+
+      console.log(
+        "Employee monthly attendance:",
+        {
+          client_id,
+          employee_id,
+          billing_month,
+        }
+      );
+
+
+      if (
+        !client_id ||
+        !employee_id ||
+        !billing_month
+      ) {
+
+        return res.status(400).json({
+          error:
+            "client_id, employee_id and billing_month are required",
+        });
+
+      }
+
+
+      /*
+       * =====================================================
+       * 1. GET CLIENT DEPLOYMENTS
+       * =====================================================
+       */
+
+      const {
+        data: deployments,
+        error: deploymentError,
+      } =
+        await supabase
+          .from("deployments")
+          .select("id")
+          .eq(
+            "client_id",
+            client_id
+          )
+          .eq(
+            "candidate_id",
+            employee_id
+          );
+
+
+      if (deploymentError) {
+
+        console.error(
+          "Deployment error:",
+          deploymentError
+        );
+
+        return res.status(500).json({
+          error:
+            deploymentError.message,
+        });
+
+      }
+
+
+      const deploymentIds =
+        (deployments || []).map(
+          (item) => item.id
+        );
+
+
+      if (
+        deploymentIds.length === 0
+      ) {
+
+        return res.json({
+
+          success: true,
+
+          summary: {
+            working_days: 0,
+            present_days: 0,
+            absent_days: 0,
+            leave_days: 0,
+            half_days: 0,
+            lop_days: 0,
+            overtime_hours: 0,
+          },
+
+          attendance: [],
+
+        });
+
+      }
+
+
+      /*
+       * =====================================================
+       * 2. MONTH RANGE
+       * =====================================================
+       */
+
+      const [
+        year,
+        month,
+      ] =
+        billing_month
+          .split("-")
+          .map(Number);
+
+
+      const firstDate =
+        `${billing_month}-01`;
+
+
+      const lastDay =
+        new Date(
+          year,
+          month,
+          0
+        ).getDate();
+
+
+      const lastDate =
+        `${billing_month}-${String(
+          lastDay
+        ).padStart(2, "0")}`;
+
+
+      /*
+       * =====================================================
+       * 3. GET DAILY ATTENDANCE
+       * =====================================================
+       */
+
+      const {
+        data: attendance,
+        error: attendanceError,
+      } =
+        await supabase
+          .from(
+            "third_party_emp_daily_attendance"
+          )
+          .select(`
+            id,
+            employee_id,
+            deployment_id,
+            client_id,
+            monthly_attendance_id,
+            attendance_date,
+            check_in,
+            check_out,
+            working_hours,
+            overtime_hours,
+            status,
+            work_mode,
+            remarks,
+            approval_status,
+            approved_by,
+            approved_at,
+            created_at,
+            updated_at
+          `)
+
+          .eq(
+            "client_id",
+            client_id
+          )
+
+          .eq(
+            "employee_id",
+            employee_id
+          )
+
+          .in(
+            "deployment_id",
+            deploymentIds
+          )
+
+          .gte(
+            "attendance_date",
+            firstDate
+          )
+
+          .lte(
+            "attendance_date",
+            lastDate
+          )
+
+          .order(
+            "attendance_date",
+            {
+              ascending: true,
+            }
+          );
+
+
+      if (attendanceError) {
+
+        console.error(
+          "Daily attendance error:",
+          attendanceError
+        );
+
+        return res.status(500).json({
+          error:
+            attendanceError.message,
+        });
+
+      }
+
+
+      const records =
+        attendance || [];
+
+
+      /*
+       * =====================================================
+       * 4. CALCULATE SUMMARY
+       * =====================================================
+       */
+
+      const presentDays =
+        records.filter(
+          (row) =>
+            String(
+              row.status || ""
+            )
+              .trim()
+              .toLowerCase() ===
+            "present"
+        ).length;
+
+
+      const absentDays =
+        records.filter(
+          (row) =>
+            String(
+              row.status || ""
+            )
+              .trim()
+              .toLowerCase() ===
+            "absent"
+        ).length;
+
+
+      const leaveDays =
+        records.filter(
+          (row) =>
+            String(
+              row.status || ""
+            )
+              .trim()
+              .toLowerCase() ===
+            "leave"
+        ).length;
+
+
+      const halfDays =
+        records.filter(
+          (row) =>
+            String(
+              row.status || ""
+            )
+              .trim()
+              .toLowerCase() ===
+            "half day"
+        ).length;
+
+
+      const overtimeHours =
+        records.reduce(
+          (
+            total,
+            row
+          ) =>
+            total +
+            Number(
+              row.overtime_hours ||
+              0
+            ),
+          0
+        );
+
+
+      /*
+       * Present + Half Day
+       */
+      const workingDays =
+        presentDays +
+        halfDays;
+
+
+      /*
+       * LOP = Absent
+       */
+      const lopDays =
+        absentDays;
+
+
+      /*
+       * =====================================================
+       * 5. RETURN
+       * =====================================================
+       */
+
+      return res.json({
+
+        success: true,
+
+        summary: {
+
+          working_days:
+            workingDays,
+
+          present_days:
+            presentDays,
+
+          absent_days:
+            absentDays,
+
+          leave_days:
+            leaveDays,
+
+          half_days:
+            halfDays,
+
+          lop_days:
+            lopDays,
+
+          overtime_hours:
+            Number(
+              overtimeHours.toFixed(
+                2
+              )
+            ),
+
+        },
+
+        attendance:
+          records,
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Employee monthly attendance API error:",
+        error
+      );
+
+      return res.status(500).json({
+        error:
+          "Failed to fetch employee monthly attendance",
+      });
+
+    }
+
+  }
+);
+// =====================================================
+// POST ATTENDANCE CORRECTION / APPROVAL RECORD
+// =====================================================
+
+app.post(
+  "/api/third-party-attendance",
+  async (req, res) => {
+    try {
+
+      const {
+        employee_id,
+        employee_name,
+        role,
+        client,
+        billing_month,
+        total_days,
+        present_days,
+        lop_days,
+        ot_hours,
+        client_id
+      } = req.body;
+
+      if (!employee_id) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "employee_id is required"
+        });
+      }
+
+      const newRecord = {
+
+        employee_id,
+
+        employee_name,
+
+        role,
+
+        client:
+          client ||
+          "General",
+
+        client_id:
+          client_id
+            ? Number(client_id)
+            : null,
+
+        billing_month:
+          billing_month ||
+          "2026-09",
+
+        total_days:
+          total_days !== undefined
+            ? Number(total_days)
+            : 0,
+
+        present_days:
+          present_days !== undefined
+            ? Number(present_days)
+            : 0,
+
+        lop_days:
+          lop_days !== undefined
+            ? Number(lop_days)
+            : 0,
+
+        ot_hours:
+          ot_hours !== undefined
+            ? Number(ot_hours)
+            : 0,
+
+        status:
+          "Pending"
+      };
+
+      const {
+        data,
+        error
+      } = await supabase
+        .from(
+          "third_party_attendance_approval"
+        )
+        .insert([
+          newRecord
+        ])
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      return res.status(201).json({
+        success: true,
+        message:
+          "Attendance correction logged",
+        data:
+          data?.[0] || null
+      });
+
+    } catch (error) {
+
+      console.error(
+        "POST third-party attendance error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// LEGACY THIRD-PARTY ATTENDANCE PATCH
+//
+// Kept for frontend compatibility.
+//
+// IMPORTANT:
+// Daily records are synchronized using
+// approval_record_id whenever possible.
+// =====================================================
+
+app.patch(
+  "/api/third-party-attendance/:id",
+  async (req, res) => {
+    try {
+
+      const approvalId =
+        Number(req.params.id);
+
+      if (
+        !isValidPositiveInteger(
+          approvalId
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Valid attendance ID is required"
+        });
+      }
+
+      const {
+        status,
+        present_days,
+        lop_days,
+        ot_hours
+      } = req.body;
+
+      const updates = {};
+
+      if (
+        status !== undefined
+      ) {
+        updates.status =
+          status;
+      }
+
+      if (
+        present_days !== undefined
+      ) {
+        updates.present_days =
+          Number(
+            present_days
+          );
+      }
+
+      if (
+        lop_days !== undefined
+      ) {
+        updates.lop_days =
+          Number(
+            lop_days
+          );
+      }
+
+      if (
+        ot_hours !== undefined
+      ) {
+        updates.ot_hours =
+          Number(
+            ot_hours
+          );
+      }
+
+      if (
+        Object.keys(
+          updates
+        ).length === 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "No fields provided for update"
+        });
+      }
+
+      // -------------------------------------------------
+      // UPDATE APPROVAL RECORD
+      // -------------------------------------------------
+
+      const {
+        data: approvalData,
+        error: approvalError
+      } = await supabase
+        .from(
+          "third_party_attendance_approval"
+        )
+        .update(updates)
+        .eq(
+          "id",
+          approvalId
+        )
+        .select()
+        .maybeSingle();
+
+      if (approvalError) {
+        throw approvalError;
+      }
+
+      if (!approvalData) {
+        return res.status(404).json({
+          success: false,
+          error:
+            "Attendance approval record not found"
+        });
+      }
+
+      // -------------------------------------------------
+      // SYNC STATUS TO DAILY ATTENDANCE
+      // -------------------------------------------------
+
+      let dailyRecords = [];
+
+      if (
+        status !== undefined
+      ) {
+
+        const {
+          data,
+          error
+        } = await supabase
+          .from(
+            "third_party_emp_attendance"
+          )
+          .update({
+            approval_status:
+              status
+          })
+          .eq(
+            "approval_record_id",
+            approvalId
+          )
+          .select("id");
+
+        if (error) {
+          throw error;
+        }
+
+        dailyRecords =
+          data || [];
+      }
+
+      return res.json({
+
+        success: true,
+
+        message:
+          "Attendance updated successfully",
+
+        data:
+          approvalData,
+
+        daily_records_updated:
+          dailyRecords.length
+      });
+
+    } catch (error) {
+
+      console.error(
+        "PATCH third-party attendance error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          error.message
+      });
+    }
+  }
+);
+
+// =====================================================
+// CLIENT BILLING / INVOICES
+// =====================================================
+function calculatePaymentStatus(invoice) {
+  const total = Number(invoice.total_amount || 0);
+  const paid = Number(invoice.amount_paid || 0);
+  const tds = Number(invoice.tds_deducted || 0);
+
+  const settled = paid + tds;
+  const outstanding = Math.max(0, total - settled);
+
+  if (outstanding <= 0) {
+    return "Paid";
+  }
+
+  if (
+    invoice.due_date &&
+    new Date() > new Date(invoice.due_date)
+  ) {
+    return "Overdue";
+  }
+
+  if (settled > 0) {
+    return "Partially Paid";
+  }
+
+  return "Pending";
+}
+// =====================================================
+// CLIENT BILLING
+// GET /api/client-billing?client_id=1
+// =====================================================
+app.get("/api/client-billing", async (req, res) => {
+  try {
+    const clientId = Number(req.query.client_id);
+
+    if (!Number.isInteger(clientId) || clientId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Valid client_id is required"
+      });
+    }
+
+    // ===================================================
+    // 1. FETCH CLIENT INVOICES
+    // ===================================================
+
+    const {
+      data: invoices,
+      error: invoiceError
+    } = await supabase
+      .from("client_billing_invoices")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("created_at", {
+        ascending: false
+      });
+
+    if (invoiceError) {
+      console.error("Client invoice error:", invoiceError);
+
+      return res.status(500).json({
+        success: false,
+        error: invoiceError.message
+      });
+    }
+
+    if (!invoices || invoices.length === 0) {
+      return res.json([]);
+    }
+
+    // ===================================================
+    // 2. INVOICE IDS
+    // ===================================================
+
+    const invoiceIds = invoices.map(
+      (invoice) => invoice.id
+    );
+
+    // ===================================================
+    // 3. FETCH VERIFIED PAYMENT LEDGER
+    // ===================================================
+
+    const {
+      data: ledgerPayments,
+      error: ledgerError
+    } = await supabase
+      .from("payments_ledger")
+      .select(`
+        id,
+        invoice_id,
+        amount_received,
+        tds_deducted,
+        payment_date,
+        payment_mode,
+        reference_number,
+        created_at
+      `)
+      .in("invoice_id", invoiceIds)
+      .order("created_at", {
+        ascending: false
+      });
+
+    if (ledgerError) {
+      console.error(
+        "Payment ledger error:",
+        ledgerError
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: ledgerError.message
+      });
+    }
+
+    // ===================================================
+    // 4. FETCH ALL PAYMENT CONFIRMATIONS
+    // ===================================================
+
+    const {
+      data: confirmations,
+      error: confirmationError
+    } = await supabase
+      .from("payment_confirmations")
+      .select(`
+        id,
+        invoice_id,
+        client_id,
+        amount_reported,
+        payment_date,
+        payment_mode,
+        reference_number,
+        payment_proof_url,
+        notes,
+        status,
+        submitted_at,
+        verified_by,
+        verified_at,
+        rejection_reason
+      `)
+      .in("invoice_id", invoiceIds)
+      .eq("client_id", clientId)
+      .order("submitted_at", {
+        ascending: false
+      });
+
+    if (confirmationError) {
+      console.error(
+        "Payment confirmation error:",
+        confirmationError
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: confirmationError.message
+      });
+    }
+
+    // ===================================================
+    // 5. BUILD PAYMENT MAP
+    // ===================================================
+
+    const paymentsByInvoice = {};
+
+    (ledgerPayments || []).forEach((payment) => {
+      if (!paymentsByInvoice[payment.invoice_id]) {
+        paymentsByInvoice[payment.invoice_id] = [];
+      }
+
+      paymentsByInvoice[payment.invoice_id].push(
+        payment
+      );
+    });
+
+    // ===================================================
+    // 6. BUILD LATEST CONFIRMATION MAP
+    //
+    // confirmations are ordered:
+    // newest → oldest
+    //
+    // Therefore the first confirmation for an invoice
+    // is always the latest one.
+    // ===================================================
+
+    const latestConfirmationByInvoice = new Map();
+
+    (confirmations || []).forEach((confirmation) => {
+      if (
+        !latestConfirmationByInvoice.has(
+          confirmation.invoice_id
+        )
+      ) {
+        latestConfirmationByInvoice.set(
+          confirmation.invoice_id,
+          confirmation
+        );
+      }
+    });
+
+    // ===================================================
+    // 7. BUILD RESPONSE
+    // ===================================================
+
+    const updatedInvoices = invoices.map((invoice) => {
+
+      const invoicePayments =
+        paymentsByInvoice[invoice.id] || [];
+
+      const latestConfirmation =
+        latestConfirmationByInvoice.get(
+          invoice.id
+        ) || null;
+
+      // =================================================
+      // ACTUAL VERIFIED PAYMENT
+      // =================================================
+
+      const amountPaid =
+        invoicePayments.reduce(
+          (sum, payment) =>
+            sum +
+            Number(payment.amount_received || 0),
+          0
+        );
+
+      // =================================================
+      // TDS
+      // =================================================
+
+      const tdsDeducted =
+        invoicePayments.reduce(
+          (sum, payment) =>
+            sum +
+            Number(payment.tds_deducted || 0),
+          0
+        );
+
+      // =================================================
+      // TOTAL INVOICE
+      // =================================================
+
+      const totalAmount =
+        Number(invoice.total_amount || 0);
+
+      // =================================================
+      // TOTAL SETTLED
+      // =================================================
+
+      const totalSettled =
+        amountPaid + tdsDeducted;
+
+      // =================================================
+      // OUTSTANDING
+      // =================================================
+
+      const outstanding = Math.max(
+        0,
+        totalAmount - totalSettled
+      );
+
+      // =================================================
+      // PAYMENT STATUS
+      // =================================================
+
+      let paymentStatus = "Pending";
+
+      if (outstanding <= 0) {
+
+        paymentStatus = "Paid";
+
+      } else if (totalSettled > 0) {
+
+        paymentStatus = "Partially Paid";
+
+      } else if (
+        invoice.due_date &&
+        new Date() >
+        new Date(`${invoice.due_date}T23:59:59`)
+      ) {
+
+        paymentStatus = "Overdue";
+
+      } else {
+
+        paymentStatus = "Pending";
+      }
+
+      // =================================================
+      // CONFIRMATION DATA
+      // =================================================
+
+      const confirmationStatus =
+        latestConfirmation?.status
+          ? String(
+            latestConfirmation.status
+          ).trim()
+          : null;
+
+      const rejectionReason =
+        latestConfirmation?.rejection_reason
+          ? String(
+            latestConfirmation.rejection_reason
+          ).trim()
+          : null;
+
+      // =================================================
+      // RETURN
+      // =================================================
+
+      return {
+        ...invoice,
+
+        // -----------------------------------------------
+        // FINANCIAL
+        // -----------------------------------------------
+
+        amount_paid: amountPaid,
+
+        tds_deducted: tdsDeducted,
+
+        amount_settled: totalSettled,
+
+        outstanding: outstanding,
+
+        payment_status: paymentStatus,
+
+        // -----------------------------------------------
+        // LATEST PAYMENT CONFIRMATION
+        // -----------------------------------------------
+
+        confirmation_id:
+          latestConfirmation?.id || null,
+
+        confirmation_status:
+          confirmationStatus,
+
+        confirmation_amount:
+          latestConfirmation
+            ? Number(
+              latestConfirmation.amount_reported || 0
+            )
+            : null,
+
+        confirmation_date:
+          latestConfirmation?.payment_date || null,
+
+        confirmation_payment_mode:
+          latestConfirmation?.payment_mode || null,
+
+        confirmation_reference:
+          latestConfirmation?.reference_number || null,
+
+        confirmation_submitted_at:
+          latestConfirmation?.submitted_at || null,
+
+        // -----------------------------------------------
+        // REJECTION
+        // -----------------------------------------------
+
+        rejection_reason:
+          rejectionReason
+      };
+    });
+
+    // ===================================================
+    // 8. RESPONSE
+    // ===================================================
+
+    return res.json(updatedInvoices);
+
+  } catch (error) {
+
+    console.error(
+      "Client billing error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      error: "Server error fetching client invoices"
+    });
+  }
+});
+// =====================================================
+// CLIENT PAYMENT CONFIRMATION
+// POST /api/client/invoices/:invoiceId/payment-confirmation
+// =====================================================
+
+app.post(
+  "/api/client/invoices/:invoiceId/payment-confirmation",
+  async (req, res) => {
+    try {
+      const invoiceId = Number(req.params.invoiceId);
+
+      const {
+        client_id,
+        amount_reported,
+        payment_date,
+        payment_mode,
+        reference_number,
+        payment_proof_url,
+        notes,
+      } = req.body;
+
+      const clientId = Number(client_id);
+      const amount = Number(amount_reported);
+
+      // -------------------------------------------------
+      // VALIDATION
+      // -------------------------------------------------
+
+      if (!Number.isInteger(invoiceId) || invoiceId <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Valid invoice ID is required",
+        });
+      }
+
+      if (!Number.isInteger(clientId) || clientId <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Valid client_id is required",
+        });
+      }
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Valid payment amount is required",
+        });
+      }
+
+      if (!payment_date) {
+        return res.status(400).json({
+          success: false,
+          error: "Payment date is required",
+        });
+      }
+
+      if (!payment_mode || !String(payment_mode).trim()) {
+        return res.status(400).json({
+          success: false,
+          error: "Payment mode is required",
+        });
+      }
+
+      if (
+        !reference_number ||
+        !String(reference_number).trim()
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "UTR / transaction reference is required",
+        });
+      }
+
+      // -------------------------------------------------
+      // PAYMENT DATE CANNOT BE FUTURE
+      // -------------------------------------------------
+
+      const today = new Date();
+
+      const todayString =
+        today.getFullYear() +
+        "-" +
+        String(today.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(today.getDate()).padStart(2, "0");
+
+      if (payment_date > todayString) {
+        return res.status(400).json({
+          success: false,
+          error: "Payment date cannot be in the future",
+        });
+      }
+
+      // -------------------------------------------------
+      // GET INVOICE
+      // -------------------------------------------------
+
+      const {
+        data: invoice,
+        error: invoiceError,
+      } = await supabase
+        .from("client_billing_invoices")
+        .select(`
+          id,
+          client_id,
+          invoice_number,
+          total_amount,
+          payment_status,
+          lifecycle_state,
+          due_date
+        `)
+        .eq("id", invoiceId)
+        .eq("client_id", clientId)
+        .single();
+
+      if (invoiceError || !invoice) {
+        return res.status(404).json({
+          success: false,
+          error: "Invoice not found for this client",
+        });
+      }
+
+      // -------------------------------------------------
+      // CHECK ACTIVE DISPUTE
+      //
+      // Pending / Pending Review = BLOCK PAYMENT
+      // Verified = RESOLVED, PAYMENT ALLOWED
+      // Rejected = no active dispute
+      // -------------------------------------------------
+
+      const {
+        data: activeDispute,
+        error: disputeError,
+      } = await supabase
+        .from("client_invoice_disputes")
+        .select(`
+          id,
+          status,
+          dispute_type,
+          reason
+        `)
+        .eq("invoice_id", invoiceId)
+        .eq("client_id", clientId)
+        .in("status", [
+          "Pending",
+          "Pending Review",
+        ])
+        .limit(1)
+        .maybeSingle();
+
+      if (disputeError) {
+        console.error(
+          "Active dispute check error:",
+          disputeError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: disputeError.message,
+        });
+      }
+
+      if (activeDispute) {
+        return res.status(409).json({
+          success: false,
+          error:
+            "Payment cannot be submitted while this invoice dispute is unresolved.",
+          dispute: activeDispute,
+        });
+      }
+
+      // -------------------------------------------------
+      // GET EXISTING PAYMENT CONFIRMATIONS
+      // -------------------------------------------------
+
+      const {
+        data: existingConfirmations,
+        error: confirmationFetchError,
+      } = await supabase
+        .from("payment_confirmations")
+        .select(`
+          id,
+          amount_reported,
+          status,
+          submitted_at
+        `)
+        .eq("invoice_id", invoiceId)
+        .eq("client_id", clientId)
+        .order("submitted_at", {
+          ascending: false,
+        });
+
+      if (confirmationFetchError) {
+        console.error(
+          "Payment confirmation fetch error:",
+          confirmationFetchError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: confirmationFetchError.message,
+        });
+      }
+
+      // -------------------------------------------------
+      // BLOCK DUPLICATE PENDING PAYMENT
+      // -------------------------------------------------
+
+      const pendingConfirmation =
+        (existingConfirmations || []).find(
+          (item) =>
+            String(item.status || "")
+              .trim()
+              .toLowerCase() ===
+            "pending verification"
+        );
+
+      if (pendingConfirmation) {
+        return res.status(409).json({
+          success: false,
+          error:
+            "A payment confirmation for this invoice is already awaiting verification.",
+        });
+      }
+
+      // -------------------------------------------------
+      // CALCULATE VERIFIED PAYMENT AMOUNT
+      //
+      // Rejected confirmations are NOT counted.
+      // -------------------------------------------------
+
+      const {
+        data: verifiedPayments,
+        error: verifiedPaymentError,
+      } = await supabase
+        .from("payment_confirmations")
+        .select(`
+          amount_reported
+        `)
+        .eq("invoice_id", invoiceId)
+        .eq("client_id", clientId)
+        .eq("status", "Verified");
+
+      if (verifiedPaymentError) {
+        console.error(
+          "Verified payment fetch error:",
+          verifiedPaymentError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: verifiedPaymentError.message,
+        });
+      }
+
+      const verifiedAmount =
+        (verifiedPayments || []).reduce(
+          (sum, payment) =>
+            sum + Number(payment.amount_reported || 0),
+          0
+        );
+
+      // -------------------------------------------------
+      // CALCULATE OUTSTANDING
+      // -------------------------------------------------
+
+      const totalAmount =
+        Number(invoice.total_amount || 0);
+
+      const outstanding = Math.max(
+        0,
+        totalAmount - verifiedAmount
+      );
+
+      // -------------------------------------------------
+      // BLOCK IF ALREADY FULLY PAID
+      // -------------------------------------------------
+
+      if (outstanding <= 0) {
+        return res.status(409).json({
+          success: false,
+          error:
+            "This invoice has already been fully paid.",
+        });
+      }
+
+      // -------------------------------------------------
+      // PAYMENT CANNOT EXCEED OUTSTANDING
+      // -------------------------------------------------
+
+      if (amount > outstanding) {
+        return res.status(400).json({
+          success: false,
+          error:
+            `Payment amount cannot exceed outstanding amount of ₹${outstanding.toFixed(
+              2
+            )}`,
+        });
+      }
+
+      // -------------------------------------------------
+      // INSERT NEW PAYMENT CONFIRMATION
+      //
+      // A rejected old confirmation is NOT reused.
+      // A completely new confirmation is created.
+      // -------------------------------------------------
+
+      const {
+        data: confirmation,
+        error: insertError,
+      } = await supabase
+        .from("payment_confirmations")
+        .insert({
+          invoice_id: invoiceId,
+          client_id: clientId,
+          amount_reported: amount,
+          payment_date,
+          payment_mode: String(payment_mode).trim(),
+          reference_number: String(reference_number).trim(),
+          payment_proof_url:
+            payment_proof_url
+              ? String(payment_proof_url).trim()
+              : null,
+          notes:
+            notes
+              ? String(notes).trim()
+              : null,
+          status: "Pending Verification",
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error(
+          "Payment confirmation insert error:",
+          insertError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: insertError.message,
+        });
+      }
+
+      // -------------------------------------------------
+      // RESPONSE
+      // -------------------------------------------------
+
+      return res.status(201).json({
+        success: true,
+        message:
+          "Payment confirmation submitted successfully",
+        confirmation,
+      });
+    } catch (error) {
+      console.error(
+        "Client payment confirmation error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          "Server error submitting payment confirmation",
+      });
+    }
+  }
+);
+
+// =====================================================
+// CLIENT INVOICE DISPUTE
+// POST /api/client/invoices/:invoiceId/dispute
+// =====================================================
+
+app.post(
+  "/api/client/invoices/:invoiceId/dispute",
+  async (req, res) => {
+    try {
+      const invoiceId = Number(req.params.invoiceId);
+
+      const {
+        client_id,
+        dispute_type,
+        reason,
+      } = req.body;
+
+      const clientId = Number(client_id);
+
+      // -------------------------------------------------
+      // VALIDATION
+      // -------------------------------------------------
+
+      if (!Number.isInteger(invoiceId) || invoiceId <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Valid invoice ID is required",
+        });
+      }
+
+      if (!Number.isInteger(clientId) || clientId <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Valid client_id is required",
+        });
+      }
+
+      if (
+        !dispute_type ||
+        !String(dispute_type).trim()
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Dispute type is required",
+        });
+      }
+
+      if (
+        !reason ||
+        String(reason).trim().length < 10
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Please provide a detailed dispute reason",
+        });
+      }
+
+      if (String(reason).trim().length > 1000) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Dispute reason cannot exceed 1000 characters",
+        });
+      }
+
+      // -------------------------------------------------
+      // CHECK INVOICE
+      // -------------------------------------------------
+
+      const {
+        data: invoice,
+        error: invoiceError,
+      } = await supabase
+        .from("client_billing_invoices")
+        .select(`
+          id,
+          client_id,
+          invoice_number,
+          total_amount,
+          payment_status,
+          lifecycle_state
+        `)
+        .eq("id", invoiceId)
+        .eq("client_id", clientId)
+        .single();
+
+      if (invoiceError || !invoice) {
+        return res.status(404).json({
+          success: false,
+          error:
+            "Invoice not found for this client",
+        });
+      }
+
+      // -------------------------------------------------
+      // CHECK EXISTING ACTIVE DISPUTE
+      //
+      // ONLY Pending / Pending Review are active.
+      //
+      // Verified = resolved
+      // Rejected = closed
+      // -------------------------------------------------
+
+      const {
+        data: existingDispute,
+        error: existingError,
+      } = await supabase
+        .from("client_invoice_disputes")
+        .select(`
+          id,
+          status
+        `)
+        .eq("invoice_id", invoiceId)
+        .eq("client_id", clientId)
+        .in("status", [
+          "Pending",
+          "Pending Review",
+        ])
+        .limit(1)
+        .maybeSingle();
+
+      if (existingError) {
+        console.error(
+          "Existing dispute check error:",
+          existingError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: existingError.message,
+        });
+      }
+
+      if (existingDispute) {
+        return res.status(409).json({
+          success: false,
+          error:
+            "An active dispute already exists for this invoice.",
+        });
+      }
+
+      // -------------------------------------------------
+      // CREATE NEW DISPUTE
+      // -------------------------------------------------
+
+      const {
+        data: dispute,
+        error: disputeError,
+      } = await supabase
+        .from("client_invoice_disputes")
+        .insert({
+          invoice_id: invoiceId,
+          client_id: clientId,
+          dispute_type: String(
+            dispute_type
+          ).trim(),
+          reason: String(reason).trim(),
+
+          // Use the same status your DB workflow expects
+          status: "Pending",
+        })
+        .select()
+        .single();
+
+      if (disputeError) {
+        console.error(
+          "Create invoice dispute error:",
+          disputeError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: disputeError.message,
+        });
+      }
+
+      // -------------------------------------------------
+      // RESPONSE
+      // -------------------------------------------------
+
+      return res.status(201).json({
+        success: true,
+        message:
+          "Invoice dispute submitted successfully",
+        dispute,
+      });
+    } catch (error) {
+      console.error(
+        "Client invoice dispute error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          "Server error submitting invoice dispute",
+      });
+    }
+  }
+);
+
+// =====================================================
+// CLIENT BILLING / INVOICES
+// GET /api/client-billing?client_id=1
+// =====================================================
+
+app.get(
+  "/api/client-billing",
+  async (req, res) => {
+    try {
+      const clientId = Number(req.query.client_id);
+
+      // -------------------------------------------------
+      // VALIDATE CLIENT
+      // -------------------------------------------------
+
+      if (
+        !Number.isInteger(clientId) ||
+        clientId <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Valid client_id is required",
+        });
+      }
+
+      // -------------------------------------------------
+      // GET INVOICES
+      // -------------------------------------------------
+
+      const {
+        data: invoices,
+        error: invoiceError,
+      } = await supabase
+        .from("client_billing_invoices")
+        .select("*")
+        .eq("client_id", clientId)
+        .order("created_at", {
+          ascending: false,
+        });
+
+      if (invoiceError) {
+        console.error(
+          "Client billing invoice error:",
+          invoiceError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: invoiceError.message,
+        });
+      }
+
+      if (!invoices || invoices.length === 0) {
+        return res.json({
+          success: true,
+          data: [],
+        });
+      }
+
+      // -------------------------------------------------
+      // INVOICE IDS
+      // -------------------------------------------------
+
+      const invoiceIds = invoices.map(
+        (invoice) => invoice.id
+      );
+
+      // -------------------------------------------------
+      // PAYMENT LEDGER
+      //
+      // IMPORTANT:
+      // Ledger represents accepted/verified money.
+      // -------------------------------------------------
+
+      const {
+        data: ledgerPayments,
+        error: ledgerError,
+      } = await supabase
+        .from("payments_ledger")
+        .select(`
+          id,
+          invoice_id,
+          amount_received,
+          tds_deducted,
+          payment_date,
+          payment_mode,
+          reference_number,
+          created_at
+        `)
+        .in("invoice_id", invoiceIds)
+        .order("payment_date", {
+          ascending: false,
+        });
+
+      if (ledgerError) {
+        console.error(
+          "Payments ledger error:",
+          ledgerError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: ledgerError.message,
+        });
+      }
+
+      // -------------------------------------------------
+      // PAYMENT CONFIRMATIONS
+      // -------------------------------------------------
+
+      const {
+        data: confirmations,
+        error: confirmationError,
+      } = await supabase
+        .from("payment_confirmations")
+        .select(`
+          id,
+          invoice_id,
+          client_id,
+          amount_reported,
+          payment_date,
+          payment_mode,
+          reference_number,
+          payment_proof_url,
+          notes,
+          status,
+          submitted_at,
+          verified_by,
+          verified_at,
+          rejection_reason
+        `)
+        .in("invoice_id", invoiceIds)
+        .eq("client_id", clientId)
+        .order("submitted_at", {
+          ascending: false,
+        });
+
+      if (confirmationError) {
+        console.error(
+          "Payment confirmations error:",
+          confirmationError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: confirmationError.message,
+        });
+      }
+
+      // -------------------------------------------------
+      // CLIENT INVOICE DISPUTES
+      // -------------------------------------------------
+
+      const {
+        data: disputes,
+        error: disputeError,
+      } = await supabase
+        .from("client_invoice_disputes")
+        .select(`
+          id,
+          invoice_id,
+          client_id,
+          dispute_type,
+          reason,
+          status,
+          submitted_at,
+          reviewed_by,
+          reviewed_at,
+          admin_response
+        `)
+        .in("invoice_id", invoiceIds)
+        .eq("client_id", clientId)
+        .order("submitted_at", {
+          ascending: false,
+        });
+
+      if (disputeError) {
+        console.error(
+          "Invoice dispute error:",
+          disputeError
+        );
+
+        return res.status(500).json({
+          success: false,
+          error: disputeError.message,
+        });
+      }
+
+      // -------------------------------------------------
+      // LATEST CONFIRMATION PER INVOICE
+      // -------------------------------------------------
+
+      const latestConfirmationByInvoice =
+        new Map();
+
+      (confirmations || []).forEach(
+        (confirmation) => {
+          if (
+            !latestConfirmationByInvoice.has(
+              confirmation.invoice_id
+            )
+          ) {
+            latestConfirmationByInvoice.set(
+              confirmation.invoice_id,
+              confirmation
+            );
+          }
+        }
+      );
+
+      // -------------------------------------------------
+      // LATEST DISPUTE PER INVOICE
+      // -------------------------------------------------
+
+      const latestDisputeByInvoice =
+        new Map();
+
+      (disputes || []).forEach((dispute) => {
+        if (
+          !latestDisputeByInvoice.has(
+            dispute.invoice_id
+          )
+        ) {
+          latestDisputeByInvoice.set(
+            dispute.invoice_id,
+            dispute
+          );
+        }
+      });
+
+      // -------------------------------------------------
+      // BUILD RESPONSE
+      // -------------------------------------------------
+
+      const result = invoices.map(
+        (invoice) => {
+          const latestConfirmation =
+            latestConfirmationByInvoice.get(
+              invoice.id
+            ) || null;
+
+          const latestDispute =
+            latestDisputeByInvoice.get(
+              invoice.id
+            ) || null;
+
+          // ---------------------------------------------
+          // LEDGER PAYMENTS
+          // ---------------------------------------------
+
+          const invoiceLedgerPayments =
+            (ledgerPayments || []).filter(
+              (payment) =>
+                Number(payment.invoice_id) ===
+                Number(invoice.id)
+            );
+
+          // ---------------------------------------------
+          // ACTUAL PAID AMOUNT
+          //
+          // IMPORTANT:
+          // Use amount_received.
+          // ---------------------------------------------
+
+          const amountPaid =
+            invoiceLedgerPayments.reduce(
+              (sum, payment) =>
+                sum +
+                Number(
+                  payment.amount_received || 0
+                ),
+              0
+            );
+
+          // ---------------------------------------------
+          // TDS
+          // ---------------------------------------------
+
+          const tdsDeducted =
+            invoiceLedgerPayments.reduce(
+              (sum, payment) =>
+                sum +
+                Number(
+                  payment.tds_deducted || 0
+                ),
+              0
+            );
+
+          // ---------------------------------------------
+          // TOTAL INVOICE
+          // ---------------------------------------------
+
+          const totalAmount =
+            Number(invoice.total_amount || 0);
+
+          // ---------------------------------------------
+          // TOTAL SETTLED
+          // ---------------------------------------------
+
+          const amountSettled =
+            amountPaid + tdsDeducted;
+
+          // ---------------------------------------------
+          // OUTSTANDING
+          // ---------------------------------------------
+
+          const outstanding = Math.max(
+            0,
+            totalAmount - amountSettled
+          );
+
+          // ---------------------------------------------
+          // CONFIRMATION STATUS
+          // ---------------------------------------------
+
+          const confirmationStatus =
+            latestConfirmation?.status
+              ? String(
+                latestConfirmation.status
+              ).trim()
+              : null;
+
+          // ---------------------------------------------
+          // DISPUTE STATUS
+          // ---------------------------------------------
+
+          const disputeStatus =
+            latestDispute?.status
+              ? String(
+                latestDispute.status
+              ).trim()
+              : null;
+
+          const normalizedDisputeStatus =
+            disputeStatus
+              ? disputeStatus.toLowerCase()
+              : "";
+
+          // ---------------------------------------------
+          // ACTIVE DISPUTE
+          //
+          // Pending / Pending Review = ACTIVE
+          // Verified = RESOLVED
+          // ---------------------------------------------
+
+          const hasActiveDispute =
+            normalizedDisputeStatus ===
+            "pending" ||
+            normalizedDisputeStatus ===
+            "pending review";
+
+          // ---------------------------------------------
+          // PAYMENT STATUS
+          //
+          // This represents actual payment state.
+          // It does NOT use a rejected confirmation
+          // as a paid amount.
+          // ---------------------------------------------
+
+          let paymentStatus = "Pending";
+
+          if (outstanding <= 0) {
+            paymentStatus = "Paid";
+          } else if (amountSettled > 0) {
+            paymentStatus = "Partially Paid";
+          } else {
+            paymentStatus = "Pending";
+          }
+
+          // ---------------------------------------------
+          // PAYMENT AVAILABILITY
+          // ---------------------------------------------
+
+          const paymentBlocked =
+            hasActiveDispute;
+
+          // ---------------------------------------------
+          // PAYMENT CONFIRMATION STATE
+          // ---------------------------------------------
+
+          const confirmationState =
+            confirmationStatus
+              ? confirmationStatus.toLowerCase()
+              : "";
+
+          const paymentAwaitingVerification =
+            confirmationState ===
+            "pending verification";
+
+          const previousPaymentRejected =
+            confirmationState === "rejected";
+
+          // ---------------------------------------------
+          // REJECTION REASON
+          // ---------------------------------------------
+
+          const rejectionReason =
+            latestConfirmation?.rejection_reason
+              ? String(
+                latestConfirmation.rejection_reason
+              ).trim()
+              : null;
+
+          // ---------------------------------------------
+          // RETURN
+          // ---------------------------------------------
+
+          return {
+            ...invoice,
+
+            // =========================================
+            // FINANCIAL
+            // =========================================
+
+            total_amount:
+              totalAmount,
+
+            amount_paid:
+              amountPaid,
+
+            tds_deducted:
+              tdsDeducted,
+
+            amount_settled:
+              amountSettled,
+
+            outstanding,
+
+            payment_status:
+              paymentStatus,
+
+            // =========================================
+            // PAYMENT CONTROL
+            // =========================================
+
+            payment_blocked:
+              paymentBlocked,
+
+            payment_available:
+              !paymentBlocked &&
+              outstanding > 0 &&
+              !paymentAwaitingVerification,
+
+            payment_awaiting_verification:
+              paymentAwaitingVerification,
+
+            previous_payment_rejected:
+              previousPaymentRejected,
+
+            // =========================================
+            // LATEST PAYMENT CONFIRMATION
+            // =========================================
+
+            confirmation_id:
+              latestConfirmation?.id ||
+              null,
+
+            confirmation_status:
+              confirmationStatus,
+
+            confirmation_amount:
+              latestConfirmation
+                ? Number(
+                  latestConfirmation.amount_reported ||
+                  0
+                )
+                : null,
+
+            confirmation_date:
+              latestConfirmation?.payment_date ||
+              null,
+
+            confirmation_payment_mode:
+              latestConfirmation?.payment_mode ||
+              null,
+
+            confirmation_reference:
+              latestConfirmation?.reference_number ||
+              null,
+
+            confirmation_submitted_at:
+              latestConfirmation?.submitted_at ||
+              null,
+
+            confirmation_payment_proof_url:
+              latestConfirmation?.payment_proof_url ||
+              null,
+
+            confirmation_notes:
+              latestConfirmation?.notes ||
+              null,
+
+            rejection_reason:
+              rejectionReason,
+
+            // =========================================
+            // DISPUTE
+            // =========================================
+
+            dispute_id:
+              latestDispute?.id ||
+              null,
+
+            dispute_status:
+              disputeStatus,
+
+            dispute_active:
+              hasActiveDispute,
+
+            dispute_resolved:
+              normalizedDisputeStatus ===
+              "verified",
+
+            dispute_type:
+              latestDispute?.dispute_type ||
+              null,
+
+            dispute_reason:
+              latestDispute?.reason ||
+              null,
+
+            dispute_submitted_at:
+              latestDispute?.submitted_at ||
+              null,
+
+            dispute_reviewed_by:
+              latestDispute?.reviewed_by ||
+              null,
+
+            dispute_reviewed_at:
+              latestDispute?.reviewed_at ||
+              null,
+
+            admin_response:
+              latestDispute?.admin_response ||
+              null,
+          };
+        }
+      );
+
+      // -------------------------------------------------
+      // RESPONSE
+      // -------------------------------------------------
+
+      return res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error(
+        "Client billing error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        error:
+          "Server error fetching client billing",
+      });
+    }
+  }
+);
+
+// =====================================================
+// START SERVER
+// =====================================================
+
+app.listen(
+  PORT,
+  () => {
+
+    console.log(
+      "================================================="
+    );
+
+    console.log(
+      `Client Portal Node.js backend running on http://localhost:${PORT}`
+    );
+
+    console.log(
+      "================================================="
+    );
+  }
+);
