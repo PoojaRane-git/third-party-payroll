@@ -658,10 +658,7 @@
 
                     clearLoginData();
 
-                    localStorage.setItem(
-                        "access_token",
-                        session.access_token
-                    );
+                    const token = localStorage.getItem("access_token");
 
                     localStorage.setItem(
                         "user",

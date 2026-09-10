@@ -7,7 +7,7 @@ const API_BASE = String(
 ).replace(/\/+$/, "");
 
 const api = axios.create({
-    baseURL: API_BASE_URL,
+    baseURL: API_BASE,
     headers: {
         "Content-Type": "application/json",
     },
