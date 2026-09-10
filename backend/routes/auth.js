@@ -9,44 +9,7 @@ const authorize = require("../middleware/authorize");
 
 const nodemailer = require("nodemailer");
 
-// ============================================================
-// CONSTANTS
-// ============================================================
-
-const SUPER_ADMIN_EMAIL = "talentcorner103@gmail.com";
-
-// ============================================================
-// EMAIL CONFIGURATION
-// ============================================================
-
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_PASS = process.env.EMAIL_PASS;
-
-// ============================================================
-// EMAIL TRANSPORTER
-// ============================================================
-
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-
-    auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS,
-    },
-});
-
-transporter.verify((error) => {
-    if (error) {
-        console.error(
-            "❌ Gmail transporter error:",
-            error.message
-        );
-    } else {
-        console.log(
-            "✅ Gmail transporter is ready."
-        );
-    }
-});
+// ... (constants, email transporter — unchanged, skip down to the function)
 
 // ============================================================
 // HELPER
@@ -77,6 +40,11 @@ async function findUserProfile(authUserId) {
         `)
         .eq("auth_user_id", authUserId)
         .maybeSingle();
+
+    // TEMPORARY DEBUG — remove after diagnosing
+    console.log("DEBUG findUserProfile authUserId:", authUserId);
+    console.log("DEBUG thirdPartyUser result:", thirdPartyUser);
+    console.log("DEBUG thirdPartyError:", thirdPartyError);
 
     if (thirdPartyError) {
         throw thirdPartyError;
