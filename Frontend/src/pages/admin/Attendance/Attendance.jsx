@@ -14,8 +14,7 @@ import {
 
 import Sidebar from "../Layout/Sidebar";
 
-const API_BASE = "http://localhost:5000/api";
-
+import API_BASE_URL from "../../config/api";
 // =====================================================
 // HELPERS
 // =====================================================
