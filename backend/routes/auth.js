@@ -160,23 +160,14 @@ async function findUserProfile(authUserId) {
 
     return null;
 }
-
 // ============================================================
 // GET CURRENT USER
 //
 // GET /api/auth/me
 //
-// LOGIN FLOW:
-//
-// Password
-//    ↓
-// Supabase Auth
-//    ↓
-// OTP
-//    ↓
-// Dashboard
-//
-// NO ADMIN APPROVAL REQUIRED
+// Password login identifies the account.
+// OTP is required to complete login.
+// NO ADMIN APPROVAL IS REQUIRED.
 // ============================================================
 
 router.get(
@@ -306,57 +297,56 @@ router.get(
             // ==================================================
             // NORMAL ADMIN
             //
-            // PASSWORD + OTP
-            // NO APPROVAL REQUIRED
+            // OTP ONLY
+            // NO APPROVAL CHECK
             // ==================================================
 
-            if (
-                role === "admin"
-            ) {
+            if (role === "admin") {
 
-                return res.status(200).json({
+    return res.status(200).json({
 
-                    success: true,
+        success: true,
 
-                    user: {
+        user: {
 
-                        supabase_user_id:
-                            authUserId,
+            supabase_user_id:
+                authUserId,
 
-                        email:
-                            profile.email ||
-                            authEmail,
+            email:
+                profile.email ||
+                authEmail,
 
-                        profile_id:
-                            profile.id,
+            profile_id:
+                profile.id,
 
-                        role:
-                            "admin",
+            role:
+                "admin",
 
-                        status:
-                            profile.status,
+            status:
+                profile.status,
 
-                        is_active:
-                            profile.is_active,
+            is_active:
+                profile.is_active,
 
-                        name:
-                            profile.company_name ||
-                            "Admin",
+            name:
+                profile.company_name ||
+                "Admin",
 
-                        company_name:
-                            profile.company_name ||
-                            "Talent Corner",
+            company_name:
+                profile.company_name ||
+                "Talent Corner",
 
-                        admin_id:
-                            profile.id,
-                    },
-                });
-            }
+            admin_id:
+                profile.id,
+        },
+    });
+}
 
             // ==================================================
             // CLIENT
             //
-            // PASSWORD + OTP
+            // OTP ONLY
+            // NO APPROVAL CHECK
             // ==================================================
 
             if (
@@ -402,7 +392,8 @@ router.get(
             // ==================================================
             // EMPLOYEE
             //
-            // PASSWORD + OTP
+            // OTP ONLY
+            // NO APPROVAL CHECK
             // ==================================================
 
             if (
@@ -477,13 +468,13 @@ router.get(
         }
     }
 );
-
 // ============================================================
 // SEND LOGIN OTP
 //
 // POST /api/auth/send-login-otp
 //
 // PASSWORD + OTP
+// NO APPROVAL REQUIRED
 // ============================================================
 
 router.post(
@@ -805,7 +796,6 @@ router.post(
         }
     }
 );
-
 // ============================================================
 // VERIFY LOGIN OTP
 //
@@ -823,6 +813,7 @@ router.post(
 //    ↓
 // Dashboard
 //
+// NO ADMIN APPROVAL
 // ============================================================
 
 router.post(
@@ -1499,6 +1490,10 @@ router.post(
 
             // ==================================================
             // CREATE CLIENT USER
+            //
+            // NOTE:
+            // No updated_at because your schema was not confirmed
+            // to contain it.
             // ==================================================
 
             const {
@@ -1661,12 +1656,8 @@ router.post(
 // ============================================================
 // ADMIN SIGNUP
 //
-// NORMAL ADMIN IS ALLOWED TO LOGIN
-//
-// LOGIN:
-// Password → Supabase Auth → OTP → Dashboard
-//
-// NO ADMIN APPROVAL REQUIRED
+// Normal admins are NOT allowed to login.
+// Only exact Super Admin can login.
 // ============================================================
 
 router.post(
@@ -1763,8 +1754,6 @@ router.post(
 
             // ==================================================
             // CREATE AUTH USER
-            //
-            // PASSWORD IS HANDLED BY SUPABASE AUTH
             // ==================================================
 
             const {
@@ -1804,11 +1793,6 @@ router.post(
 
             // ==================================================
             // CREATE ADMIN PROFILE
-            //
-            // IMPORTANT:
-            // password = NULL
-            //
-            // SUPABASE AUTH STORES THE PASSWORD.
             // ==================================================
 
             const {
@@ -1831,15 +1815,14 @@ router.post(
                         role:
                             "admin",
 
-                        // ADMIN CAN LOGIN IMMEDIATELY
                         status:
-                            "active",
+                            "pending",
 
                         auth_user_id:
                             authUserId,
 
                         is_active:
-                            true,
+                            false,
 
                         client_id:
                             null,
@@ -1890,7 +1873,7 @@ router.post(
                 success: true,
 
                 message:
-                    "Admin account created successfully. You can login using your password and OTP.",
+                    "Admin registration submitted successfully.",
 
                 user: {
 
@@ -1907,10 +1890,10 @@ router.post(
                         "admin",
 
                     status:
-                        "active",
+                        "pending",
 
                     is_active:
-                        true,
+                        false,
                 },
             });
 
