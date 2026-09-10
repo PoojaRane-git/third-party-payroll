@@ -1,7 +1,7 @@
 import axios from "axios";
 import { supabase } from "../../lib/supabaseClient";
 
-const API_BASE_URL = String(
+const API_BASE = String(
     import.meta.env.VITE_API_BASE_URL ||
     (import.meta.env.PROD ? "/api" : "http://localhost:5000/api")
 ).replace(/\/+$/, "");
@@ -30,4 +30,4 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-export default api;
+export default API_BASE;

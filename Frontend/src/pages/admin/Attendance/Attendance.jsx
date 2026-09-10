@@ -12,9 +12,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 
-import Sidebar from "../Layout/Sidebar";
-
-import API_BASE_URL from "../../config/api";
+import API_BASE from "../../config/api";
 // =====================================================
 // HELPERS
 // =====================================================
