@@ -62,7 +62,7 @@ function Sidebar() {
       id: "admindashboard",
       name: "Home",
       icon: Home,
-      path: "/",
+      path: "/admindashboard",
     },
 
     {
