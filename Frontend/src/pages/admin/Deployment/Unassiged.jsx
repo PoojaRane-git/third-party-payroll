@@ -25,9 +25,9 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+// after
 import Sidebar from "../Layout/Sidebar";
-
-const API_BASE = "http://localhost:5000/api";
+import api from "../../services/api";
 
 const ACTIVE_STATUSES = [
   "active",
@@ -113,55 +113,27 @@ export default function Unassigned() {
       setLoading(true);
       setError("");
 
-      const [
-        candidatesResponse,
-        deploymentsResponse,
-        clientsResponse,
-      ] = await Promise.all([
-        fetch(`${API_BASE}/candidates`),
-        fetch(`${API_BASE}/deployments`),
-        fetch(`${API_BASE}/clients`),
-      ]);
+     // after
+const [candidatesResponse, deploymentsResponse, clientsResponse] =
+  await Promise.all([
+    api.get(`/candidates`),
+    api.get(`/deployments`),
+    api.get(`/clients`),
+  ]);
 
-      const candidatesData =
-        await candidatesResponse
-          .json()
-          .catch(() => ({}));
+const candidatesData = candidatesResponse.data;
+const deploymentsData = deploymentsResponse.data;
+const clientsData = clientsResponse.data;
 
-      const deploymentsData =
-        await deploymentsResponse
-          .json()
-          .catch(() => ({}));
-
-      const clientsData =
-        await clientsResponse
-          .json()
-          .catch(() => ({}));
-
-      if (!candidatesResponse.ok) {
-        throw new Error(
-          candidatesData?.error ||
-            candidatesData?.message ||
-            "Failed to fetch employees"
-        );
-      }
-
-      if (!deploymentsResponse.ok) {
-        throw new Error(
-          deploymentsData?.error ||
-            deploymentsData?.message ||
-            "Failed to fetch deployments"
-        );
-      }
-
-      if (!clientsResponse.ok) {
-        throw new Error(
-          clientsData?.error ||
-            clientsData?.message ||
-            "Failed to fetch clients"
-        );
-      }
-
+if (!candidatesResponse.ok) {
+  throw new Error(candidatesData?.error || candidatesData?.message || "Failed to fetch employees");
+}
+if (!deploymentsResponse.ok) {
+  throw new Error(deploymentsData?.error || deploymentsData?.message || "Failed to fetch deployments");
+}
+if (!clientsResponse.ok) {
+  throw new Error(clientsData?.error || clientsData?.message || "Failed to fetch clients");
+}
       // =====================================================
       // CANDIDATES
       // =====================================================
@@ -492,15 +464,31 @@ export default function Unassigned() {
         setLoadingContracts(true);
         setError("");
 
-        const response =
-          await fetch(
-            `${API_BASE}/deployments/contracts/client/${clientId}`
-          );
+      // after
+const response = await api.post("/deployments", {
+  contract_number: contractForm.contractNumber.trim(),
 
-        const data =
-          await response
-            .json()
-            .catch(() => ({}));
+  contract_title: contractForm.contractTitle.trim(),
+
+  billing_model: contractForm.billingModel,
+
+  markup_percentage:
+    contractForm.billingModel === "Percentage Markup"
+      ? Number(contractForm.markupPercentage)
+      : 0,
+
+  per_head_fee:
+    contractForm.billingModel === "Fixed Per-Head Fee"
+      ? Number(contractForm.perHeadFee)
+      : 0,
+
+  credit_terms: contractForm.creditTerms,
+
+  gst_type: contractForm.gstType,
+
+  contract_status: "Active",
+});
+const data = response.data;
 
         if (!response.ok) {
           throw new Error(
@@ -780,201 +768,113 @@ export default function Unassigned() {
   // =========================================================
   // CREATE CONTRACT
   // =========================================================
+const handleCreateContract = async (e) => {
+  e.preventDefault();
 
-  const handleCreateContract =
-    async (e) => {
-      e.preventDefault();
+  if (!deployForm.clientId) {
+    alert("Please select a client first.");
+    return;
+  }
 
-      if (
-        !deployForm.clientId
-      ) {
-        alert(
-          "Please select a client first."
-        );
-        return;
-      }
+  if (!contractForm.contractNumber.trim()) {
+    alert("Please enter contract number.");
+    return;
+  }
 
-      if (
-        !contractForm.contractNumber.trim()
-      ) {
-        alert(
-          "Please enter contract number."
-        );
-        return;
-      }
+  if (!contractForm.contractTitle.trim()) {
+    alert("Please enter contract title.");
+    return;
+  }
 
-      if (
-        !contractForm.contractTitle.trim()
-      ) {
-        alert(
-          "Please enter contract title."
-        );
-        return;
-      }
+  if (
+    contractForm.billingModel === "Percentage Markup" &&
+    contractForm.markupPercentage === ""
+  ) {
+    alert("Please enter markup percentage.");
+    return;
+  }
 
-      if (
-        contractForm.billingModel ===
-          "Percentage Markup" &&
-        contractForm.markupPercentage ===
-          ""
-      ) {
-        alert(
-          "Please enter markup percentage."
-        );
-        return;
-      }
+  if (
+    contractForm.billingModel === "Fixed Per-Head Fee" &&
+    contractForm.perHeadFee === ""
+  ) {
+    alert("Please enter per-head fee.");
+    return;
+  }
 
-      if (
-        contractForm.billingModel ===
-          "Fixed Per-Head Fee" &&
-        contractForm.perHeadFee ===
-          ""
-      ) {
-        alert(
-          "Please enter per-head fee."
-        );
-        return;
-      }
+  try {
+    setCreatingContract(true);
+    setError("");
 
-      try {
-        setCreatingContract(
-          true
-        );
+    const response = await api.post("/deployments", {
+      contract_number: contractForm.contractNumber.trim(),
 
-        setError("");
+      contract_title: contractForm.contractTitle.trim(),
 
-        const response =
-          await fetch(
-            `${API_BASE}/deployments/contracts`,
-            {
-              method:
-                "POST",
+      billing_model: contractForm.billingModel,
 
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
+      markup_percentage:
+        contractForm.billingModel === "Percentage Markup"
+          ? Number(contractForm.markupPercentage)
+          : 0,
 
-              body: JSON.stringify({
-                client_id:
-                  Number(
-                    deployForm.clientId
-                  ),
+      per_head_fee:
+        contractForm.billingModel === "Fixed Per-Head Fee"
+          ? Number(contractForm.perHeadFee)
+          : 0,
 
-                contract_number:
-                  contractForm.contractNumber.trim(),
+      credit_terms: contractForm.creditTerms,
 
-                contract_title:
-                  contractForm.contractTitle.trim(),
+      gst_type: contractForm.gstType,
 
-                billing_model:
-                  contractForm.billingModel,
+      contract_status: "Active",
+    });
 
-                markup_percentage:
-                  contractForm.billingModel ===
-                  "Percentage Markup"
-                    ? Number(
-                        contractForm.markupPercentage
-                      )
-                    : 0,
+    const data = response.data;
 
-                per_head_fee:
-                  contractForm.billingModel ===
-                  "Fixed Per-Head Fee"
-                    ? Number(
-                        contractForm.perHeadFee
-                      )
-                    : 0,
+    const createdContract =
+      data?.data ||
+      data?.contract ||
+      data;
 
-                credit_terms:
-                  contractForm.creditTerms,
+    if (!createdContract) {
+      throw new Error(
+        "Contract was created but no contract data was returned."
+      );
+    }
 
-                gst_type:
-                  contractForm.gstType,
+    // Add newly created contract to the list
+    setContracts((prev) => [
+      createdContract,
+      ...prev,
+    ]);
 
-                contract_status:
-                  "Active",
-              }),
-            }
-          );
+    // Automatically select newly created contract
+    setDeployForm((prev) => ({
+      ...prev,
+      contractId: String(createdContract.id),
+    }));
 
-        const data =
-          await response
-            .json()
-            .catch(() => ({}));
+    // Close contract modal
+    setShowContractModal(false);
 
-        if (!response.ok) {
-          throw new Error(
-            data?.message ||
-              data?.error ||
-              "Failed to create contract."
-          );
-        }
+    alert("Contract created successfully.");
+  } catch (err) {
+    console.error(
+      "CREATE CONTRACT ERROR:",
+      err
+    );
 
-        const createdContract =
-          data?.data ||
-          data?.contract;
-
-        if (
-          !createdContract
-        ) {
-          throw new Error(
-            "Contract was created but no contract data was returned."
-          );
-        }
-
-        // ===================================================
-        // ADD NEW CONTRACT
-        // ===================================================
-
-        setContracts(
-          (prev) => [
-            createdContract,
-            ...prev,
-          ]
-        );
-
-        // ===================================================
-        // AUTO SELECT NEW CONTRACT
-        // ===================================================
-
-        setDeployForm(
-          (prev) => ({
-            ...prev,
-            contractId:
-              String(
-                createdContract.id
-              ),
-          })
-        );
-
-        // ===================================================
-        // CLOSE CONTRACT MODAL
-        // ===================================================
-
-        setShowContractModal(
-          false
-        );
-
-        alert(
-          "Contract created successfully."
-        );
-      } catch (err) {
-        console.error(
-          "CREATE CONTRACT ERROR:",
-          err
-        );
-
-        setError(
-          err?.message ||
-            "Failed to create contract."
-        );
-      } finally {
-        setCreatingContract(
-          false
-        );
-      }
-    };
+    setError(
+      err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Failed to create contract."
+    );
+  } finally {
+    setCreatingContract(false);
+  }
+};
 
   // =========================================================
   // DEPLOY EMPLOYEE

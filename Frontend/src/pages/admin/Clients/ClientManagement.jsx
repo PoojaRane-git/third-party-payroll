@@ -14,8 +14,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../Layout/Sidebar";
-
-const API_BASE = "http://localhost:5000/api";
+ import api from '../../services/api'
 
 export default function ClientManagement({
     activeTab,
@@ -113,11 +112,10 @@ export default function ClientManagement({
 
     const fetchClients = async () => {
         try {
-            const res = await fetch(
-                `${API_BASE}/clients`
-            );
+            const res = await api.ge("/clients");
+          
 
-            const data = await res.json();
+            const data = res.data;
 
             console.log(
                 "CLIENT API RESPONSE:",
@@ -175,119 +173,97 @@ export default function ClientManagement({
     // ADD CLIENT
     // =====================================================
 
-    const addClient = async (e) => {
-        e.preventDefault();
+   const addClient = async (e) => {
+    e.preventDefault();
 
-        if (
-            !companyName.trim() ||
-            !contactPerson.trim() ||
-            !email.trim() ||
-            !phone.trim()
-        ) {
-            alert(
-                "Please fill all required fields"
-            );
-            return;
-        }
+    if (
+        !companyName.trim() ||
+        !contactPerson.trim() ||
+        !email.trim() ||
+        !phone.trim()
+    ) {
+        alert("Please fill all required fields");
+        return;
+    }
 
-        try {
-            setSavingClient(true);
+    try {
+        setSavingClient(true);
 
-            const res = await fetch(
-                `${API_BASE}/clients`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-                    body: JSON.stringify({
-                        company_name:
-                            companyName.trim(),
+        const res = await api.post("/clients", {
+            company_name: companyName.trim(),
 
-                        logo:
-                            logo || "🏢",
+            logo: logo || "🏢",
 
-                        industry:
-                            industry.trim() ||
-                            null,
+            industry:
+                industry.trim() || null,
 
-                        gstin:
-                            gstin.trim() ||
-                            null,
+            gstin:
+                gstin.trim()
+                    ? gstin.trim().toUpperCase()
+                    : null,
 
-                        contact_person:
-                            contactPerson.trim(),
+            contact_person:
+                contactPerson.trim(),
 
-                        email:
-                            email.trim(),
+            email:
+                email.trim().toLowerCase(),
 
-                        phone:
-                            phone.trim(),
+            phone:
+                phone.trim(),
 
-                        billing_address:
-                            billingAddress.trim() ||
-                            null,
+            billing_address:
+                billingAddress.trim() || null,
 
-                        state_code:
-                            stateCode.trim() ||
-                            null,
+            state_code:
+                stateCode.trim() || null,
 
-                        credit_terms:
-                            creditTerms ||
-                            "Net 30",
+            credit_terms:
+                creditTerms || "Net 30",
 
-                        status:
-                            status ||
-                            "Active",
+            status:
+                status || "Active",
 
-                        service_fee:
-                            serviceFee !== ""
-                                ? Number(
-                                    serviceFee
-                                )
-                                : null,
-                    }),
-                }
-            );
+            service_fee:
+                serviceFee !== ""
+                    ? Number(serviceFee)
+                    : null,
+        });
 
-            const data =
-                await res.json();
+        console.log(
+            "ADD CLIENT RESPONSE:",
+            res.data
+        );
 
-            console.log(
-                "ADD CLIENT RESPONSE:",
-                data
-            );
+        resetForm();
 
-            if (!res.ok) {
-                throw new Error(
-                    data.message ||
-                    "Failed to add client"
-                );
-            }
+        setShowAddModal(false);
 
-            resetForm();
+        await fetchClients();
 
-            setShowAddModal(false);
+        alert("Client created successfully");
 
-            await fetchClients();
+    } catch (err) {
+        console.error(
+            "Error adding client:",
+            err
+        );
 
-            alert(
-                "Client created successfully"
-            );
+        console.error(
+            "ADD CLIENT ERROR:",
+            err?.response?.data
+        );
 
-        } catch (err) {
-            console.error(
-                "Error adding client:",
-                err
-            );
+        alert(
+            err?.response?.data?.message ||
+            err?.response?.data?.error ||
+            err.message ||
+            "Failed to add client"
+        );
 
-            alert(err.message);
-
-        } finally {
-            setSavingClient(false);
-        }
-    };
+    } finally {
+        setSavingClient(false);
+    }
+};
 
     // =====================================================
     // EDIT CLIENT
@@ -369,293 +345,235 @@ export default function ClientManagement({
     // UPDATE CLIENT
     // =====================================================
 
-    const updateClient = async (e) => {
-        e.preventDefault();
+   const updateClient = async (e) => {
+    e.preventDefault();
 
-        if (!selectedClient?.id) {
-            alert(
-                "Invalid client selected"
-            );
-            return;
-        }
+    if (!selectedClient?.id) {
+        alert("Invalid client selected");
+        return;
+    }
 
-        if (
-            !companyName.trim() ||
-            !contactPerson.trim() ||
-            !email.trim() ||
-            !phone.trim()
-        ) {
-            alert(
-                "Please fill all required fields"
-            );
-            return;
-        }
+    if (
+        !companyName.trim() ||
+        !contactPerson.trim() ||
+        !email.trim() ||
+        !phone.trim()
+    ) {
+        alert("Please fill all required fields");
+        return;
+    }
 
-        try {
-            setSavingClient(true);
+    try {
+        setSavingClient(true);
 
-            const clientId =
-                selectedClient.id;
+        const clientId = selectedClient.id;
 
-            const url =
-                `${API_BASE}/clients/${clientId}`;
+        console.log(
+            "Updating client:",
+            clientId
+        );
 
-            console.log(
-                "Updating client:",
-                url
-            );
+        const res = await api.put(
+            `/clients/${clientId}`,
+            {
+                company_name:
+                    companyName.trim(),
 
-            const res = await fetch(
-                url,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-                    body: JSON.stringify({
-                        company_name:
-                            companyName.trim(),
+                logo:
+                    logo || "🏢",
 
-                        logo:
-                            logo || "🏢",
+                industry:
+                    industry.trim() || null,
 
-                        industry:
-                            industry.trim() ||
-                            null,
+                gstin:
+                    gstin.trim()
+                        ? gstin.trim().toUpperCase()
+                        : null,
 
-                        gstin:
-                            gstin.trim()
-                                ? gstin
-                                    .trim()
-                                    .toUpperCase()
-                                : null,
+                contact_person:
+                    contactPerson.trim(),
 
-                        contact_person:
-                            contactPerson.trim(),
+                email:
+                    email.trim().toLowerCase(),
 
-                        email:
-                            email.trim(),
+                phone:
+                    phone.trim(),
 
-                        phone:
-                            phone.trim(),
+                billing_address:
+                    billingAddress.trim() || null,
 
-                        billing_address:
-                            billingAddress.trim() ||
-                            null,
+                state_code:
+                    stateCode.trim() || null,
 
-                        state_code:
-                            stateCode.trim() ||
-                            null,
+                credit_terms:
+                    creditTerms || "Net 30",
 
-                        credit_terms:
-                            creditTerms ||
-                            "Net 30",
+                status:
+                    status || "Active",
 
-                        status:
-                            status ||
-                            "Active",
-
-                        service_fee:
-                            serviceFee !== ""
-                                ? Number(
-                                    serviceFee
-                                )
-                                : null,
-                    }),
-                }
-            );
-
-            const data =
-                await res.json();
-
-            console.log(
-                "UPDATE CLIENT RESPONSE:",
-                data
-            );
-
-            if (!res.ok) {
-                throw new Error(
-                    data.message ||
-                    "Failed to update client"
-                );
+                service_fee:
+                    serviceFee !== ""
+                        ? Number(serviceFee)
+                        : null,
             }
+        );
 
-            // Update selected client immediately
-            if (data.data) {
-                setSelectedClient(
-                    data.data
-                );
-            }
+        console.log(
+            "UPDATE CLIENT RESPONSE:",
+            res.data
+        );
 
-            setShowEditModal(false);
+        const data = res.data;
 
-            resetForm();
-
-            await fetchClients();
-
-            alert(
-                "Client updated successfully"
-            );
-
-        } catch (err) {
-            console.error(
-                "Error updating client:",
-                err
-            );
-
-            alert(err.message);
-
-        } finally {
-            setSavingClient(false);
+        if (data?.data) {
+            setSelectedClient(data.data);
         }
-    };
 
+        setShowEditModal(false);
+
+        resetForm();
+
+        await fetchClients();
+
+        alert("Client updated successfully");
+
+    } catch (err) {
+        console.error(
+            "Error updating client:",
+            err
+        );
+
+        console.error(
+            "UPDATE CLIENT ERROR:",
+            err?.response?.data
+        );
+
+        alert(
+            err?.response?.data?.message ||
+            err?.response?.data?.error ||
+            err.message ||
+            "Failed to update client"
+        );
+
+    } finally {
+        setSavingClient(false);
+    }
+};
     // =====================================================
     // DEACTIVATE CLIENT
     // =====================================================
+const handleDeactivateClient = async (client) => {
+    const confirmDeactivate =
+        window.confirm(
+            `Are you sure you want to deactivate ${client.company_name}? Historical payroll data will be preserved.`
+        );
 
-    const handleDeactivateClient = async (
-        client
-    ) => {
-        const confirmDeactivate =
-            window.confirm(
-                `Are you sure you want to deactivate ${client.company_name}? Historical payroll data will be preserved.`
-            );
+    if (!confirmDeactivate) {
+        return;
+    }
 
-        if (!confirmDeactivate) {
-            return;
-        }
+    try {
+        const res = await api.patch(
+            `/clients/${client.id}/deactivate`
+        );
 
-        try {
-            const res =
-                await fetch(
-                    `${API_BASE}/clients/${client.id}/deactivate`,
-                    {
-                        method: "PATCH",
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-                    }
-                );
+        console.log(
+            "DEACTIVATE CLIENT RESPONSE:",
+            res.data
+        );
 
-            const data =
-                await res.json();
+        setActiveMenuId(null);
 
-            if (!res.ok) {
-                throw new Error(
-                    data.message ||
-                    "Failed to deactivate client"
-                );
-            }
+        await fetchClients();
 
-            setActiveMenuId(null);
+        alert(
+            "Client deactivated successfully"
+        );
 
-            await fetchClients();
+    } catch (err) {
+        console.error(
+            "Error deactivating client:",
+            err
+        );
 
-            alert(
-                "Client deactivated successfully"
-            );
+        console.error(
+            "DEACTIVATE CLIENT ERROR:",
+            err?.response?.data
+        );
 
-        } catch (err) {
-            console.error(
-                "Error deactivating client:",
-                err
-            );
-
-            alert(err.message);
-        }
-    };
-
+        alert(
+            err?.response?.data?.message ||
+            err?.response?.data?.error ||
+            err.message ||
+            "Failed to deactivate client"
+        );
+    }
+};
     // =====================================================
     // VIEW CLIENT
     // =====================================================
 
-    const handleViewClient = (
-        client
-    ) => {
-        setSelectedClient(client);
+    const handleViewEmployees = async (client) => {
+    setCurrentClientName(
+        client.company_name || "Client"
+    );
 
-        setShowViewModal(true);
+    try {
+        console.log(
+            "Fetching deployments for client:",
+            client.id
+        );
 
+        const res = await api.get(
+            `/deployments/client/${client.id}`
+        );
+
+        console.log(
+            "Deployment API response:",
+            res.data
+        );
+
+        const data = res.data;
+
+        const deploymentList =
+            Array.isArray(data)
+                ? data
+                : Array.isArray(data?.data)
+                    ? data.data
+                    : [];
+
+        setSelectedClientEmployees(
+            deploymentList
+        );
+
+        setShowEmployeeModal(true);
+
+    } catch (err) {
+        console.error(
+            "DEPLOYMENT FETCH ERROR:",
+            err
+        );
+
+        console.error(
+            "DEPLOYMENT API RESPONSE:",
+            err?.response?.data
+        );
+
+        setSelectedClientEmployees([]);
+
+        alert(
+            `Could not fetch employee deployment details.\n\n${
+                err?.response?.data?.message ||
+                err?.response?.data?.error ||
+                err.message ||
+                "Request failed"
+            }`
+        );
+
+    } finally {
         setActiveMenuId(null);
-    };
-
-    // =====================================================
-    // VIEW EMPLOYEES
-    // =====================================================
-
-    const handleViewEmployees =
-        async (client) => {
-            setCurrentClientName(
-                client.company_name ||
-                "Client"
-            );
-
-            try {
-                const url =
-                    `${API_BASE}/deployments/client/${client.id}`;
-
-                console.log(
-                    "Fetching deployments:",
-                    url
-                );
-
-                const res =
-                    await fetch(url);
-
-                const data =
-                    await res.json();
-
-                console.log(
-                    "Deployment API response:",
-                    data
-                );
-
-                if (!res.ok) {
-                    throw new Error(
-                        data?.error ||
-                        data?.message ||
-                        `Request failed with status ${res.status}`
-                    );
-                }
-
-                const deploymentList =
-                    Array.isArray(data)
-                        ? data
-                        : Array.isArray(
-                            data?.data
-                        )
-                            ? data.data
-                            : [];
-
-                setSelectedClientEmployees(
-                    deploymentList
-                );
-
-                setShowEmployeeModal(
-                    true
-                );
-
-            } catch (err) {
-                console.error(
-                    "DEPLOYMENT FETCH ERROR:",
-                    err
-                );
-
-                setSelectedClientEmployees(
-                    []
-                );
-
-                alert(
-                    `Could not fetch employee deployment details.\n\n${err.message}`
-                );
-            }
-
-            setActiveMenuId(null);
-        };
-
+    }
+};
     // =====================================================
     // VIEW CONTRACT
     // =====================================================

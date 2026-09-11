@@ -1,10 +1,7 @@
 
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
-const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL ||
-    "http://localhost:5000/api";
+import api from "./pages/services/api";
 
 function Signup() {
     const navigate = useNavigate();
@@ -182,262 +179,202 @@ function Signup() {
     // ============================================================
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+  e.preventDefault();
 
-        setError("");
-        setMessage("");
+  setError("");
+  setMessage("");
 
-        const validationError =
-            validateForm();
+  const validationError = validateForm();
 
-        if (validationError) {
-            setError(validationError);
-            return;
-        }
+  if (validationError) {
+    setError(validationError);
+    return;
+  }
 
-        setLoading(true);
+  setLoading(true);
 
-        try {
-            let endpoint = "";
-            let body = {};
+  try {
+    let endpoint = "";
+    let body = {};
 
-            // ====================================================
-            // CLIENT
-            // ====================================================
+    // ============================================================
+    // CLIENT SIGNUP
+    // ============================================================
 
-            if (
-                accountType === "client"
-            ) {
-                endpoint =
-                    "/auth/signup-client";
+    if (accountType === "client") {
+      endpoint = "/auth/signup-client";
 
-                body = {
-                    email: formData.email
-                        .trim()
-                        .toLowerCase(),
+      body = {
+        email: formData.email.trim().toLowerCase(),
 
-                    password:
-                        formData.password,
+        password: formData.password,
 
-                    company_name:
-                        formData.company_name.trim(),
+        company_name: formData.company_name.trim(),
 
-                    gstin:
-                        formData.gstin
-                            .trim()
-                            .toUpperCase(),
+        gstin: formData.gstin
+          .trim()
+          .toUpperCase(),
 
-                    billing_address:
-                        formData.billing_address.trim(),
+        billing_address:
+          formData.billing_address.trim(),
 
-                    state_code:
-                        formData.state_code.trim(),
+        state_code:
+          formData.state_code.trim(),
 
-                    credit_terms:
-                        formData.credit_terms.trim(),
+        credit_terms:
+          formData.credit_terms.trim(),
 
-                    contact_person:
-                        formData.contact_person.trim(),
+        contact_person:
+          formData.contact_person.trim(),
 
-                    phone:
-                        formData.phone.trim(),
+        phone:
+          formData.phone.trim(),
 
-                    service_fee:
-                        formData.service_fee === ""
-                            ? null
-                            : Number(
-                                  formData.service_fee
-                              ),
-                };
-            }
+        service_fee:
+          formData.service_fee === ""
+            ? null
+            : Number(formData.service_fee),
+      };
+    }
 
-            // ====================================================
-            // EMPLOYEE
-            // ====================================================
+    // ============================================================
+    // EMPLOYEE SIGNUP
+    // ============================================================
 
-            if (
-                accountType === "employee"
-            ) {
-                endpoint =
-                    "/auth/signup-employee";
+    if (accountType === "employee") {
+      endpoint = "/auth/signup-employee";
 
-                body = {
-                    name:
-                        formData.name.trim(),
+      body = {
+        name: formData.name.trim(),
 
-                    full_name:
-                        formData.name.trim(),
+        full_name: formData.name.trim(),
 
-                    email:
-                        formData.email
-                            .trim()
-                            .toLowerCase(),
+        email: formData.email
+          .trim()
+          .toLowerCase(),
 
-                    password:
-                        formData.password,
+        password: formData.password,
 
-                    phone:
-                        formData.phone.trim(),
+        phone: formData.phone.trim(),
 
-                    pan_number:
-                        formData.pan_number
-                            .trim()
-                            .toUpperCase(),
+        pan_number: formData.pan_number
+          .trim()
+          .toUpperCase(),
 
-                    bank_account_number:
-                        formData.bank_account_number.trim(),
+        bank_account_number:
+          formData.bank_account_number.trim(),
 
-                    ifsc_code:
-                        formData.ifsc_code
-                            .trim()
-                            .toUpperCase(),
+        ifsc_code: formData.ifsc_code
+          .trim()
+          .toUpperCase(),
 
-                    bank_name:
-                        formData.bank_name.trim(),
+        bank_name:
+          formData.bank_name.trim(),
 
-                    uan_number:
-                        formData.uan_number.trim(),
+        uan_number:
+          formData.uan_number.trim(),
 
-                    esic_number:
-                        formData.esic_number.trim(),
+        esic_number:
+          formData.esic_number.trim(),
 
-                    date_of_joining:
-                        formData.date_of_joining,
+        date_of_joining:
+          formData.date_of_joining,
 
-                    employment_status:
-                        "Pending",
+        employment_status: "Pending",
 
-                    designation:
-                        formData.designation.trim(),
+        designation:
+          formData.designation.trim(),
 
-                    deployment_id:
-                        formData.deployment_id ===
-                            ""
-                            ? null
-                            : Number(
-                                  formData.deployment_id
-                              ),
-                };
-            }
+        deployment_id:
+          formData.deployment_id === ""
+            ? null
+            : Number(formData.deployment_id),
+      };
+    }
 
-            // ====================================================
-            // SAFETY CHECK
-            // ====================================================
+    // ============================================================
+    // SAFETY CHECK
+    // ============================================================
 
-            if (!endpoint) {
-                throw new Error(
-                    "Invalid account type."
-                );
-            }
+    if (!endpoint) {
+      throw new Error("Invalid account type.");
+    }
 
-            // ====================================================
-            // API REQUEST
-            // ====================================================
+    // ============================================================
+    // API REQUEST
+    // ============================================================
 
-            const response =
-                await fetch(
-                    `${API_BASE_URL}${endpoint}`,
-                    {
-                        method: "POST",
+    const response = await api.post(
+      endpoint,
+      body
+    );
 
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
+    const data = response.data;
 
-                        body: JSON.stringify(
-                            body
-                        ),
-                    }
-                );
+    // ============================================================
+    // RESPONSE CHECK
+    // ============================================================
 
-            // ====================================================
-            // PARSE RESPONSE SAFELY
-            // ====================================================
+    if (!data) {
+      throw new Error(
+        "Invalid response from server."
+      );
+    }
 
-            let data;
+    // ============================================================
+    // SUCCESS MESSAGE
+    // ============================================================
 
-            try {
-                data =
-                    await response.json();
-            } catch {
-                throw new Error(
-                    "Invalid response from server."
-                );
-            }
+    setMessage(
+      data?.message ||
+        "Account created successfully."
+    );
 
-            // ====================================================
-            // API ERROR
-            // ====================================================
+    // Clear only passwords
+    setFormData((prev) => ({
+      ...prev,
+      password: "",
+      confirmPassword: "",
+    }));
 
-            if (!response.ok) {
-                throw new Error(
-                    data?.message ||
-                        "Signup failed."
-                );
-            }
+    // ============================================================
+    // CLIENT
+    // ============================================================
 
-            // ====================================================
-            // SUCCESS
-            // ====================================================
+    if (accountType === "client") {
+      setTimeout(() => {
+        navigate("/login");
+      }, 1500);
 
-            setMessage(
-                data?.message ||
-                    "Account created successfully."
-            );
+      return;
+    }
 
-            setFormData((prev) => ({
-                ...prev,
+    // ============================================================
+    // EMPLOYEE
+    // ============================================================
 
-                password: "",
-                confirmPassword: "",
-            }));
+    if (accountType === "employee") {
+      // Employee does NOT get automatically logged in.
+      // Admin approval is required.
 
-            // ====================================================
-            // CLIENT
-            // ====================================================
+      return;
+    }
+  } catch (err) {
+    console.error(
+      "Signup error:",
+      err
+    );
 
-            if (
-                accountType === "client"
-            ) {
-                setTimeout(() => {
-                    navigate("/login");
-                }, 1500);
-
-                return;
-            }
-
-            // ====================================================
-            // EMPLOYEE
-            // ====================================================
-
-            if (
-                accountType === "employee"
-            ) {
-                // Do NOT automatically login.
-                //
-                // Employee must be approved by admin.
-                //
-                // Stay on page so user can see
-                // the approval message.
-
-                return;
-            }
-        } catch (err) {
-            console.error(
-                "Signup error:",
-                err
-            );
-
-            setError(
-                err?.message ||
-                    "Unable to create account."
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    setError(
+      err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Unable to create account."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
     // ============================================================
     // INPUT COMPONENT
     // ============================================================

@@ -8,26 +8,16 @@ const API_BASE = String(
 
 const api = axios.create({
     baseURL: API_BASE,
-    headers: {
-        "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
 });
 
-api.interceptors.request.use(
-    async (config) => {
-        const {
-            data: { session },
-        } = await supabase.auth.getSession();
+api.interceptors.request.use(async (config) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+        config.headers.Authorization = `Bearer ${session.access_token}`;
+    }
+    return config;
+});
 
-        if (session?.access_token) {
-            config.headers = config.headers || {};
-            config.headers.Authorization =
-                `Bearer ${session.access_token}`;
-        }
-
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
-
-export default API_BASE;
+export default api;
+export { API_BASE };
