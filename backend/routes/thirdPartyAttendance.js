@@ -232,7 +232,7 @@ router.get("/", async (req, res) => {
         // ====================================================
 
         let dailyQuery =
-            supabase
+            supabaseAdmin
                 .from(DAILY_TABLE)
                 .select(`
                     id,
@@ -312,7 +312,7 @@ router.get("/", async (req, res) => {
             const {
                 data,
                 error,
-            } = await supabase
+            } = await supabaseAdmin
                 .from("candidates")
                 .select(`
                     id,
@@ -359,7 +359,7 @@ router.get("/", async (req, res) => {
             const {
                 data,
                 error,
-            } = await supabase
+            } = await supabaseAdmin
                 .from("clients")
                 .select(`
                     id,
