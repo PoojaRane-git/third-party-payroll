@@ -76,7 +76,7 @@ function Sidebar() {
       id: "requisitions",
       name: "Job Requisitions",
       icon: ClipboardList,
-      path: "/job-requirements",
+      path: "/admin-job-requirements",
     },
 
     {

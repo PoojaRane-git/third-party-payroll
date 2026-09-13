@@ -83,10 +83,16 @@ const payrollRoutes = require("./routes/payroll");
 const billingRoutes = require("./routes/billing");
 const paymentRoutes = require("./routes/payments");
 const invoiceDisputeRoutes = require("./routes/invoiceDisputes");
-const AdminjobRequirementRoutes = require("./routes/AdminjobRequirements");
 const reportsRoutes = require("./routes/reports");
 const ClientjobRequirementRoutes = require("./routes/client/ClientjobRequirements")
 
+const AdminjobRequirementRoutes =
+  require("./routes/AdminjobRequirements");
+
+app.use(
+  "/api/admin-job-requirements",
+  AdminjobRequirementRoutes
+);
 // =====================================================
 // EMPLOYEE USERS
 // =====================================================
@@ -326,7 +332,7 @@ app.use(
 // JOB REQUIREMENTS
 // =====================================================
 
-app.use("/api/admin-job-requirements", AdminjobRequirementRoutes);
+
 
 
 app.use(
@@ -523,10 +529,6 @@ console.log(
   typeof invoiceDisputeRoutes
 );
 
-console.log(
-  "AdminjobRequirementRoutes:",
-  typeof AdminjobRequirementRoutes
-);
 
 console.log(
   "reportsRoutes:",

@@ -1,3 +1,4 @@
+
 import React, {
   useEffect,
   useMemo,
@@ -144,14 +145,14 @@ export default function Unassigned() {
         Array.isArray(candidatesData)
           ? candidatesData
           : Array.isArray(
-              candidatesData?.data
-            )
-          ? candidatesData.data
-          : Array.isArray(
+            candidatesData?.data
+          )
+            ? candidatesData.data
+            : Array.isArray(
               candidatesData?.candidates
             )
-          ? candidatesData.candidates
-          : [];
+              ? candidatesData.candidates
+              : [];
 
       // =====================================================
       // DEPLOYMENTS
@@ -161,14 +162,14 @@ export default function Unassigned() {
         Array.isArray(deploymentsData)
           ? deploymentsData
           : Array.isArray(
-              deploymentsData?.data
-            )
-          ? deploymentsData.data
-          : Array.isArray(
+            deploymentsData?.data
+          )
+            ? deploymentsData.data
+            : Array.isArray(
               deploymentsData?.deployments
             )
-          ? deploymentsData.deployments
-          : [];
+              ? deploymentsData.deployments
+              : [];
 
       // =====================================================
       // CLIENTS
@@ -178,14 +179,14 @@ export default function Unassigned() {
         Array.isArray(clientsData)
           ? clientsData
           : Array.isArray(
-              clientsData?.data
-            )
-          ? clientsData.data
-          : Array.isArray(
+            clientsData?.data
+          )
+            ? clientsData.data
+            : Array.isArray(
               clientsData?.clients
             )
-          ? clientsData.clients
-          : [];
+              ? clientsData.clients
+              : [];
 
       console.log(
         "UNASSIGNED - CANDIDATES:",
@@ -213,9 +214,9 @@ export default function Unassigned() {
 
       setError(
         err?.response?.data?.message ||
-          err?.response?.data?.error ||
-          err?.message ||
-          "Failed to load employees"
+        err?.response?.data?.error ||
+        err?.message ||
+        "Failed to load employees"
       );
 
       setCandidates([]);
@@ -233,8 +234,8 @@ export default function Unassigned() {
   const getEmployeeId = (employee) => {
     const id = Number(
       employee?.id ??
-        employee?.candidate_id ??
-        employee?.employee_id
+      employee?.candidate_id ??
+      employee?.employee_id
     );
 
     return Number.isInteger(id) && id > 0
@@ -251,8 +252,8 @@ export default function Unassigned() {
   ) => {
     const id = Number(
       deployment?.candidate_id ??
-        deployment?.employee_id ??
-        deployment?.employee_ref_id
+      deployment?.employee_id ??
+      deployment?.employee_ref_id
     );
 
     return Number.isInteger(id) && id > 0
@@ -310,11 +311,11 @@ export default function Unassigned() {
           // deployment_id
           const hasCandidateDeployment =
             candidate?.deployment_id !==
-              null &&
+            null &&
             candidate?.deployment_id !==
-              undefined &&
+            undefined &&
             candidate?.deployment_id !==
-              "";
+            "";
 
           // Candidate should not have active deployment
           const hasActiveDeployment =
@@ -431,11 +432,11 @@ export default function Unassigned() {
       payRate:
         employee?.pay_rate !==
           null &&
-        employee?.pay_rate !==
+          employee?.pay_rate !==
           undefined
           ? String(
-              employee.pay_rate
-            )
+            employee.pay_rate
+          )
           : "",
       startDate: "",
     });
@@ -504,14 +505,14 @@ export default function Unassigned() {
           Array.isArray(data)
             ? data
             : Array.isArray(
-                data?.data
-              )
-            ? data.data
-            : Array.isArray(
+              data?.data
+            )
+              ? data.data
+              : Array.isArray(
                 data?.contracts
               )
-            ? data.contracts
-            : [];
+                ? data.contracts
+                : [];
 
         console.log(
           "CONTRACTS FOR CLIENT:",
@@ -531,9 +532,9 @@ export default function Unassigned() {
 
         setError(
           err?.response?.data?.message ||
-            err?.response?.data?.error ||
-            err?.message ||
-            "Failed to load contracts."
+          err?.response?.data?.error ||
+          err?.message ||
+          "Failed to load contracts."
         );
       } finally {
         setLoadingContracts(
@@ -559,11 +560,11 @@ export default function Unassigned() {
           [name]: value,
 
           ...(name ===
-          "clientId"
+            "clientId"
             ? {
-                contractId:
-                  "",
-              }
+              contractId:
+                "",
+            }
             : {}),
         })
       );
@@ -638,7 +639,7 @@ export default function Unassigned() {
         const markup =
           Number(
             selectedContract.markup_percentage ||
-              0
+            0
           );
 
         if (
@@ -654,7 +655,7 @@ export default function Unassigned() {
             payRate +
             (payRate *
               markup) /
-              100
+            100
           ).toFixed(2)
         );
       }
@@ -670,7 +671,7 @@ export default function Unassigned() {
         const fee =
           Number(
             selectedContract.per_head_fee ||
-              0
+            0
           );
 
         if (
@@ -762,20 +763,20 @@ export default function Unassigned() {
           [name]: value,
 
           ...(name ===
-          "billingModel"
+            "billingModel"
             ? {
-                markupPercentage:
-                  value ===
+              markupPercentage:
+                value ===
                   "Percentage Markup"
-                    ? prev.markupPercentage
-                    : "",
+                  ? prev.markupPercentage
+                  : "",
 
-                perHeadFee:
-                  value ===
+              perHeadFee:
+                value ===
                   "Fixed Per-Head Fee"
-                    ? prev.perHeadFee
-                    : "",
-              }
+                  ? prev.perHeadFee
+                  : "",
+            }
             : {}),
         })
       );
@@ -818,9 +819,9 @@ export default function Unassigned() {
 
       if (
         contractForm.billingModel ===
-          "Percentage Markup" &&
+        "Percentage Markup" &&
         contractForm.markupPercentage ===
-          ""
+        ""
       ) {
         alert(
           "Please enter markup percentage."
@@ -830,9 +831,9 @@ export default function Unassigned() {
 
       if (
         contractForm.billingModel ===
-          "Fixed Per-Head Fee" &&
+        "Fixed Per-Head Fee" &&
         contractForm.perHeadFee ===
-          ""
+        ""
       ) {
         alert(
           "Please enter per-head fee."
@@ -875,18 +876,18 @@ export default function Unassigned() {
 
           markup_percentage:
             contractForm.billingModel ===
-            "Percentage Markup"
+              "Percentage Markup"
               ? Number(
-                  contractForm.markupPercentage
-                )
+                contractForm.markupPercentage
+              )
               : 0,
 
           per_head_fee:
             contractForm.billingModel ===
-            "Fixed Per-Head Fee"
+              "Fixed Per-Head Fee"
               ? Number(
-                  contractForm.perHeadFee
-                )
+                contractForm.perHeadFee
+              )
               : 0,
 
           credit_terms:
@@ -976,9 +977,9 @@ export default function Unassigned() {
 
         setError(
           err?.response?.data?.message ||
-            err?.response?.data?.error ||
-            err?.message ||
-            "Failed to create contract."
+          err?.response?.data?.error ||
+          err?.message ||
+          "Failed to create contract."
         );
       } finally {
         setCreatingContract(
@@ -1031,11 +1032,15 @@ export default function Unassigned() {
         return;
       }
 
+      const payRate = Number(deployForm.payRate);
+
       if (
-        !deployForm.payRate
+        deployForm.payRate === "" ||
+        !Number.isFinite(payRate) ||
+        payRate <= 0
       ) {
         alert(
-          "Employee pay rate is missing."
+          "Please enter a valid employee pay rate."
         );
         return;
       }
@@ -1090,29 +1095,26 @@ export default function Unassigned() {
         // ===================================================
 
         const payload = {
-          candidate_id:
-            employeeId,
+  candidate_id: employeeId,
 
-          client_id:
-            Number(
-              deployForm.clientId
-            ),
+  client_id: Number(
+    deployForm.clientId
+  ),
 
-          contract_id:
-            Number(
-              deployForm.contractId
-            ),
+  contract_id: Number(
+    deployForm.contractId
+  ),
 
-          project_name:
-            deployForm.projectName.trim(),
+  project_name:
+    deployForm.projectName.trim(),
 
-          start_date:
-            deployForm.startDate,
+  pay_rate: payRate,
 
-          status:
-            "Active",
-        };
+  start_date:
+    deployForm.startDate,
 
+  status: "Active",
+};
         console.log(
           "DEPLOY EMPLOYEE PAYLOAD:",
           payload
@@ -1146,9 +1148,9 @@ export default function Unassigned() {
 
         setError(
           err?.response?.data?.message ||
-            err?.response?.data?.error ||
-            err?.message ||
-            "Failed to deploy employee."
+          err?.response?.data?.error ||
+          err?.message ||
+          "Failed to deploy employee."
         );
       } finally {
         setDeploying(false);
@@ -1220,11 +1222,10 @@ export default function Unassigned() {
             >
 
               <RefreshCw
-                className={`h-4 w-4 ${
-                  loading
-                    ? "animate-spin"
-                    : ""
-                }`}
+                className={`h-4 w-4 ${loading
+                  ? "animate-spin"
+                  : ""
+                  }`}
               />
 
             </button>
@@ -1281,7 +1282,7 @@ export default function Unassigned() {
                   {Math.max(
                     0,
                     candidates.length -
-                      unassignedEmployees.length
+                    unassignedEmployees.length
                   )}
                 </p>
 
@@ -1357,7 +1358,7 @@ export default function Unassigned() {
                 }{" "}
                 employee
                 {filteredEmployees.length !==
-                1
+                  1
                   ? "s"
                   : ""}{" "}
                 found
@@ -1877,11 +1878,11 @@ export default function Unassigned() {
                         {!deployForm.clientId
                           ? "Select client first"
                           : loadingContracts
-                          ? "Loading contracts..."
-                          : contracts.length ===
-                            0
-                          ? "No active contracts"
-                          : "Select Contract"}
+                            ? "Loading contracts..."
+                            : contracts.length ===
+                              0
+                              ? "No active contracts"
+                              : "Select Contract"}
                       </option>
 
                       {contracts.map(
@@ -1913,15 +1914,15 @@ export default function Unassigned() {
                   {deployForm.clientId &&
                     !loadingContracts &&
                     contracts.length ===
-                      0 && (
+                    0 && (
 
-                    <p className="text-xs text-orange-600 mt-2">
-                      No active contract found for
-                      this client. Create a new
-                      contract before deploying.
-                    </p>
+                      <p className="text-xs text-orange-600 mt-2">
+                        No active contract found for
+                        this client. Create a new
+                        contract before deploying.
+                      </p>
 
-                  )}
+                    )}
 
                 </div>
 
@@ -1970,46 +1971,46 @@ export default function Unassigned() {
                       {selectedContract.billing_model ===
                         "Percentage Markup" && (
 
-                        <div>
+                          <div>
 
-                          <p className="text-[10px] uppercase font-semibold text-indigo-400">
-                            Markup
-                          </p>
+                            <p className="text-[10px] uppercase font-semibold text-indigo-400">
+                              Markup
+                            </p>
 
-                          <p className="text-xs font-semibold text-indigo-900 mt-1">
-                            {Number(
-                              selectedContract.markup_percentage ||
+                            <p className="text-xs font-semibold text-indigo-900 mt-1">
+                              {Number(
+                                selectedContract.markup_percentage ||
                                 0
-                            )}
-                            %
-                          </p>
+                              )}
+                              %
+                            </p>
 
-                        </div>
+                          </div>
 
-                      )}
+                        )}
 
                       {selectedContract.billing_model ===
                         "Fixed Per-Head Fee" && (
 
-                        <div>
+                          <div>
 
-                          <p className="text-[10px] uppercase font-semibold text-indigo-400">
-                            Per Head Fee
-                          </p>
+                            <p className="text-[10px] uppercase font-semibold text-indigo-400">
+                              Per Head Fee
+                            </p>
 
-                          <p className="text-xs font-semibold text-indigo-900 mt-1">
-                            ₹
-                            {Number(
-                              selectedContract.per_head_fee ||
+                            <p className="text-xs font-semibold text-indigo-900 mt-1">
+                              ₹
+                              {Number(
+                                selectedContract.per_head_fee ||
                                 0
-                            ).toLocaleString(
-                              "en-IN"
-                            )}
-                          </p>
+                              ).toLocaleString(
+                                "en-IN"
+                              )}
+                            </p>
 
-                        </div>
+                          </div>
 
-                      )}
+                        )}
 
                       <div>
 
@@ -2059,13 +2060,12 @@ export default function Unassigned() {
                 {/* PAY + BILL */}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                   {/* PAY RATE */}
 
                   <div>
 
                     <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                      Pay Rate / Month
+                      Pay Rate / Month *
                     </label>
 
                     <div className="relative">
@@ -2073,24 +2073,21 @@ export default function Unassigned() {
                       <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
 
                       <input
-                        type="text"
-                        value={
-                          deployForm.payRate
-                            ? `₹${Number(
-                                deployForm.payRate
-                              ).toLocaleString(
-                                "en-IN"
-                              )}`
-                            : "Not available"
-                        }
-                        readOnly
-                        className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-700 cursor-not-allowed"
+                        type="number"
+                        name="payRate"
+                        min="0"
+                        step="0.01"
+                        value={deployForm.payRate}
+                        onChange={handleDeployChange}
+                        required
+                        placeholder="e.g. 40000"
+                        className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
                       />
 
                     </div>
 
                     <p className="text-[10px] text-slate-400 mt-1">
-                      Taken from employee master record.
+                      Defaulted from employee master record. You can change it for this deployment.
                     </p>
 
                   </div>
@@ -2112,11 +2109,11 @@ export default function Unassigned() {
                         value={
                           calculatedBillRate
                             ? `₹${calculatedBillRate.toLocaleString(
-                                "en-IN",
-                                {
-                                  maximumFractionDigits: 2,
-                                }
-                              )}`
+                              "en-IN",
+                              {
+                                maximumFractionDigits: 2,
+                              }
+                            )}`
                             : "Select contract"
                         }
                         readOnly
@@ -2368,74 +2365,74 @@ export default function Unassigned() {
               {contractForm.billingModel ===
                 "Percentage Markup" && (
 
-                <div>
+                  <div>
 
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    Markup Percentage *
-                  </label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                      Markup Percentage *
+                    </label>
 
-                  <div className="relative">
+                    <div className="relative">
 
-                    <input
-                      type="number"
-                      name="markupPercentage"
-                      min="0"
-                      step="0.01"
-                      value={
-                        contractForm.markupPercentage
-                      }
-                      onChange={
-                        handleContractChange
-                      }
-                      required
-                      placeholder="10"
-                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
-                    />
+                      <input
+                        type="number"
+                        name="markupPercentage"
+                        min="0"
+                        step="0.01"
+                        value={
+                          contractForm.markupPercentage
+                        }
+                        onChange={
+                          handleContractChange
+                        }
+                        required
+                        placeholder="10"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                      />
 
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold">
-                      %
-                    </span>
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400 font-semibold">
+                        %
+                      </span>
+
+                    </div>
 
                   </div>
-
-                </div>
-              )}
+                )}
 
               {/* PER HEAD */}
 
               {contractForm.billingModel ===
                 "Fixed Per-Head Fee" && (
 
-                <div>
+                  <div>
 
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                    Per-Head Fee / Month *
-                  </label>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                      Per-Head Fee / Month *
+                    </label>
 
-                  <div className="relative">
+                    <div className="relative">
 
-                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
 
-                    <input
-                      type="number"
-                      name="perHeadFee"
-                      min="0"
-                      step="0.01"
-                      value={
-                        contractForm.perHeadFee
-                      }
-                      onChange={
-                        handleContractChange
-                      }
-                      required
-                      placeholder="2500"
-                      className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
-                    />
+                      <input
+                        type="number"
+                        name="perHeadFee"
+                        min="0"
+                        step="0.01"
+                        value={
+                          contractForm.perHeadFee
+                        }
+                        onChange={
+                          handleContractChange
+                        }
+                        required
+                        placeholder="2500"
+                        className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                      />
+
+                    </div>
 
                   </div>
-
-                </div>
-              )}
+                )}
 
               {/* CREDIT + GST */}
 

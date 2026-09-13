@@ -20,32 +20,39 @@ export default function JobRequirements() {
   }, []);
 
   const fetchJobsAndClients = async () => {
-    try {
-      const [jobsRes, clientsRes] = await Promise.all([
-        axios.get(`${API_BASE}/job-requirements`),
-        axios.get(`${API_BASE}/clients`).catch(() => ({ data: [] }))
-      ]);
+  try {
+    const [jobsRes, clientsRes] = await Promise.all([
+      axios.get(`${API_BASE}/admin-job-requirements`),
+      axios.get(`${API_BASE}/clients`).catch(() => ({ data: [] }))
+    ]);
 
-      const jobsData = jobsRes.data.data || jobsRes.data || [];
-      const clientsData = clientsRes.data.data || clientsRes.data || [];
+    const jobsData = jobsRes.data.data || jobsRes.data || [];
+    const clientsData = clientsRes.data.data || clientsRes.data || [];
 
-      // Map client_id to the company name using safe fallbacks
-      const clientMap = {};
-      clientsData.forEach(client => {
-        // Adjust these keys based on your actual columns in the 'clients' table
-        clientMap[client.id] = client.company_name || client.name || client.full_name || 'Enterprise Client';
-      });
+    const clientMap = {};
 
-      const enrichedJobs = jobsData.map(job => ({
-        ...job,
-        resolved_company_name: clientMap[job.client_id] || job.company_name || `Enterprise Client (ID: ${job.client_id})`
-      }));
+    clientsData.forEach(client => {
+      clientMap[client.id] =
+        client.company_name ||
+        client.name ||
+        client.full_name ||
+        "Enterprise Client";
+    });
 
-      setJobRequirements(enrichedJobs);
-    } catch (err) {
-      console.error('Error fetching jobs or clients:', err);
-    }
-  };
+    const enrichedJobs = jobsData.map(job => ({
+      ...job,
+      resolved_company_name:
+        clientMap[job.client_id] ||
+        job.company_name ||
+        `Enterprise Client (ID: ${job.client_id})`
+    }));
+
+    setJobRequirements(enrichedJobs);
+
+  } catch (err) {
+    console.error("Error fetching jobs or clients:", err);
+  }
+};
 
   const fetchCandidates = async () => {
     try {
@@ -61,28 +68,40 @@ export default function JobRequirements() {
     setSelectedCandidateId('');
     setShowAssignModal(true);
   };
+const handleAssignCandidate = async (e) => {
+  e.preventDefault();
 
-  const handleAssignCandidate = async (e) => {
-    e.preventDefault();
-    if (!selectedJob || !selectedCandidateId) return;
+  if (!selectedJob || !selectedCandidateId) return;
 
-    try {
-      setAssigning(true);
-      await axios.post(`${API_BASE}/job-requirements/${selectedJob.id}/assign`, {
+  try {
+    setAssigning(true);
+
+    await axios.post(
+      `${API_BASE}/admin-job-requirements/${selectedJob.id}/assign`,
+      {
         candidate_id: selectedCandidateId,
         client_id: selectedJob.client_id
-      });
-      
-      setShowAssignModal(false);
-      fetchJobsAndClients();
-      alert('Candidate successfully assigned and deployed!');
-    } catch (err) {
-      console.error('Error assigning candidate:', err);
-      alert('Failed to assign candidate to requirement.');
-    } finally {
-      setAssigning(false);
-    }
-  };
+      }
+    );
+
+    setShowAssignModal(false);
+
+    await fetchJobsAndClients();
+
+    alert("Candidate successfully assigned and deployed!");
+
+  } catch (err) {
+    console.error("Error assigning candidate:", err);
+
+    alert(
+      err.response?.data?.message ||
+      "Failed to assign candidate to requirement."
+    );
+
+  } finally {
+    setAssigning(false);
+  }
+};
 
   const filteredJobs = jobRequirements.filter(job =>
     job.job_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
