@@ -25,7 +25,6 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-// after
 import Sidebar from "../Layout/Sidebar";
 import api from "../../services/api";
 
@@ -101,49 +100,58 @@ export default function Unassigned() {
   });
 
   // =========================================================
-  // FETCH DATA
+  // FETCH DATA ON LOAD
   // =========================================================
 
   useEffect(() => {
     fetchData();
   }, []);
 
-const fetchData = async () => {
-  try {
-    setLoading(true);
-    setError("");
+  // =========================================================
+  // FETCH EMPLOYEES / DEPLOYMENTS / CLIENTS
+  // =========================================================
 
-    const [candidatesResponse, deploymentsResponse, clientsResponse] =
-      await Promise.all([
-        api.get(`/candidates`),
-        api.get(`/deployments`),
-        api.get(`/clients`),
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [
+        candidatesResponse,
+        deploymentsResponse,
+        clientsResponse,
+      ] = await Promise.all([
+        api.get("/candidates"),
+        api.get("/deployments"),
+        api.get("/clients"),
       ]);
 
-    const candidatesData = candidatesResponse.data;
-    const deploymentsData = deploymentsResponse.data;
-    const clientsData = clientsResponse.data;
+      // Axios response
+      const candidatesData =
+        candidatesResponse?.data;
 
-if (!candidatesResponse.ok) {
-  throw new Error(candidatesData?.error || candidatesData?.message || "Failed to fetch employees");
-}
-if (!deploymentsResponse.ok) {
-  throw new Error(deploymentsData?.error || deploymentsData?.message || "Failed to fetch deployments");
-}
-if (!clientsResponse.ok) {
-  throw new Error(clientsData?.error || clientsData?.message || "Failed to fetch clients");
-}
+      const deploymentsData =
+        deploymentsResponse?.data;
+
+      const clientsData =
+        clientsResponse?.data;
+
       // =====================================================
       // CANDIDATES
       // =====================================================
 
-       const candidateList = Array.isArray(candidatesData)
-      ? candidatesData
-      : Array.isArray(candidatesData?.data)
-      ? candidatesData.data
-      : Array.isArray(candidatesData?.candidates)
-      ? candidatesData.candidates
-      : [];
+      const candidateList =
+        Array.isArray(candidatesData)
+          ? candidatesData
+          : Array.isArray(
+              candidatesData?.data
+            )
+          ? candidatesData.data
+          : Array.isArray(
+              candidatesData?.candidates
+            )
+          ? candidatesData.candidates
+          : [];
 
       // =====================================================
       // DEPLOYMENTS
@@ -152,7 +160,9 @@ if (!clientsResponse.ok) {
       const deploymentList =
         Array.isArray(deploymentsData)
           ? deploymentsData
-          : Array.isArray(deploymentsData?.data)
+          : Array.isArray(
+              deploymentsData?.data
+            )
           ? deploymentsData.data
           : Array.isArray(
               deploymentsData?.deployments
@@ -167,7 +177,9 @@ if (!clientsResponse.ok) {
       const clientList =
         Array.isArray(clientsData)
           ? clientsData
-          : Array.isArray(clientsData?.data)
+          : Array.isArray(
+              clientsData?.data
+            )
           ? clientsData.data
           : Array.isArray(
               clientsData?.clients
@@ -175,24 +187,44 @@ if (!clientsResponse.ok) {
           ? clientsData.clients
           : [];
 
+      console.log(
+        "UNASSIGNED - CANDIDATES:",
+        candidateList
+      );
+
+      console.log(
+        "UNASSIGNED - DEPLOYMENTS:",
+        deploymentList
+      );
+
+      console.log(
+        "UNASSIGNED - CLIENTS:",
+        clientList
+      );
+
       setCandidates(candidateList);
       setDeployments(deploymentList);
       setClients(clientList);
     } catch (err) {
-    console.error("UNASSIGNED EMPLOYEES ERROR:", err);
-    setError(
-      err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "Failed to load employees"
-    );
-    setCandidates([]);
-    setDeployments([]);
-    setClients([]);
-  } finally {
-    setLoading(false);
-  }
-};
+      console.error(
+        "UNASSIGNED EMPLOYEES ERROR:",
+        err
+      );
+
+      setError(
+        err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message ||
+          "Failed to load employees"
+      );
+
+      setCandidates([]);
+      setDeployments([]);
+      setClients([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // =========================================================
   // EMPLOYEE ID
@@ -251,7 +283,9 @@ if (!clientsResponse.ok) {
 
           if (
             employeeId &&
-            ACTIVE_STATUSES.includes(status)
+            ACTIVE_STATUSES.includes(
+              status
+            )
           ) {
             ids.add(employeeId);
           }
@@ -272,10 +306,8 @@ if (!clientsResponse.ok) {
           const employeeId =
             getEmployeeId(candidate);
 
-          // -------------------------------------------------
-          // Candidate must NOT have a deployment_id
-          // -------------------------------------------------
-
+          // Candidate should not already have
+          // deployment_id
           const hasCandidateDeployment =
             candidate?.deployment_id !==
               null &&
@@ -284,19 +316,12 @@ if (!clientsResponse.ok) {
             candidate?.deployment_id !==
               "";
 
-          // -------------------------------------------------
-          // Candidate must NOT have an active deployment
-          // -------------------------------------------------
-
+          // Candidate should not have active deployment
           const hasActiveDeployment =
             employeeId &&
             activeDeploymentEmployeeIds.has(
               employeeId
             );
-
-          // -------------------------------------------------
-          // UNASSIGNED
-          // -------------------------------------------------
 
           return (
             !hasCandidateDeployment &&
@@ -370,7 +395,9 @@ if (!clientsResponse.ok) {
   // =========================================================
 
   const formatDate = (date) => {
-    if (!date) return "N/A";
+    if (!date) {
+      return "N/A";
+    }
 
     try {
       return new Date(
@@ -425,7 +452,9 @@ if (!clientsResponse.ok) {
   // =========================================================
 
   const closeDeployModal = () => {
-    if (deploying) return;
+    if (deploying) {
+      return;
+    }
 
     setShowDeployModal(false);
 
@@ -443,7 +472,7 @@ if (!clientsResponse.ok) {
   };
 
   // =========================================================
-  // FETCH CONTRACTS FOR CLIENT
+  // FETCH CONTRACTS FOR SELECTED CLIENT
   // =========================================================
 
   const fetchContractsForClient =
@@ -457,39 +486,19 @@ if (!clientsResponse.ok) {
         setLoadingContracts(true);
         setError("");
 
-      // after
-const response = await api.post("/deployments", {
-  contract_number: contractForm.contractNumber.trim(),
+        // IMPORTANT:
+        // This is GET, not POST.
+        //
+        // Backend:
+        // GET /api/deployments/contracts/client/:clientId
 
-  contract_title: contractForm.contractTitle.trim(),
-
-  billing_model: contractForm.billingModel,
-
-  markup_percentage:
-    contractForm.billingModel === "Percentage Markup"
-      ? Number(contractForm.markupPercentage)
-      : 0,
-
-  per_head_fee:
-    contractForm.billingModel === "Fixed Per-Head Fee"
-      ? Number(contractForm.perHeadFee)
-      : 0,
-
-  credit_terms: contractForm.creditTerms,
-
-  gst_type: contractForm.gstType,
-
-  contract_status: "Active",
-});
-const data = response.data;
-
-        if (!response.ok) {
-          throw new Error(
-            data?.message ||
-              data?.error ||
-              "Failed to fetch contracts"
+        const response =
+          await api.get(
+            `/deployments/contracts/client/${clientId}`
           );
-        }
+
+        const data =
+          response?.data;
 
         const contractList =
           Array.isArray(data)
@@ -504,6 +513,11 @@ const data = response.data;
             ? data.contracts
             : [];
 
+        console.log(
+          "CONTRACTS FOR CLIENT:",
+          contractList
+        );
+
         setContracts(
           contractList
         );
@@ -516,7 +530,9 @@ const data = response.data;
         setContracts([]);
 
         setError(
-          err?.message ||
+          err?.response?.data?.message ||
+            err?.response?.data?.error ||
+            err?.message ||
             "Failed to load contracts."
         );
       } finally {
@@ -603,7 +619,9 @@ const data = response.data;
 
       if (
         !selectedContract ||
-        !Number.isFinite(payRate) ||
+        !Number.isFinite(
+          payRate
+        ) ||
         payRate < 0
       ) {
         return 0;
@@ -624,7 +642,9 @@ const data = response.data;
           );
 
         if (
-          !Number.isFinite(markup)
+          !Number.isFinite(
+            markup
+          )
         ) {
           return 0;
         }
@@ -654,7 +674,9 @@ const data = response.data;
           );
 
         if (
-          !Number.isFinite(fee)
+          !Number.isFinite(
+            fee
+          )
         ) {
           return 0;
         }
@@ -747,6 +769,7 @@ const data = response.data;
                   "Percentage Markup"
                     ? prev.markupPercentage
                     : "",
+
                 perHeadFee:
                   value ===
                   "Fixed Per-Head Fee"
@@ -761,113 +784,208 @@ const data = response.data;
   // =========================================================
   // CREATE CONTRACT
   // =========================================================
-const handleCreateContract = async (e) => {
-  e.preventDefault();
 
-  if (!deployForm.clientId) {
-    alert("Please select a client first.");
-    return;
-  }
+  const handleCreateContract =
+    async (e) => {
+      e.preventDefault();
 
-  if (!contractForm.contractNumber.trim()) {
-    alert("Please enter contract number.");
-    return;
-  }
+      if (
+        !deployForm.clientId
+      ) {
+        alert(
+          "Please select a client first."
+        );
+        return;
+      }
 
-  if (!contractForm.contractTitle.trim()) {
-    alert("Please enter contract title.");
-    return;
-  }
+      if (
+        !contractForm.contractNumber.trim()
+      ) {
+        alert(
+          "Please enter contract number."
+        );
+        return;
+      }
 
-  if (
-    contractForm.billingModel === "Percentage Markup" &&
-    contractForm.markupPercentage === ""
-  ) {
-    alert("Please enter markup percentage.");
-    return;
-  }
+      if (
+        !contractForm.contractTitle.trim()
+      ) {
+        alert(
+          "Please enter contract title."
+        );
+        return;
+      }
 
-  if (
-    contractForm.billingModel === "Fixed Per-Head Fee" &&
-    contractForm.perHeadFee === ""
-  ) {
-    alert("Please enter per-head fee.");
-    return;
-  }
+      if (
+        contractForm.billingModel ===
+          "Percentage Markup" &&
+        contractForm.markupPercentage ===
+          ""
+      ) {
+        alert(
+          "Please enter markup percentage."
+        );
+        return;
+      }
 
-  try {
-    setCreatingContract(true);
-    setError("");
+      if (
+        contractForm.billingModel ===
+          "Fixed Per-Head Fee" &&
+        contractForm.perHeadFee ===
+          ""
+      ) {
+        alert(
+          "Please enter per-head fee."
+        );
+        return;
+      }
 
-    const response = await api.post("/deployments", {
-      contract_number: contractForm.contractNumber.trim(),
+      try {
+        setCreatingContract(
+          true
+        );
 
-      contract_title: contractForm.contractTitle.trim(),
+        setError("");
 
-      billing_model: contractForm.billingModel,
+        // ===================================================
+        // IMPORTANT
+        //
+        // Correct endpoint:
+        //
+        // POST /api/deployments/contracts
+        //
+        // NOT:
+        // POST /api/deployments
+        // ===================================================
 
-      markup_percentage:
-        contractForm.billingModel === "Percentage Markup"
-          ? Number(contractForm.markupPercentage)
-          : 0,
+        const payload = {
+          client_id:
+            Number(
+              deployForm.clientId
+            ),
 
-      per_head_fee:
-        contractForm.billingModel === "Fixed Per-Head Fee"
-          ? Number(contractForm.perHeadFee)
-          : 0,
+          contract_number:
+            contractForm.contractNumber.trim(),
 
-      credit_terms: contractForm.creditTerms,
+          contract_title:
+            contractForm.contractTitle.trim(),
 
-      gst_type: contractForm.gstType,
+          billing_model:
+            contractForm.billingModel,
 
-      contract_status: "Active",
-    });
+          markup_percentage:
+            contractForm.billingModel ===
+            "Percentage Markup"
+              ? Number(
+                  contractForm.markupPercentage
+                )
+              : 0,
 
-    const data = response.data;
+          per_head_fee:
+            contractForm.billingModel ===
+            "Fixed Per-Head Fee"
+              ? Number(
+                  contractForm.perHeadFee
+                )
+              : 0,
 
-    const createdContract =
-      data?.data ||
-      data?.contract ||
-      data;
+          credit_terms:
+            contractForm.creditTerms,
 
-    if (!createdContract) {
-      throw new Error(
-        "Contract was created but no contract data was returned."
-      );
-    }
+          gst_type:
+            contractForm.gstType,
 
-    // Add newly created contract to the list
-    setContracts((prev) => [
-      createdContract,
-      ...prev,
-    ]);
+          contract_status:
+            "Active",
+        };
 
-    // Automatically select newly created contract
-    setDeployForm((prev) => ({
-      ...prev,
-      contractId: String(createdContract.id),
-    }));
+        console.log(
+          "CREATE CONTRACT PAYLOAD:",
+          payload
+        );
 
-    // Close contract modal
-    setShowContractModal(false);
+        const response =
+          await api.post(
+            "/deployments/contracts",
+            payload
+          );
 
-    alert("Contract created successfully.");
-  } catch (err) {
-    console.error(
-      "CREATE CONTRACT ERROR:",
-      err
-    );
+        const data =
+          response?.data;
 
-    setError(
-      err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "Failed to create contract."
-    );
-  } finally {
-    setCreatingContract(false);
-  }
-};
+        console.log(
+          "CREATE CONTRACT RESPONSE:",
+          data
+        );
+
+        const createdContract =
+          data?.data ||
+          data?.contract ||
+          data;
+
+        if (
+          !createdContract ||
+          !createdContract.id
+        ) {
+          throw new Error(
+            "Contract was created but no contract data was returned."
+          );
+        }
+
+        // ===================================================
+        // ADD NEW CONTRACT TO LIST
+        // ===================================================
+
+        setContracts(
+          (prev) => [
+            createdContract,
+            ...prev,
+          ]
+        );
+
+        // ===================================================
+        // SELECT NEW CONTRACT
+        // ===================================================
+
+        setDeployForm(
+          (prev) => ({
+            ...prev,
+            contractId:
+              String(
+                createdContract.id
+              ),
+          })
+        );
+
+        // ===================================================
+        // CLOSE MODAL
+        // ===================================================
+
+        setShowContractModal(
+          false
+        );
+
+        alert(
+          "Contract created successfully."
+        );
+      } catch (err) {
+        console.error(
+          "CREATE CONTRACT ERROR:",
+          err
+        );
+
+        setError(
+          err?.response?.data?.message ||
+            err?.response?.data?.error ||
+            err?.message ||
+            "Failed to create contract."
+        );
+      } finally {
+        setCreatingContract(
+          false
+        );
+      }
+    };
 
   // =========================================================
   // DEPLOY EMPLOYEE
@@ -880,6 +998,9 @@ const handleCreateContract = async (e) => {
       if (
         !selectedEmployee
       ) {
+        alert(
+          "Please select an employee."
+        );
         return;
       }
 
@@ -955,76 +1076,67 @@ const handleCreateContract = async (e) => {
         // ===================================================
         // IMPORTANT
         //
-        // DO NOT SEND:
-        // pay_rate
-        // bill_rate
-        // billing_model
-        // end_date
+        // Use Axios API.
         //
-        // BACKEND DECIDES:
-        // pay_rate
-        // bill_rate
-        // billing_model
-        // end_date = null
+        // Do NOT use:
+        // fetch()
+        // API_BASE
+        //
+        // Backend decides:
+        // - pay_rate
+        // - bill_rate
+        // - billing_model
+        // - end_date
         // ===================================================
 
+        const payload = {
+          candidate_id:
+            employeeId,
+
+          client_id:
+            Number(
+              deployForm.clientId
+            ),
+
+          contract_id:
+            Number(
+              deployForm.contractId
+            ),
+
+          project_name:
+            deployForm.projectName.trim(),
+
+          start_date:
+            deployForm.startDate,
+
+          status:
+            "Active",
+        };
+
+        console.log(
+          "DEPLOY EMPLOYEE PAYLOAD:",
+          payload
+        );
+
         const response =
-          await fetch(
-            `${API_BASE}/deployments`,
-            {
-              method:
-                "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify({
-                candidate_id:
-                  employeeId,
-
-                client_id:
-                  Number(
-                    deployForm.clientId
-                  ),
-
-                contract_id:
-                  Number(
-                    deployForm.contractId
-                  ),
-
-                project_name:
-                  deployForm.projectName.trim(),
-
-                start_date:
-                  deployForm.startDate,
-
-                status:
-                  "Active",
-              }),
-            }
+          await api.post(
+            "/deployments",
+            payload
           );
 
-        const data =
-          await response
-            .json()
-            .catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(
-            data?.message ||
-              data?.error ||
-              "Failed to deploy employee."
-          );
-        }
+        console.log(
+          "DEPLOY EMPLOYEE RESPONSE:",
+          response?.data
+        );
 
         alert(
           `${selectedEmployee.full_name} has been deployed successfully.`
         );
 
+        // Close modal
         closeDeployModal();
 
+        // Reload employees/deployments
         await fetchData();
       } catch (err) {
         console.error(
@@ -1033,13 +1145,13 @@ const handleCreateContract = async (e) => {
         );
 
         setError(
-          err?.message ||
+          err?.response?.data?.message ||
+            err?.response?.data?.error ||
+            err?.message ||
             "Failed to deploy employee."
         );
       } finally {
-        setDeploying(
-          false
-        );
+        setDeploying(false);
       }
     };
 
@@ -1373,13 +1485,8 @@ const handleCreateContract = async (e) => {
                                   Employee ID:{" "}
                                   {
                                     employee.employee_code ||
-                                    (
-                                      Number.isNaN(
-                                        employeeId
-                                      )
-                                        ? "N/A"
-                                        : employeeId
-                                    )
+                                    (employeeId ??
+                                      "N/A")
                                   }
                                 </p>
 
