@@ -12,7 +12,9 @@ import {
   CalendarDays,
 } from "lucide-react";
 
-import API_BASE from "../../services/api";
+import api from "../../services/api";
+import Sidebar from "../Layout/Sidebar";
+
 // =====================================================
 // HELPERS
 // =====================================================
@@ -194,54 +196,34 @@ function Attendance({
 
       setError(null);
 
-      const token =
-        localStorage.getItem("token");
+      // =================================================
+      // USE SHARED API.JS
+      //
+      // api.js is responsible for:
+      // - Base URL
+      // - Supabase access token
+      // - Authorization header
+      // =================================================
 
-      const response = await fetch(
-        `${API_BASE}/third-party-attendance`,
-        {
-          method: "GET",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            ...(token
-              ? {
-                  Authorization:
-                    `Bearer ${token}`,
-                }
-              : {}),
-          },
-        }
+      const response = await api.get(
+        "/third-party-attendance"
       );
-
-      if (!response.ok) {
-        const errorText =
-          await response.text();
-
-        console.error(
-          "Admin attendance API error:",
-          errorText
-        );
-
-        throw new Error(
-          `Attendance request failed with status ${response.status}`
-        );
-      }
-
-      const result =
-        await response.json();
 
       console.log(
         "Third-party attendance API response:",
-        result
+        response.data
       );
+
+      const result = response.data;
+
+      // =================================================
+      // NORMALIZE RESPONSE
+      // =================================================
 
       const records =
         Array.isArray(result)
           ? result
-          : Array.isArray(result.data)
+          : Array.isArray(result?.data)
           ? result.data
           : [];
 
@@ -287,17 +269,30 @@ function Attendance({
       } else {
         setMonthFilter("");
       }
+
     } catch (err) {
       console.error(
         "Error fetching admin attendance:",
         err
       );
 
+      console.error(
+        "Attendance API status:",
+        err.response?.status
+      );
+
+      console.error(
+        "Attendance API response:",
+        err.response?.data
+      );
+
       setError(
+        err.response?.data?.message ||
         "Failed to load attendance records. Please check the server."
       );
 
       setAttendanceRecords([]);
+
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -463,7 +458,7 @@ function Attendance({
     return (
       <div className="flex min-h-screen bg-slate-50">
 
-        <Sidebar/>
+        <Sidebar />
 
         <main className="flex-1 flex items-center justify-center">
 
@@ -566,6 +561,7 @@ function Attendance({
                       {month}
                     </option>
                   ))
+
                 )}
 
               </select>
@@ -730,6 +726,8 @@ function Attendance({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
+          {/* LEAVE */}
+
           <div className="bg-white border border-blue-200 rounded-2xl p-5 shadow-sm">
 
             <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">
@@ -745,6 +743,8 @@ function Attendance({
             </p>
 
           </div>
+
+          {/* ABSENT */}
 
           <div className="bg-white border border-red-200 rounded-2xl p-5 shadow-sm">
 

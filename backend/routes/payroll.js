@@ -2376,446 +2376,990 @@ router.patch(
         }
     }
 );
-
 // ============================================================
 // EMAIL PAYSLIP
 //
 // POST /api/payroll/:id/email
 //
+// Generates PDF payslip and sends it to employee.
+//
 // ATTENDANCE SOURCE:
 // third_party_emp_attendance ONLY
 // ============================================================
 
-router.post(
-    "/:id/email",
-    async (req, res) => {
+router.post("/:id/email", async (req, res) => {
+    let browser = null;
 
-        try {
+    try {
+        // ========================================================
+        // ID
+        // ========================================================
 
-            // ----------------------------------------------------
-            // ID
-            // ----------------------------------------------------
+        const payrollId = getId(req.params.id);
 
-            const payrollId =
-                getId(
-                    req.params.id
-                );
+        if (!payrollId) {
+            return sendError(
+                res,
+                400,
+                "Invalid payroll ID"
+            );
+        }
 
-            if (!payrollId) {
+        // ========================================================
+        // EMAIL CONFIG
+        // ========================================================
 
-                return sendError(
-                    res,
-                    400,
-                    "Invalid payroll ID"
-                );
-            }
+        if (!EMAIL_USER || !EMAIL_PASS) {
+            console.error(
+                "EMAIL_USER or EMAIL_PASS is missing"
+            );
 
-            // ----------------------------------------------------
-            // EMAIL CONFIG
-            // ----------------------------------------------------
+            return sendError(
+                res,
+                500,
+                "Email service is not configured. Please check EMAIL_USER and EMAIL_PASS."
+            );
+        }
 
-            if (
-                !EMAIL_USER ||
-                !EMAIL_PASS
-            ) {
+        // ========================================================
+        // GET PAYROLL
+        // ========================================================
 
-                console.error(
-                    "EMAIL_USER or EMAIL_PASS is missing"
-                );
+        const {
+            data: payroll,
+            error: payrollError
+        } = await supabase
+            .from("third_party_payroll")
+            .select(`
+                id,
+                employee_name,
+                salary_month,
 
-                return sendError(
-                    res,
-                    500,
-                    "Email service is not configured. Please check EMAIL_USER and EMAIL_PASS."
-                );
-            }
+                basic_salary,
+                allowances,
+                overtime,
+                bonus,
+                gross_salary,
 
-            // ----------------------------------------------------
-            // PAYROLL
-            // ----------------------------------------------------
+                pf,
+                esic,
+                tax,
+                professional_tax,
+                lop,
 
+                net_salary,
+
+                status,
+
+                employee_ref_id,
+                attendance_id,
+                deployment_id,
+                client_id,
+
+                bank_name,
+                account_number,
+                ifsc_code,
+
+                total_deductions,
+
+                employer_pf,
+                employer_esic,
+                total_employer_contribution,
+                total_employer_cost,
+
+                created_at
+            `)
+            .eq("id", payrollId)
+            .maybeSingle();
+
+        if (payrollError) {
+            console.error(
+                "Payroll fetch error:",
+                payrollError
+            );
+
+            throw payrollError;
+        }
+
+        if (!payroll) {
+            return sendError(
+                res,
+                404,
+                "Payroll record not found"
+            );
+        }
+
+        // ========================================================
+        // STATUS
+        // ========================================================
+
+        const payrollStatus = String(
+            payroll.status || ""
+        )
+            .trim()
+            .toLowerCase();
+
+        if (
+            payrollStatus !== "approved" &&
+            payrollStatus !== "locked"
+        ) {
+            return sendError(
+                res,
+                400,
+                "Payslip can be emailed only after payroll is Approved or Locked."
+            );
+        }
+
+        // ========================================================
+        // CANDIDATE
+        // ========================================================
+
+        const candidateId =
+            payroll.employee_ref_id;
+
+        if (!candidateId) {
+            return sendError(
+                res,
+                400,
+                "Candidate ID is missing"
+            );
+        }
+
+        const {
+            data: candidate,
+            error: candidateError
+        } = await supabase
+            .from("candidates")
+            .select(`
+                id,
+                full_name,
+                email,
+                designation,
+                employee_id,
+                date_of_joining,
+                location
+            `)
+            .eq("id", candidateId)
+            .maybeSingle();
+
+        if (candidateError) {
+            console.error(
+                "Candidate fetch error:",
+                candidateError
+            );
+
+            throw candidateError;
+        }
+
+        if (!candidate) {
+            return sendError(
+                res,
+                404,
+                "Candidate not found"
+            );
+        }
+
+        // ========================================================
+        // EMPLOYEE EMAIL
+        // ========================================================
+
+        const employeeEmail = String(
+            candidate.email || ""
+        ).trim();
+
+        if (!employeeEmail) {
+            return sendError(
+                res,
+                400,
+                "Employee email address is not available"
+            );
+        }
+
+        const emailRegex =
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!emailRegex.test(employeeEmail)) {
+            return sendError(
+                res,
+                400,
+                `Invalid employee email address: ${employeeEmail}`
+            );
+        }
+
+        // ========================================================
+        // EMPLOYEE NAME
+        // ========================================================
+
+        const employeeName =
+            candidate.full_name ||
+            payroll.employee_name ||
+            "Employee";
+
+        // ========================================================
+        // DEPLOYMENT
+        // ========================================================
+
+        let deployment = null;
+
+        if (payroll.deployment_id) {
             const {
-                data: payroll,
-                error: payrollError
+                data: deploymentData,
+                error: deploymentError
             } = await supabase
-                .from(
-                    "third_party_payroll"
-                )
+                .from("deployments")
                 .select(`
                     id,
-                    employee_name,
-                    salary_month,
-                    basic_salary,
-                    allowances,
-                    overtime,
-                    bonus,
-                    gross_salary,
-                    pf,
-                    esic,
-                    tax,
-                    lop,
-                    net_salary,
-                    status,
-                    employee_ref_id,
-                    attendance_id,
-                    deployment_id,
+                    employee_id,
                     client_id,
-                    professional_tax,
-                    total_deductions,
-                    employer_pf,
-                    employer_esic,
-                    total_employer_contribution,
-                    total_employer_cost
+                    project_name,
+                    pay_rate,
+                    bill_rate,
+                    start_date,
+                    end_date,
+                    status,
+                    work_location
                 `)
                 .eq(
                     "id",
-                    payrollId
+                    payroll.deployment_id
                 )
                 .maybeSingle();
 
-            if (payrollError) {
-                throw payrollError;
-            }
-
-            if (!payroll) {
-
-                return sendError(
-                    res,
-                    404,
-                    "Payroll record not found"
+            if (deploymentError) {
+                console.error(
+                    "Deployment fetch error:",
+                    deploymentError
                 );
             }
 
-            // ----------------------------------------------------
-            // STATUS
-            // ----------------------------------------------------
+            deployment = deploymentData;
+        }
 
-            const payrollStatus =
-                String(
-                    payroll.status || ""
-                )
-                .trim()
-                .toLowerCase();
+        // ========================================================
+        // CLIENT
+        // ========================================================
 
-            if (
-                payrollStatus !==
-                    "approved" &&
-                payrollStatus !==
-                    "locked"
-            ) {
+        let client = null;
 
-                return sendError(
-                    res,
-                    400,
-                    "Payslip can be emailed only after payroll is Approved or Locked."
-                );
-            }
-
-            // ----------------------------------------------------
-            // CANDIDATE
-            // ----------------------------------------------------
-
-            const candidateId =
-                payroll.employee_ref_id;
-
-            if (!candidateId) {
-
-                return sendError(
-                    res,
-                    400,
-                    "Candidate ID is missing"
-                );
-            }
-
+        if (payroll.client_id) {
             const {
-                data: candidate,
-                error: candidateError
+                data: clientData,
+                error: clientError
             } = await supabase
-                .from("candidates")
+                .from("clients")
                 .select(`
                     id,
-                    full_name,
-                    email,
-                    designation
+                    company_name
                 `)
                 .eq(
                     "id",
-                    candidateId
+                    payroll.client_id
                 )
                 .maybeSingle();
 
-            if (candidateError) {
-                throw candidateError;
-            }
-
-            if (!candidate) {
-
-                return sendError(
-                    res,
-                    404,
-                    "Candidate not found"
+            if (clientError) {
+                console.error(
+                    "Client fetch error:",
+                    clientError
                 );
             }
 
-            // ----------------------------------------------------
-            // EMAIL
-            // ----------------------------------------------------
+            client = clientData;
+        }
 
-            const employeeEmail =
-                String(
-                    candidate.email || ""
-                ).trim();
+        // ========================================================
+        // ATTENDANCE
+        // ========================================================
 
-            if (!employeeEmail) {
+        const {
+            attendance
+        } = await getAttendanceForPayroll(
+            payroll
+        );
 
-                return sendError(
-                    res,
-                    400,
-                    "Employee email address is not available"
-                );
-            }
+        const totalDays =
+            attendance?.billing_month
+                ? getDaysInMonth(
+                      attendance.billing_month
+                  )
+                : getDaysInMonth(
+                      payroll.salary_month
+                  );
 
-            const emailRegex =
-                /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const presentDays = Number(
+            attendance?.present_days || 0
+        );
 
-            if (
-                !emailRegex.test(
-                    employeeEmail
-                )
-            ) {
+        const absentDays = Number(
+            attendance?.absent_days || 0
+        );
 
-                return sendError(
-                    res,
-                    400,
-                    `Invalid employee email address: ${employeeEmail}`
-                );
-            }
+        const leaveDays = Number(
+            attendance?.leave_days || 0
+        );
 
-            const employeeName =
-                candidate.full_name ||
-                payroll.employee_name ||
-                "Employee";
+        const halfDays = Number(
+            attendance?.half_days || 0
+        );
 
-            // ----------------------------------------------------
-            // ATTENDANCE
-            //
-            // SAME TABLE USED FOR PAYROLL + PAYSLIP
-            // ----------------------------------------------------
+        const lopDays = Number(
+            attendance?.lop_days || 0
+        );
 
-            const {
-                attendance
-            } =
-                await getAttendanceForPayroll(
-                    payroll
-                );
-
-            const totalDays =
-                attendance?.billing_month
-                    ? getDaysInMonth(
-                        attendance.billing_month
-                    )
-                    : getDaysInMonth(
-                        payroll.salary_month
-                    );
-
-            const presentDays =
-                Number(
-                    attendance?.present_days ||
-                    0
-                );
-
-            const absentDays =
-                Number(
-                    attendance?.absent_days ||
-                    0
-                );
-
-            const leaveDays =
-                Number(
-                    attendance?.leave_days ||
-                    0
-                );
-
-            const halfDays =
-                Number(
-                    attendance?.half_days ||
-                    0
-                );
-
-            const lopDays =
-                Number(
-                    attendance?.lop_days ||
-                    0
-                );
-
-            const payableDays =
-                Number(
-                    attendance?.payable_days ??
-                    Math.max(
-                        0,
-                        presentDays +
+        const payableDays = Number(
+            attendance?.payable_days ??
+                Math.max(
+                    0,
+                    presentDays +
                         leaveDays +
                         halfDays * 0.5
-                    )
+                )
+        );
+
+        const overtimeHours = Number(
+            attendance?.overtime_hours || 0
+        );
+
+        // ========================================================
+        // MONEY
+        // ========================================================
+
+        const money = (value) => {
+            return Number(value || 0).toLocaleString(
+                "en-IN",
+                {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }
+            );
+        };
+
+        // ========================================================
+        // SAFE HTML
+        // ========================================================
+
+        const escapeHtml = (value) => {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
+
+        const safe = (
+            value,
+            fallback = "N/A"
+        ) => {
+            if (
+                value === null ||
+                value === undefined ||
+                String(value).trim() === ""
+            ) {
+                return fallback;
+            }
+
+            return String(value);
+        };
+
+        // ========================================================
+        // MONTH / DATE
+        // ========================================================
+
+        const salaryMonth =
+            payroll.salary_month || "";
+
+        let monthStart = "N/A";
+        let monthEnd = "N/A";
+        let monthName = "N/A";
+
+        if (/^\d{4}-\d{2}$/.test(salaryMonth)) {
+            const [year, month] =
+                salaryMonth
+                    .split("-")
+                    .map(Number);
+
+            const firstDay =
+                new Date(
+                    year,
+                    month - 1,
+                    1
                 );
 
-            const overtimeHours =
-                Number(
-                    attendance?.overtime_hours ||
+            const lastDay =
+                new Date(
+                    year,
+                    month,
                     0
                 );
 
-            // ----------------------------------------------------
-            // MONEY
-            // ----------------------------------------------------
-
-            const money = (value) =>
-                Number(
-                    value || 0
-                ).toLocaleString(
+            const formatDate = (date) => {
+                return date.toLocaleDateString(
                     "en-IN",
                     {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric"
                     }
                 );
+            };
 
-            // ----------------------------------------------------
-            // DEDUCTIONS
-            // ----------------------------------------------------
+            monthStart =
+                formatDate(firstDay);
 
-            const totalDeductions =
-                Number(
-                    payroll.total_deductions ??
-                    (
-                        Number(payroll.pf || 0) +
-                        Number(payroll.esic || 0) +
-                        Number(payroll.tax || 0) +
-                        Number(payroll.professional_tax || 0) +
-                        Number(payroll.lop || 0)
-                    )
+            monthEnd =
+                formatDate(lastDay);
+
+            monthName =
+                firstDay.toLocaleDateString(
+                    "en-IN",
+                    {
+                        month: "long",
+                        year: "numeric"
+                    }
                 );
+        }
 
-            const employerContribution =
-                Number(
-                    payroll.total_employer_contribution ??
+        // ========================================================
+        // DATE OF JOINING
+        // ========================================================
+
+        const dateOfJoining =
+            candidate.date_of_joining
+                ? new Date(
+                      candidate.date_of_joining
+                  ).toLocaleDateString(
+                      "en-IN",
+                      {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric"
+                      }
+                  )
+                : "N/A";
+
+        // ========================================================
+        // EMPLOYEE NUMBER
+        // ========================================================
+
+        const employeeNumber = safe(
+            candidate.employee_id ||
+                deployment?.employee_id ||
+                candidate.id,
+            "N/A"
+        );
+
+        // ========================================================
+        // LOCATION
+        // ========================================================
+
+        const location = safe(
+            deployment?.work_location ||
+                candidate.location,
+            "Head Office"
+        );
+
+        // ========================================================
+        // SALARY VALUES
+        // ========================================================
+
+        const basicSalary = Number(
+            payroll.basic_salary || 0
+        );
+
+        const allowances = Number(
+            payroll.allowances || 0
+        );
+
+        const overtime = Number(
+            payroll.overtime || 0
+        );
+
+        const bonus = Number(
+            payroll.bonus || 0
+        );
+
+        const grossSalary = Number(
+            payroll.gross_salary ??
+                (
+                    basicSalary +
+                    allowances +
+                    overtime +
+                    bonus
+                )
+        );
+
+        const pf = Number(
+            payroll.pf || 0
+        );
+
+        const esic = Number(
+            payroll.esic || 0
+        );
+
+        const tax = Number(
+            payroll.tax || 0
+        );
+
+        const professionalTax =
+            Number(
+                payroll.professional_tax || 0
+            );
+
+        const lop = Number(
+            payroll.lop || 0
+        );
+
+        const totalDeductions =
+            Number(
+                payroll.total_deductions ??
                     (
-                        Number(payroll.employer_pf || 0) +
-                        Number(payroll.employer_esic || 0)
+                        pf +
+                        esic +
+                        tax +
+                        professionalTax +
+                        lop
                     )
-                );
+            );
 
-            const employerCost =
-                Number(
-                    payroll.total_employer_cost ??
+        const netSalary = Number(
+            payroll.net_salary ??
+                Math.max(
+                    0,
+                    grossSalary -
+                        totalDeductions
+                )
+        );
+
+        const employerPf = Number(
+            payroll.employer_pf || 0
+        );
+
+        const employerEsic = Number(
+            payroll.employer_esic || 0
+        );
+
+        const employerContribution =
+            Number(
+                payroll.total_employer_contribution ??
                     (
-                        Number(payroll.gross_salary || 0) +
+                        employerPf +
+                        employerEsic
+                    )
+            );
+
+        const employerCost =
+            Number(
+                payroll.total_employer_cost ??
+                    (
+                        grossSalary +
                         employerContribution
                     )
+            );
+
+        // ========================================================
+        // AMOUNT IN WORDS
+        // ========================================================
+
+        const numberToWords = (number) => {
+            const ones = [
+                "",
+                "One",
+                "Two",
+                "Three",
+                "Four",
+                "Five",
+                "Six",
+                "Seven",
+                "Eight",
+                "Nine",
+                "Ten",
+                "Eleven",
+                "Twelve",
+                "Thirteen",
+                "Fourteen",
+                "Fifteen",
+                "Sixteen",
+                "Seventeen",
+                "Eighteen",
+                "Nineteen"
+            ];
+
+            const tens = [
+                "",
+                "",
+                "Twenty",
+                "Thirty",
+                "Forty",
+                "Fifty",
+                "Sixty",
+                "Seventy",
+                "Eighty",
+                "Ninety"
+            ];
+
+            const belowThousand = (
+                num
+            ) => {
+                let result = "";
+
+                if (num >= 100) {
+                    result +=
+                        ones[
+                            Math.floor(
+                                num / 100
+                            )
+                        ] +
+                        " Hundred ";
+
+                    num %= 100;
+                }
+
+                if (num >= 20) {
+                    result +=
+                        tens[
+                            Math.floor(
+                                num / 10
+                            )
+                        ] +
+                        " ";
+
+                    num %= 10;
+                }
+
+                if (num > 0) {
+                    result +=
+                        ones[num] +
+                        " ";
+                }
+
+                return result.trim();
+            };
+
+            number = Math.floor(
+                Number(number || 0)
+            );
+
+            if (number === 0) {
+                return "Zero";
+            }
+
+            let result = "";
+
+            const crore =
+                Math.floor(
+                    number / 10000000
                 );
 
-            // ----------------------------------------------------
-            // HTML
-            // ----------------------------------------------------
+            number %= 10000000;
 
-            const html = `
+            const lakh =
+                Math.floor(
+                    number / 100000
+                );
+
+            number %= 100000;
+
+            const thousand =
+                Math.floor(
+                    number / 1000
+                );
+
+            number %= 1000;
+
+            if (crore) {
+                result +=
+                    belowThousand(crore) +
+                    " Crore ";
+            }
+
+            if (lakh) {
+                result +=
+                    belowThousand(lakh) +
+                    " Lakh ";
+            }
+
+            if (thousand) {
+                result +=
+                    belowThousand(thousand) +
+                    " Thousand ";
+            }
+
+            if (number) {
+                result +=
+                    belowThousand(number);
+            }
+
+            return result.trim();
+        };
+
+        const amountInWords =
+            `INR ${numberToWords(
+                netSalary
+            )} Rupees only`;
+
+        // ========================================================
+        // HTML PAYSLIP
+        //
+        // This follows the uploaded payslip structure.
+        // ========================================================
+
+        const html = `
 <!DOCTYPE html>
+
 <html>
+
 <head>
 
 <meta charset="UTF-8">
 
+<title>
+Payslip - ${escapeHtml(employeeName)}
+</title>
+
 <style>
 
+@page {
+    size: A4;
+    margin: 0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
 body {
-    font-family: Arial, sans-serif;
-    background: #f8fafc;
     margin: 0;
-    padding: 30px;
-    color: #0f172a;
+    padding: 0;
+    width: 210mm;
+    min-height: 297mm;
+    background: #ffffff;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #111111;
 }
 
-.container {
-    max-width: 700px;
-    margin: auto;
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 30px;
+.page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 11mm 17mm;
+    background: #ffffff;
 }
 
-.header {
-    border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 20px;
-    margin-bottom: 20px;
+.company-header {
+    margin-bottom: 17px;
 }
 
-h1 {
-    margin: 0;
-    font-size: 22px;
+.company-name {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 7px;
 }
 
-.subtitle {
-    color: #64748b;
+.company-address {
+    font-size: 9px;
+    line-height: 1.35;
+}
+
+.pay-slip-box {
+    width: 100%;
+    min-height: 245mm;
+    border: 2px solid #111111;
+    padding: 10px 12px;
+}
+
+.pay-slip-heading {
+    border-bottom: 1px solid #111111;
+    padding-bottom: 7px;
+}
+
+.pay-slip-title {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.pay-slip-period {
+    font-size: 10px;
+    margin-top: 2px;
+}
+
+.center-heading {
+    text-align: center;
     font-size: 13px;
-    margin-top: 5px;
+    font-weight: 700;
+    line-height: 1.3;
+    padding: 10px 0;
+    border-bottom: 1px solid #111111;
 }
 
-.status {
-    display: inline-block;
-    margin-top: 10px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    background: #dcfce7;
-    color: #166534;
-    font-weight: bold;
-    font-size: 12px;
+.employee-info {
+    width: 100%;
+    display: table;
+    margin-top: 9px;
+    margin-bottom: 15px;
 }
 
-.section {
-    margin-top: 25px;
+.employee-column {
+    display: table-cell;
+    vertical-align: top;
+    width: 50%;
 }
 
-.section h3 {
-    background: #f1f5f9;
-    padding: 10px;
-    font-size: 13px;
-    text-transform: uppercase;
+.info-row {
+    display: table;
+    width: 100%;
+    min-height: 17px;
+    font-size: 9px;
 }
 
-table {
+.info-label {
+    display: table-cell;
+    width: 112px;
+    vertical-align: top;
+}
+
+.info-value {
+    display: table-cell;
+    font-weight: 700;
+    vertical-align: top;
+}
+
+.salary-section {
+    border-top: 1px solid #111111;
+    padding-top: 8px;
+}
+
+.salary-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 9px;
 }
 
-td {
-    padding: 9px 5px;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 13px;
+.salary-table th {
+    background: #f2f2f2;
+    border: 1px solid #b8b8b8;
+    padding: 5px 4px;
+    font-weight: 700;
+    text-align: left;
 }
 
-td:last-child {
+.salary-table td {
+    border: 1px solid #cccccc;
+    padding: 4px;
+    height: 18px;
+    vertical-align: middle;
+}
+
+.salary-table .amount {
     text-align: right;
-    font-weight: bold;
+    white-space: nowrap;
 }
 
-.net {
-    background: #ecfdf5;
-    padding: 18px;
-    margin-top: 20px;
-    border-radius: 10px;
+.salary-table .total {
+    font-weight: 700;
+    background: #f3f3f3;
 }
 
-.net strong {
-    font-size: 22px;
-    color: #047857;
+.net-row td {
+    font-weight: 700;
 }
 
-.footer {
-    margin-top: 25px;
-    color: #94a3b8;
-    font-size: 11px;
+.amount-words {
+    border-top: 1px solid #999999;
+    margin-top: 7px;
+    padding-top: 7px;
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+.amount-words-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.signature-area {
+    position: relative;
+    border-top: 1px solid #999999;
+    margin-top: 15px;
+    height: 105px;
+}
+
+/*
+============================================================
+LOGO IMAGE
+============================================================
+
+Replace YOUR_LOGO_IMAGE_HERE with your actual logo.
+
+Example:
+
+src="file:///home/pooja/Desktop/Talent-Corner/logo.png"
+
+or:
+
+src="cid:talent-corner-logo"
+
+============================================================
+*/
+
+.logo-image {
+    position: absolute;
+    right: 15px;
+    top: 12px;
+    width: 95px;
+    height: auto;
+    object-fit: contain;
+}
+
+/*
+============================================================
+SIGNATURE IMAGE
+============================================================
+*/
+
+.signature-image {
+    position: absolute;
+    right: 128px;
+    top: 25px;
+    width: 70px;
+    height: 40px;
+    object-fit: contain;
+}
+
+/*
+============================================================
+STAMP IMAGE
+============================================================
+
+Replace YOUR_STAMP_IMAGE_HERE with actual stamp.
+
+============================================================
+*/
+
+.stamp-image {
+    position: absolute;
+    right: 17px;
+    top: 22px;
+    width: 68px;
+    height: 68px;
+    object-fit: contain;
+}
+
+.authorised {
+    position: absolute;
+    right: 5px;
+    top: 91px;
+    width: 92px;
     text-align: center;
+    font-size: 8px;
+}
+
+.footer-note {
+    text-align: center;
+    font-size: 7px;
+    color: #555555;
+    margin-top: 6px;
 }
 
 </style>
@@ -2824,337 +3368,2859 @@ td:last-child {
 
 <body>
 
-<div class="container">
+<div class="page">
 
-<div class="header">
+    <!-- ====================================================
+         COMPANY HEADER
+         ==================================================== -->
 
-<h1>
-Talent Corner HR Services
-</h1>
+    <div class="company-header">
 
-<div class="subtitle">
-Payslip — ${payroll.salary_month}
-</div>
+        <div class="company-name">
+            Talent Corner HR Services Pvt Ltd.
+        </div>
 
-<div class="status">
-${payroll.status}
-</div>
+        <div class="company-address">
 
-</div>
+            708/709, Bhaveshwar Arcade NX<br>
 
-<div class="section">
+            Opp Shreyas Cinema, LBS Marg, Ghatkopar(W),<br>
 
-<h3>
-Employee Details
-</h3>
+            Mumbai-400086<br>
 
-<table>
+            UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)<br>
 
-<tr>
-<td>Employee Name</td>
-<td>${employeeName}</td>
-</tr>
+            E-Mail : accounts@talentcorner.in
 
-<tr>
-<td>Employee ID</td>
-<td>${candidateId}</td>
-</tr>
+        </div>
 
-<tr>
-<td>Email</td>
-<td>${employeeEmail}</td>
-</tr>
+    </div>
 
-<tr>
-<td>Designation</td>
-<td>${candidate.designation || "-"}</td>
-</tr>
 
-<tr>
-<td>Client ID</td>
-<td>${payroll.client_id || "-"}</td>
-</tr>
+    <!-- ====================================================
+         PAYSLIP
+         ==================================================== -->
 
-<tr>
-<td>Deployment ID</td>
-<td>${payroll.deployment_id || "-"}</td>
-</tr>
+    <div class="pay-slip-box">
 
-</table>
+        <!-- PAYSLIP TITLE -->
 
-</div>
+        <div class="pay-slip-heading">
 
-<div class="section">
+            <div class="pay-slip-title">
+                Pay Slip
+            </div>
 
-<h3>
-Attendance
-</h3>
+            <div class="pay-slip-period">
+                for ${escapeHtml(monthStart)}
+                to ${escapeHtml(monthEnd)}
+            </div>
 
-<table>
+        </div>
 
-<tr>
-<td>Total Days</td>
-<td>${totalDays}</td>
-</tr>
 
-<tr>
-<td>Present Days</td>
-<td>${presentDays}</td>
-</tr>
+        <!-- CENTER TITLE -->
 
-<tr>
-<td>Absent Days</td>
-<td>${absentDays}</td>
-</tr>
+        <div class="center-heading">
 
-<tr>
-<td>Leave Days</td>
-<td>${leaveDays}</td>
-</tr>
+            Pay Slip for
+            ${escapeHtml(monthStart)}
+            to
+            ${escapeHtml(monthEnd)}
 
-<tr>
-<td>Half Days</td>
-<td>${halfDays}</td>
-</tr>
+            <br>
 
-<tr>
-<td>LOP Days</td>
-<td>${lopDays}</td>
-</tr>
+            ${escapeHtml(
+                employeeName
+            ).toUpperCase()}
 
-<tr>
-<td>Payable Days</td>
-<td>${payableDays}</td>
-</tr>
+        </div>
 
-<tr>
-<td>Overtime Hours</td>
-<td>${overtimeHours}</td>
-</tr>
 
-</table>
+        <!-- =================================================
+             EMPLOYEE DETAILS
+             ================================================= -->
 
-</div>
+        <div class="employee-info">
 
-<div class="section">
+            <!-- LEFT -->
 
-<h3>
-Earnings
-</h3>
+            <div class="employee-column">
 
-<table>
+                <div class="info-row">
+                    <div class="info-label">
+                        Employee Number:
+                    </div>
 
-<tr>
-<td>Basic Salary</td>
-<td>₹${money(payroll.basic_salary)}</td>
-</tr>
+                    <div class="info-value">
+                        ${escapeHtml(
+                            employeeNumber
+                        )}
+                    </div>
+                </div>
 
-<tr>
-<td>Allowances</td>
-<td>₹${money(payroll.allowances)}</td>
-</tr>
 
-<tr>
-<td>Overtime</td>
-<td>₹${money(payroll.overtime)}</td>
-</tr>
+                <div class="info-row">
+                    <div class="info-label">
+                        Function:
+                    </div>
 
-<tr>
-<td>Bonus</td>
-<td>₹${money(payroll.bonus)}</td>
-</tr>
+                    <div class="info-value">
+                        CS
+                    </div>
+                </div>
 
-<tr>
-<td><strong>Gross Earnings</strong></td>
-<td>₹${money(payroll.gross_salary)}</td>
-</tr>
 
-</table>
+                <div class="info-row">
+                    <div class="info-label">
+                        Designation:
+                    </div>
 
-</div>
+                    <div class="info-value">
+                        ${escapeHtml(
+                            safe(
+                                candidate.designation
+                            )
+                        )}
+                    </div>
+                </div>
 
-<div class="section">
 
-<h3>
-Employee Deductions
-</h3>
+                <div class="info-row">
+                    <div class="info-label">
+                        Location:
+                    </div>
 
-<table>
+                    <div class="info-value">
+                        ${escapeHtml(
+                            location
+                        )}
+                    </div>
+                </div>
 
-<tr>
-<td>PF</td>
-<td>₹${money(payroll.pf)}</td>
-</tr>
 
-<tr>
-<td>ESIC</td>
-<td>₹${money(payroll.esic)}</td>
-</tr>
+                <div class="info-row">
 
-<tr>
-<td>TDS</td>
-<td>₹${money(payroll.tax)}</td>
-</tr>
+                    <div class="info-label">
+                        Bank Details:
+                    </div>
 
-<tr>
-<td>Professional Tax</td>
-<td>₹${money(payroll.professional_tax)}</td>
-</tr>
+                    <div class="info-value">
 
-<tr>
-<td>LOP</td>
-<td>₹${money(payroll.lop)}</td>
-</tr>
+                        Name -
+                        ${escapeHtml(
+                            payroll.bank_name ||
+                                "N/A"
+                        )}
 
-<tr>
-<td><strong>Total Deductions</strong></td>
-<td>₹${money(totalDeductions)}</td>
-</tr>
+                        <br>
 
-</table>
+                        BRANCH -
+                        N/A
 
-</div>
+                        <br>
 
-<div class="net">
+                        IFSC code -
+                        ${escapeHtml(
+                            payroll.ifsc_code ||
+                                "N/A"
+                        )}
 
-Net Salary Payable
+                        <br>
 
-<br>
+                        ACC NO. -
+                        ${escapeHtml(
+                            payroll.account_number ||
+                                "N/A"
+                        )}
 
-<strong>
-₹${money(payroll.net_salary)}
-</strong>
+                    </div>
 
-</div>
+                </div>
 
-<div class="section">
 
-<h3>
-Employer Contributions
-</h3>
+                <div class="info-row">
 
-<table>
+                    <div class="info-label">
+                        Date of joining:
+                    </div>
 
-<tr>
-<td>Employer PF</td>
-<td>₹${money(payroll.employer_pf)}</td>
-</tr>
+                    <div class="info-value">
+                        ${escapeHtml(
+                            dateOfJoining
+                        )}
+                    </div>
 
-<tr>
-<td>Employer ESIC</td>
-<td>₹${money(payroll.employer_esic)}</td>
-</tr>
+                </div>
 
-<tr>
-<td>Total Employer Contribution</td>
-<td>₹${money(employerContribution)}</td>
-</tr>
+            </div>
 
-<tr>
-<td>Total Employer Cost</td>
-<td>₹${money(employerCost)}</td>
-</tr>
 
-</table>
+            <!-- RIGHT -->
 
-</div>
+            <div class="employee-column">
 
-<div class="footer">
+                <div class="info-row">
 
-This is a system-generated payslip
-from Talent Corner HR Services.
+                    <div class="info-label">
+                        Tax Regime:
+                    </div>
 
-</div>
+                    <div class="info-value">
+                        Regular Tax Regime
+                    </div>
+
+                </div>
+
+
+                <div class="info-row">
+
+                    <div class="info-label">
+                        Income Tax Number
+                        (PAN):
+                    </div>
+
+                    <div class="info-value">
+                        N/A
+                    </div>
+
+                </div>
+
+
+                <div class="info-row">
+
+                    <div class="info-label">
+                        Universal Account
+                    </div>
+
+                    <div class="info-value">
+                        N/A
+                    </div>
+
+                </div>
+
+
+                <div class="info-row">
+
+                    <div class="info-label">
+                        Number (UAN):
+                    </div>
+
+                    <div class="info-value">
+                        N/A
+                    </div>
+
+                </div>
+
+
+                <div class="info-row">
+
+                    <div class="info-label">
+                        PF account number:
+                    </div>
+
+                    <div class="info-value">
+                        N/A
+                    </div>
+
+                </div>
+
+
+                <div class="info-row">
+
+                    <div class="info-label">
+                        ESI Number:
+                    </div>
+
+                    <div class="info-value">
+                        N/A
+                    </div>
+
+                </div>
+
+
+                <div class="info-row">
+
+                    <div class="info-label">
+                        PR Account Number
+                        (PRAN):
+                    </div>
+
+                    <div class="info-value">
+                        N/A
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             SALARY TABLE
+             ================================================= -->
+
+        <div class="salary-section">
+
+            <table class="salary-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th style="width:23%;">
+                            Earnings
+                        </th>
+
+                        <th style="width:13%;">
+                            Amount
+                        </th>
+
+                        <th style="width:13%;">
+                            Gross Salary
+                        </th>
+
+                        <th style="width:23%;">
+                            Deductions
+                        </th>
+
+                        <th style="width:13%;">
+                            Amount
+                        </th>
+
+                        <th style="width:13%;">
+                            Gross Salary
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    <!-- BASIC -->
+
+                    <tr>
+
+                        <td>
+                            Basic Salary
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                basicSalary
+                            )}
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                basicSalary
+                            )}
+                        </td>
+
+                        <td>
+                            Provident Fund
+                        </td>
+
+                        <td class="amount">
+                            ${money(pf)}
+                        </td>
+
+                        <td class="amount">
+                            -
+                        </td>
+
+                    </tr>
+
+
+                    <!-- ALLOWANCES -->
+
+                    <tr>
+
+                        <td>
+                            HRA / Allowances
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                allowances
+                            )}
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                allowances
+                            )}
+                        </td>
+
+                        <td>
+                            ${
+                                esic > 0
+                                    ? "ESIC"
+                                    : ""
+                            }
+                        </td>
+
+                        <td class="amount">
+                            ${
+                                esic > 0
+                                    ? money(esic)
+                                    : ""
+                            }
+                        </td>
+
+                        <td class="amount">
+                            ${
+                                esic > 0
+                                    ? "-"
+                                    : ""
+                            }
+                        </td>
+
+                    </tr>
+
+
+                    <!-- OVERTIME -->
+
+                    <tr>
+
+                        <td>
+                            Overtime
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                overtime
+                            )}
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                overtime
+                            )}
+                        </td>
+
+                        <td>
+                            ${
+                                tax > 0
+                                    ? "Income Tax"
+                                    : ""
+                            }
+                        </td>
+
+                        <td class="amount">
+                            ${
+                                tax > 0
+                                    ? money(tax)
+                                    : ""
+                            }
+                        </td>
+
+                        <td class="amount">
+                            ${
+                                tax > 0
+                                    ? "-"
+                                    : ""
+                            }
+                        </td>
+
+                    </tr>
+
+
+                    <!-- BONUS -->
+
+                    <tr>
+
+                        <td>
+                            Bonus
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                bonus
+                            )}
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                bonus
+                            )}
+                        </td>
+
+                        <td>
+                            ${
+                                professionalTax > 0
+                                    ? "Professional Tax"
+                                    : ""
+                            }
+                        </td>
+
+                        <td class="amount">
+                            ${
+                                professionalTax > 0
+                                    ? money(
+                                          professionalTax
+                                      )
+                                    : ""
+                            }
+                        </td>
+
+                        <td class="amount">
+                            ${
+                                professionalTax > 0
+                                    ? "-"
+                                    : ""
+                            }
+                        </td>
+
+                    </tr>
+
+
+                    <!-- LOP -->
+
+                    <tr>
+
+                        <td>
+                            LOP
+                        </td>
+
+                        <td class="amount">
+                            ${money(lop)}
+                        </td>
+
+                        <td class="amount">
+                            ${money(lop)}
+                        </td>
+
+                        <td>
+                            ${
+                                lop > 0
+                                    ? "Loss of Pay"
+                                    : ""
+                            }
+                        </td>
+
+                        <td class="amount">
+                            ${
+                                lop > 0
+                                    ? money(lop)
+                                    : ""
+                            }
+                        </td>
+
+                        <td class="amount">
+                            ${
+                                lop > 0
+                                    ? "-"
+                                    : ""
+                            }
+                        </td>
+
+                    </tr>
+
+
+                    <!-- EMPTY ROW -->
+
+                    <tr>
+
+                        <td></td>
+                        <td></td>
+                        <td></td>
+
+                        <td></td>
+                        <td></td>
+                        <td></td>
+
+                    </tr>
+
+
+                    <!-- TOTAL -->
+
+                    <tr class="total">
+
+                        <td>
+                            Total Earnings
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                grossSalary
+                            )}
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                grossSalary
+                            )}
+                        </td>
+
+                        <td>
+                            Total Deductions
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                totalDeductions
+                            )}
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                totalDeductions
+                            )}
+                        </td>
+
+                    </tr>
+
+
+                    <!-- NET -->
+
+                    <tr class="net-row">
+
+                        <td></td>
+
+                        <td></td>
+
+                        <td></td>
+
+                        <td>
+                            Net Amount
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                netSalary
+                            )}
+                        </td>
+
+                        <td class="amount">
+                            ${money(
+                                netSalary
+                            )}
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+
+            <!-- =================================================
+                 AMOUNT IN WORDS
+                 ================================================= -->
+
+            <div class="amount-words">
+
+                <div class="amount-words-title">
+                    Amount (in words):
+                </div>
+
+                ${escapeHtml(
+                    amountInWords
+                )}
+
+            </div>
+
+
+            <!-- =================================================
+                 SIGNATURE / STAMP / LOGO
+                 ================================================= -->
+
+            <div class="signature-area">
+
+                <!-- =================================================
+                     LOGO IMAGE TAG
+
+                     PUT YOUR LOGO PATH HERE
+                     ================================================= -->
+
+                <img
+                    class="logo-image"
+                    src="YOUR_LOGO_IMAGE_HERE"
+                    alt="Talent Corner Logo"
+                />
+
+
+                <!-- =================================================
+                     SIGNATURE IMAGE TAG
+                     ================================================= -->
+
+                <img
+                    class="signature-image"
+                    src="YOUR_SIGNATURE_IMAGE_HERE"
+                    alt="Authorised Signature"
+                />
+
+
+                <!-- =================================================
+                     STAMP IMAGE TAG
+
+                     PUT YOUR STAMP PATH HERE
+                     ================================================= -->
+
+                <img
+                    class="stamp-image"
+                    src="YOUR_STAMP_IMAGE_HERE"
+                    alt="Talent Corner Stamp"
+                />
+
+
+                <div class="authorised">
+                    Authorised Signatory
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
 
 </div>
 
 </body>
+
 </html>
 `;
 
-            // ----------------------------------------------------
-            // TRANSPORTER
-            // ----------------------------------------------------
+        // ========================================================
+        // PUPPETEER
+        // ========================================================
 
-            const transporter =
-                nodemailer.createTransport({
-                    service: "gmail",
+        const puppeteer =
+            require("puppeteer");
 
-                    auth: {
-                        user:
-                            EMAIL_USER,
+        browser = await puppeteer.launch({
+            headless: true,
 
-                        pass:
-                            EMAIL_PASS
-                    }
-                });
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage"
+            ]
+        });
 
-            // ----------------------------------------------------
-            // VERIFY
-            // ----------------------------------------------------
+        const page =
+            await browser.newPage();
 
-            await transporter.verify();
+        await page.setContent(
+            html,
+            {
+                waitUntil: "networkidle0"
+            }
+        );
 
-            // ----------------------------------------------------
-            // SEND
-            // ----------------------------------------------------
+        // ========================================================
+        // GENERATE PDF
+        // ========================================================
 
-            const mailResult =
-                await transporter.sendMail({
+        const pdfBuffer =
+            await page.pdf({
+                format: "A4",
+                printBackground: true,
+                preferCSSPageSize: true,
 
-                    from:
-                        `"Talent Corner HR Services" <${EMAIL_USER}>`,
+                margin: {
+                    top: "0mm",
+                    right: "0mm",
+                    bottom: "0mm",
+                    left: "0mm"
+                }
+            });
 
-                    to:
-                        employeeEmail,
+        await browser.close();
 
-                    subject:
-                        `Payslip - ${payroll.salary_month} - ${employeeName}`,
+        browser = null;
 
-                    html
-                });
+        // ========================================================
+        // MAIL TRANSPORTER
+        // ========================================================
 
-            console.log(
-                `Payslip ${payrollId} sent to ${employeeEmail}`
-            );
+        const transporter =
+            nodemailer.createTransport({
+                service: "gmail",
 
-            return res.json({
+                auth: {
+                    user: EMAIL_USER,
+                    pass: EMAIL_PASS
+                }
+            });
 
-                success: true,
+        // ========================================================
+        // VERIFY EMAIL
+        // ========================================================
 
-                message:
-                    `Payslip emailed successfully to ${employeeEmail}`,
+        await transporter.verify();
 
-                payroll_id:
-                    payrollId,
+        // ========================================================
+        // FILE NAME
+        // ========================================================
 
-                candidate_id:
-                    candidateId,
+        const cleanName =
+            String(employeeName)
+                .replace(
+                    /[^a-zA-Z0-9]+/g,
+                    "_"
+                )
+                .replace(
+                    /^_+|_+$/g,
+                    ""
+                );
 
-                employee_email:
+        const fileName =
+            `Payslip_${cleanName}_${salaryMonth}.pdf`;
+
+        // ========================================================
+        // SEND EMAIL
+        // ========================================================
+
+        const mailResult =
+            await transporter.sendMail({
+
+                from:
+                    `"Talent Corner HR Services Pvt Ltd." <${EMAIL_USER}>`,
+
+                to:
                     employeeEmail,
 
-                message_id:
-                    mailResult.messageId
+                subject:
+                    `Payslip - ${salaryMonth} - ${employeeName}`,
+
+                html: `
+                    <div style="
+                        font-family: Arial, Helvetica, sans-serif;
+                        font-size: 14px;
+                        color: #222222;
+                        line-height: 1.6;
+                    ">
+
+                        <p>
+                            Dear
+                            <strong>
+                                ${escapeHtml(
+                                    employeeName
+                                )}
+                            </strong>,
+                        </p>
+
+                        <p>
+                            Please find attached your
+                            payslip for
+                            <strong>
+                                ${escapeHtml(
+                                    monthName
+                                )}
+                            </strong>.
+                        </p>
+
+                        <p>
+                            Regards,<br>
+                            <strong>
+                                Talent Corner HR Services Pvt Ltd.
+                            </strong>
+                        </p>
+
+                    </div>
+                `,
+
+                attachments: [
+                    {
+                        filename: fileName,
+                        content: pdfBuffer,
+                        contentType:
+                            "application/pdf"
+                    }
+                ]
             });
+
+        // ========================================================
+        // SUCCESS
+        // ========================================================
+
+        console.log(
+            `Payslip ${payrollId} sent to ${employeeEmail}`
+        );
+
+        return res.json({
+
+            success: true,
+
+            message:
+                `Payslip emailed successfully to ${employeeEmail}`,
+
+            payroll_id:
+                payrollId,
+
+            candidate_id:
+                candidateId,
+
+            employee_name:
+                employeeName,
+
+            employee_email:
+                employeeEmail,
+
+            salary_month:
+                salaryMonth,
+
+            file_name:
+                fileName,
+
+            message_id:
+                mailResult.messageId
+
+        });
+
+    } catch (error) {
+
+        // ========================================================
+        // CLOSE BROWSER ON ERROR
+        // ========================================================
+
+        if (browser) {
+            try {
+                await browser.close();
+            } catch (_) {}
+        }
+
+        console.error(
+            "EMAIL PAYSLIP ERROR:",
+            error
+        );
+
+        return sendError(
+            res,
+            500,
+            "Failed to generate and send payslip",
+            error.message
+        );
+    }
+});
+// ============================================================
+// LOOKUP: EMPLOYEES FOR A CLIENT (for the "Create Payroll" picker)
+//
+// GET /api/payroll/lookup/employees?client_id=1
+// ============================================================
+
+router.get("/lookup/employees", async (req, res) => {
+    try {
+        const clientId = getId(req.query.client_id);
+
+        if (!clientId) {
+            return sendError(res, 400, "Valid client_id is required");
+        }
+
+        const { data: deployments, error: deploymentError } = await supabase
+            .from("deployments")
+            .select(`
+                id,
+                candidate_id,
+                client_id,
+                pay_rate,
+                bill_rate,
+                project_name,
+                status
+            `)
+            .eq("client_id", clientId)
+            .order("id", { ascending: false });
+
+        if (deploymentError) throw deploymentError;
+
+        if (!deployments || deployments.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        const candidateIds = [
+            ...new Set(
+                deployments
+                    .map((d) => d.candidate_id)
+                    .filter((id) => id !== null && id !== undefined)
+            )
+        ];
+
+        let candidatesById = {};
+
+        if (candidateIds.length > 0) {
+            const { data: candidates, error: candidateError } = await supabase
+                .from("candidates")
+                .select("id, full_name, email, designation")
+                .in("id", candidateIds);
+
+            if (candidateError) throw candidateError;
+
+            candidatesById = Object.fromEntries(
+                (candidates || []).map((c) => [c.id, c])
+            );
+        }
+
+        const result = deployments.map((d) => {
+            const candidate = candidatesById[d.candidate_id] || null;
+
+            return {
+                deployment_id: d.id,
+                employee_id: d.candidate_id,
+                employee_name: candidate?.full_name || "N/A",
+                email: candidate?.email || "",
+                designation: candidate?.designation || "",
+                project_name: d.project_name || null,
+                pay_rate: Number(d.pay_rate || 0),
+                bill_rate: Number(d.bill_rate || 0),
+                deployment_status: d.status || null
+            };
+        });
+
+        return res.json({ success: true, data: result });
+
+    } catch (error) {
+        console.error("GET /api/payroll/lookup/employees:", error);
+        return sendError(res, 500, "Failed to fetch employees", error.message);
+    }
+});
+
+// ============================================================
+// LOOKUP: PREFILL DATA FOR ONE EMPLOYEE + MONTH
+// (pay rate, attendance, existing-payroll check)
+//
+// GET /api/payroll/lookup/prefill?deployment_id=5&salary_month=2026-08
+// ============================================================
+
+router.get("/lookup/prefill", async (req, res) => {
+    try {
+        const deploymentId = getId(req.query.deployment_id);
+
+        if (!deploymentId) {
+            return sendError(res, 400, "Valid deployment_id is required");
+        }
+
+        let salaryMonth;
+
+        try {
+            salaryMonth = validateSalaryMonth(req.query.salary_month);
+        } catch (err) {
+            return sendError(res, 400, err.message);
+        }
+
+        const { data: deployment, error: deploymentError } = await supabase
+            .from("deployments")
+            .select(`
+                id, candidate_id, client_id, pay_rate, bill_rate,
+                project_name, status
+            `)
+            .eq("id", deploymentId)
+            .maybeSingle();
+
+        if (deploymentError) throw deploymentError;
+
+        if (!deployment) {
+            return sendError(res, 404, "Deployment not found");
+        }
+
+        const { data: candidate, error: candidateError } = await supabase
+            .from("candidates")
+            .select("id, full_name, email, phone, designation")
+            .eq("id", deployment.candidate_id)
+            .maybeSingle();
+
+        if (candidateError) throw candidateError;
+
+        const { data: attendanceRows, error: attendanceError } = await supabase
+            .from("third_party_emp_attendance")
+            .select(`
+                id, employee_name, billing_month, status,
+                present_days, absent_days, leave_days,
+                overtime_hours, deployment_id, employee_id,
+                half_days, lop_days, payable_days
+            `)
+            .eq("employee_id", deployment.candidate_id)
+            .eq("deployment_id", deploymentId)
+            .eq("billing_month", salaryMonth)
+            .order("id", { ascending: false })
+            .limit(1);
+
+        if (attendanceError) throw attendanceError;
+
+        const attendance = attendanceRows?.[0] || null;
+
+        const { data: existingPayroll, error: existingError } = await supabase
+            .from("third_party_payroll")
+            .select("id, status")
+            .eq("employee_ref_id", deployment.candidate_id)
+            .eq("deployment_id", deploymentId)
+            .eq("salary_month", salaryMonth)
+            .limit(1);
+
+        if (existingError) throw existingError;
+
+        const calendarDays = getDaysInMonth(salaryMonth);
+
+        return res.json({
+            success: true,
+            data: {
+                deployment_id: deploymentId,
+                employee_id: deployment.candidate_id,
+                client_id: deployment.client_id,
+                employee_name: candidate?.full_name || "N/A",
+                email: candidate?.email || "",
+                designation: candidate?.designation || "",
+                pay_rate: Number(deployment.pay_rate || 0),
+                deployment_status: deployment.status || null,
+
+                attendance_id: attendance?.id || null,
+                present_days: Number(attendance?.present_days || 0),
+                absent_days: Number(attendance?.absent_days || 0),
+                leave_days: Number(attendance?.leave_days || 0),
+                half_days: Number(attendance?.half_days || 0),
+                lop_days: Number(attendance?.lop_days || 0),
+                overtime_hours: Number(attendance?.overtime_hours || 0),
+                total_days: calendarDays,
+
+                already_exists: !!(existingPayroll && existingPayroll.length > 0),
+                existing_payroll_id: existingPayroll?.[0]?.id || null,
+                existing_payroll_status: existingPayroll?.[0]?.status || null
+            }
+        });
+
+    } catch (error) {
+        console.error("GET /api/payroll/lookup/prefill:", error);
+        return sendError(res, 500, "Failed to fetch prefill data", error.message);
+    }
+});
+
+// ============================================================
+// CREATE PAYROLL MANUALLY
+//
+// POST /api/payroll
+//
+// Admin picks an employee (client_id/deployment_id/employee_id are
+// auto-resolved from the deployment); admin types in the money fields.
+// ============================================================
+
+router.post("/", async (req, res) => {
+    try {
+        const clientId = getId(req.body.client_id);
+        const deploymentId = getId(req.body.deployment_id);
+        const employeeId = getId(req.body.employee_ref_id);
+
+        if (!clientId) return sendError(res, 400, "Valid client_id is required");
+        if (!deploymentId) return sendError(res, 400, "Valid deployment_id is required");
+        if (!employeeId) return sendError(res, 400, "Valid employee_ref_id is required");
+
+        let salaryMonth;
+
+        try {
+            salaryMonth = validateSalaryMonth(req.body.salary_month);
+        } catch (err) {
+            return sendError(res, 400, err.message);
+        }
+
+        // --------------------------------------------------------
+        // VALIDATE DEPLOYMENT BELONGS TO CLIENT + EMPLOYEE
+        // --------------------------------------------------------
+
+        const { data: deployment, error: deploymentError } = await supabase
+            .from("deployments")
+            .select("id, candidate_id, client_id, status")
+            .eq("id", deploymentId)
+            .maybeSingle();
+
+        if (deploymentError) throw deploymentError;
+        if (!deployment) return sendError(res, 404, "Deployment not found");
+
+        if (Number(deployment.client_id) !== clientId) {
+            return sendError(res, 400, "Deployment does not belong to selected client");
+        }
+
+        if (Number(deployment.candidate_id) !== employeeId) {
+            return sendError(res, 400, "Employee does not belong to selected deployment");
+        }
+
+        // --------------------------------------------------------
+        // DUPLICATE CHECK
+        // --------------------------------------------------------
+
+        const { data: existingRows, error: existingError } = await supabase
+            .from("third_party_payroll")
+            .select("id")
+            .eq("employee_ref_id", employeeId)
+            .eq("deployment_id", deploymentId)
+            .eq("salary_month", salaryMonth)
+            .limit(1);
+
+        if (existingError) throw existingError;
+
+        if (existingRows && existingRows.length > 0) {
+            return sendError(
+                res, 409,
+                "A payroll record already exists for this employee, deployment, and month",
+                { existing_payroll_id: existingRows[0].id }
+            );
+        }
+
+        // --------------------------------------------------------
+        // CANDIDATE (for stored employee_name)
+        // --------------------------------------------------------
+
+        const { data: candidate, error: candidateError } = await supabase
+            .from("candidates")
+            .select("id, full_name")
+            .eq("id", employeeId)
+            .maybeSingle();
+
+        if (candidateError) throw candidateError;
+        if (!candidate) return sendError(res, 404, "Candidate not found");
+
+        // --------------------------------------------------------
+        // NUMERIC FIELDS (admin-entered)
+        // --------------------------------------------------------
+
+        const numField = (name, required = false) => {
+            const raw = req.body[name];
+
+            if (raw === undefined || raw === null || raw === "") {
+                if (required) throw new Error(`${name} is required`);
+                return 0;
+            }
+
+            const num = Number(raw);
+
+            if (!Number.isFinite(num) || num < 0) {
+                throw new Error(`Invalid value for ${name}`);
+            }
+
+            return num;
+        };
+
+        let basicSalary, allowances, overtime, bonus,
+            pf, esic, tax, professionalTax, lop,
+            employerPf, employerEsic;
+
+        try {
+            basicSalary = numField("basic_salary", true);
+            allowances = numField("allowances");
+            overtime = numField("overtime");
+            bonus = numField("bonus");
+            pf = numField("pf");
+            esic = numField("esic");
+            tax = numField("tax");
+            professionalTax = numField("professional_tax");
+            lop = numField("lop");
+            employerPf = numField("employer_pf");
+            employerEsic = numField("employer_esic");
+        } catch (err) {
+            return sendError(res, 400, err.message);
+        }
+
+        const bankName = req.body.bank_name ? String(req.body.bank_name).trim() : null;
+        const accountNumber = req.body.account_number ? String(req.body.account_number).trim() : null;
+        const ifscCode = req.body.ifsc_code ? String(req.body.ifsc_code).trim() : null;
+
+        const attendanceId = req.body.attendance_id
+            ? getId(req.body.attendance_id)
+            : null;
+
+        // --------------------------------------------------------
+        // CALCULATED TOTALS
+        // --------------------------------------------------------
+
+        const grossSalary = basicSalary + allowances + overtime + bonus;
+
+        const totalDeductions = pf + esic + tax + professionalTax + lop;
+
+        const netSalary = Math.max(0, grossSalary - totalDeductions);
+
+        const totalEmployerContribution = employerPf + employerEsic;
+
+        const totalEmployerCost = grossSalary + totalEmployerContribution;
+
+        // --------------------------------------------------------
+        // INSERT
+        // --------------------------------------------------------
+
+        const { data: inserted, error: insertError } = await supabase
+            .from("third_party_payroll")
+            .insert({
+                employee_name: candidate.full_name,
+                salary_month: salaryMonth,
+
+                basic_salary: Number(basicSalary.toFixed(2)),
+                allowances: Number(allowances.toFixed(2)),
+                overtime: Number(overtime.toFixed(2)),
+                bonus: Number(bonus.toFixed(2)),
+                gross_salary: Number(grossSalary.toFixed(2)),
+
+                pf: Number(pf.toFixed(2)),
+                esic: Number(esic.toFixed(2)),
+                tax: Number(tax.toFixed(2)),
+                professional_tax: Number(professionalTax.toFixed(2)),
+                lop: Number(lop.toFixed(2)),
+                total_deductions: Number(totalDeductions.toFixed(2)),
+
+                net_salary: Number(netSalary.toFixed(2)),
+
+                employer_pf: Number(employerPf.toFixed(2)),
+                employer_esic: Number(employerEsic.toFixed(2)),
+                total_employer_contribution: Number(totalEmployerContribution.toFixed(2)),
+                total_employer_cost: Number(totalEmployerCost.toFixed(2)),
+
+                bank_name: bankName,
+                account_number: accountNumber,
+                ifsc_code: ifscCode,
+
+                status: "Pending",
+
+                employee_ref_id: employeeId,
+                attendance_id: attendanceId,
+                deployment_id: deploymentId,
+                payroll_batch_id: null,
+                client_id: clientId
+            })
+            .select()
+            .single();
+
+        if (insertError) throw insertError;
+
+        return res.status(201).json({
+            success: true,
+            message: "Payroll record created successfully",
+            data: inserted
+        });
+
+    } catch (error) {
+        console.error("POST /api/payroll:", error);
+        return sendError(res, 500, "Failed to create payroll record", error.message);
+    }
+});
+
+
+// ============================================================
+// EDIT PAYROLL
+//
+// PATCH /api/payroll/:id
+//
+// Editable only when payroll status is:
+// - Pending
+// - Approved
+//
+// Locked payroll cannot be edited.
+//
+// Editable fields:
+// PF, ESIC, Tax, Professional Tax, LOP,
+// Basic Salary, Allowances, Overtime, Bonus,
+// Employer PF, Employer ESIC,
+// Bank Name, Account Number, IFSC
+// ============================================================
+
+router.patch("/:id", async (req, res) => {
+    try {
+        const id = getId(req.params.id);
+
+        if (!id) {
+            return sendError(res, 400, "Invalid payroll ID");
+        }
+
+        // --------------------------------------------------------
+        // GET EXISTING PAYROLL
+        // --------------------------------------------------------
+
+        const {
+            data: payroll,
+            error: payrollError
+        } = await supabase
+            .from("third_party_payroll")
+            .select(`
+                id,
+                status,
+                basic_salary,
+                allowances,
+                overtime,
+                bonus,
+                pf,
+                esic,
+                tax,
+                professional_tax,
+                lop,
+                gross_salary,
+                total_deductions,
+                net_salary,
+                employer_pf,
+                employer_esic,
+                total_employer_contribution,
+                total_employer_cost,
+                bank_name,
+                account_number,
+                ifsc_code
+            `)
+            .eq("id", id)
+            .maybeSingle();
+
+        if (payrollError) {
+            throw payrollError;
+        }
+
+        if (!payroll) {
+            return sendError(
+                res,
+                404,
+                "Payroll record not found"
+            );
+        }
+
+        // --------------------------------------------------------
+        // LOCKED CHECK
+        // --------------------------------------------------------
+
+        const currentStatus =
+            String(
+                payroll.status || "Pending"
+            ).trim();
+
+        if (currentStatus === "Locked") {
+            return sendError(
+                res,
+                400,
+                "Locked payroll records cannot be edited"
+            );
+        }
+
+        if (
+            currentStatus !== "Pending" &&
+            currentStatus !== "Approved"
+        ) {
+            return sendError(
+                res,
+                400,
+                "Only Pending or Approved payroll records can be edited"
+            );
+        }
+
+        // --------------------------------------------------------
+        // NUMBER HELPER
+        // --------------------------------------------------------
+
+        const numberValue = (
+            fieldName,
+            fallback
+        ) => {
+
+            if (
+                req.body[fieldName] ===
+                    undefined ||
+                req.body[fieldName] ===
+                    null ||
+                req.body[fieldName] === ""
+            ) {
+                return Number(
+                    fallback || 0
+                );
+            }
+
+            const value =
+                Number(
+                    req.body[fieldName]
+                );
+
+            if (
+                !Number.isFinite(value) ||
+                value < 0
+            ) {
+                throw new Error(
+                    `Invalid value for ${fieldName}`
+                );
+            }
+
+            return value;
+        };
+
+        // --------------------------------------------------------
+        // SALARY / DEDUCTIONS
+        // --------------------------------------------------------
+
+        let basicSalary;
+        let allowances;
+        let overtime;
+        let bonus;
+
+        let pf;
+        let esic;
+        let tax;
+        let professionalTax;
+        let lop;
+
+        let employerPF;
+        let employerESIC;
+
+        try {
+
+            basicSalary =
+                numberValue(
+                    "basic_salary",
+                    payroll.basic_salary
+                );
+
+            allowances =
+                numberValue(
+                    "allowances",
+                    payroll.allowances
+                );
+
+            overtime =
+                numberValue(
+                    "overtime",
+                    payroll.overtime
+                );
+
+            bonus =
+                numberValue(
+                    "bonus",
+                    payroll.bonus
+                );
+
+            pf =
+                numberValue(
+                    "pf",
+                    payroll.pf
+                );
+
+            esic =
+                numberValue(
+                    "esic",
+                    payroll.esic
+                );
+
+            tax =
+                numberValue(
+                    "tax",
+                    payroll.tax
+                );
+
+            professionalTax =
+                numberValue(
+                    "professional_tax",
+                    payroll.professional_tax
+                );
+
+            lop =
+                numberValue(
+                    "lop",
+                    payroll.lop
+                );
+
+            employerPF =
+                numberValue(
+                    "employer_pf",
+                    payroll.employer_pf
+                );
+
+            employerESIC =
+                numberValue(
+                    "employer_esic",
+                    payroll.employer_esic
+                );
 
         } catch (error) {
 
-            console.error(
-                "EMAIL PAYSLIP ERROR:",
-                error
-            );
-
             return sendError(
                 res,
-                500,
-                "Failed to send payslip email",
+                400,
                 error.message
             );
         }
-    }
-);
 
+        // --------------------------------------------------------
+        // BANK DETAILS
+        // --------------------------------------------------------
+
+        const bankName =
+            req.body.bank_name !== undefined
+                ? (
+                    req.body.bank_name
+                        ? String(
+                            req.body.bank_name
+                        ).trim()
+                        : null
+                )
+                : payroll.bank_name;
+
+        const accountNumber =
+            req.body.account_number !== undefined
+                ? (
+                    req.body.account_number
+                        ? String(
+                            req.body.account_number
+                        ).trim()
+                        : null
+                )
+                : payroll.account_number;
+
+        const ifscCode =
+            req.body.ifsc_code !== undefined
+                ? (
+                    req.body.ifsc_code
+                        ? String(
+                            req.body.ifsc_code
+                        ).trim().toUpperCase()
+                        : null
+                )
+                : payroll.ifsc_code;
+
+        // --------------------------------------------------------
+        // RECALCULATE GROSS
+        // --------------------------------------------------------
+
+        const grossSalary =
+            basicSalary +
+            allowances +
+            overtime +
+            bonus;
+
+        // --------------------------------------------------------
+        // TOTAL DEDUCTIONS
+        // --------------------------------------------------------
+
+        const totalDeductions =
+            pf +
+            esic +
+            tax +
+            professionalTax +
+            lop;
+
+        // --------------------------------------------------------
+        // NET SALARY
+        // --------------------------------------------------------
+
+        const netSalary =
+            Math.max(
+                0,
+                grossSalary -
+                totalDeductions
+            );
+
+        // --------------------------------------------------------
+        // EMPLOYER CONTRIBUTIONS
+        // --------------------------------------------------------
+
+        const totalEmployerContribution =
+            employerPF +
+            employerESIC;
+
+        const totalEmployerCost =
+            grossSalary +
+            totalEmployerContribution;
+
+        // --------------------------------------------------------
+        // UPDATE
+        // --------------------------------------------------------
+
+        const updateData = {
+
+            basic_salary:
+                Number(
+                    basicSalary.toFixed(2)
+                ),
+
+            allowances:
+                Number(
+                    allowances.toFixed(2)
+                ),
+
+            overtime:
+                Number(
+                    overtime.toFixed(2)
+                ),
+
+            bonus:
+                Number(
+                    bonus.toFixed(2)
+                ),
+
+            gross_salary:
+                Number(
+                    grossSalary.toFixed(2)
+                ),
+
+            pf:
+                Number(
+                    pf.toFixed(2)
+                ),
+
+            esic:
+                Number(
+                    esic.toFixed(2)
+                ),
+
+            tax:
+                Number(
+                    tax.toFixed(2)
+                ),
+
+            professional_tax:
+                Number(
+                    professionalTax.toFixed(2)
+                ),
+
+            lop:
+                Number(
+                    lop.toFixed(2)
+                ),
+
+            total_deductions:
+                Number(
+                    totalDeductions.toFixed(2)
+                ),
+
+            net_salary:
+                Number(
+                    netSalary.toFixed(2)
+                ),
+
+            employer_pf:
+                Number(
+                    employerPF.toFixed(2)
+                ),
+
+            employer_esic:
+                Number(
+                    employerESIC.toFixed(2)
+                ),
+
+            total_employer_contribution:
+                Number(
+                    totalEmployerContribution.toFixed(2)
+                ),
+
+            total_employer_cost:
+                Number(
+                    totalEmployerCost.toFixed(2)
+                ),
+
+            bank_name:
+                bankName,
+
+            account_number:
+                accountNumber,
+
+            ifsc_code:
+                ifscCode
+        };
+
+        const {
+            data: updatedPayroll,
+            error: updateError
+        } = await supabase
+            .from("third_party_payroll")
+            .update(updateData)
+            .eq("id", id)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw updateError;
+        }
+
+        return res.json({
+
+            success: true,
+
+            message:
+                "Payroll updated successfully",
+
+            data:
+                updatedPayroll
+        });
+
+    } catch (error) {
+
+        console.error(
+            "PATCH /api/payroll/:id:",
+            error
+        );
+
+        return sendError(
+            res,
+            500,
+            "Failed to update payroll",
+            error.message
+        );
+    }
+});
+
+// ============================================================
+// CREATE PAYROLL MANUALLY
+//
+// POST /api/payroll
+//
+// Admin selects:
+// - Client
+// - Employee / Deployment
+// - Salary Month
+//
+// Automatically gets:
+// - Employee name
+// - Employee email
+// - Pay rate
+// - Attendance
+//
+// Admin manually enters:
+// - Basic Salary
+// - Allowances
+// - Overtime
+// - Bonus
+// - PF
+// - ESIC
+// - Tax
+// - Professional Tax
+// - LOP
+// - Employer PF
+// - Employer ESIC
+// - Bank Name
+// - Account Number
+// - IFSC
+//
+// New payroll always starts as Pending.
+// ============================================================
+
+router.post("/", async (req, res) => {
+
+    try {
+
+        const clientId =
+            getId(
+                req.body.client_id
+            );
+
+        const deploymentId =
+            getId(
+                req.body.deployment_id
+            );
+
+        const employeeId =
+            getId(
+                req.body.employee_ref_id
+            );
+
+        if (!clientId) {
+            return sendError(
+                res,
+                400,
+                "Valid client_id is required"
+            );
+        }
+
+        if (!deploymentId) {
+            return sendError(
+                res,
+                400,
+                "Valid deployment_id is required"
+            );
+        }
+
+        if (!employeeId) {
+            return sendError(
+                res,
+                400,
+                "Valid employee_ref_id is required"
+            );
+        }
+
+        // --------------------------------------------------------
+        // MONTH
+        // --------------------------------------------------------
+
+        let salaryMonth;
+
+        try {
+
+            salaryMonth =
+                validateSalaryMonth(
+                    req.body.salary_month
+                );
+
+        } catch (error) {
+
+            return sendError(
+                res,
+                400,
+                error.message
+            );
+        }
+
+        // --------------------------------------------------------
+        // DEPLOYMENT
+        // --------------------------------------------------------
+
+        const {
+            data: deployment,
+            error: deploymentError
+        } = await supabase
+            .from("deployments")
+            .select(`
+                id,
+                candidate_id,
+                client_id,
+                pay_rate,
+                bill_rate,
+                project_name,
+                billing_model,
+                status
+            `)
+            .eq(
+                "id",
+                deploymentId
+            )
+            .maybeSingle();
+
+        if (deploymentError) {
+            throw deploymentError;
+        }
+
+        if (!deployment) {
+            return sendError(
+                res,
+                404,
+                "Deployment not found"
+            );
+        }
+
+        // --------------------------------------------------------
+        // VALIDATE CLIENT
+        // --------------------------------------------------------
+
+        if (
+            Number(
+                deployment.client_id
+            ) !== clientId
+        ) {
+
+            return sendError(
+                res,
+                400,
+                "Deployment does not belong to selected client"
+            );
+        }
+
+        // --------------------------------------------------------
+        // VALIDATE EMPLOYEE
+        // --------------------------------------------------------
+
+        if (
+            Number(
+                deployment.candidate_id
+            ) !== employeeId
+        ) {
+
+            return sendError(
+                res,
+                400,
+                "Employee does not belong to selected deployment"
+            );
+        }
+
+        // --------------------------------------------------------
+        // CANDIDATE
+        // --------------------------------------------------------
+
+        const {
+            data: candidate,
+            error: candidateError
+        } = await supabase
+            .from("candidates")
+            .select(`
+                id,
+                full_name,
+                email,
+                phone,
+                designation
+            `)
+            .eq(
+                "id",
+                employeeId
+            )
+            .maybeSingle();
+
+        if (candidateError) {
+            throw candidateError;
+        }
+
+        if (!candidate) {
+            return sendError(
+                res,
+                404,
+                "Employee not found"
+            );
+        }
+
+        // --------------------------------------------------------
+        // DUPLICATE CHECK
+        // --------------------------------------------------------
+
+        const {
+            data: existingRows,
+            error: existingError
+        } = await supabase
+            .from("third_party_payroll")
+            .select(`
+                id,
+                status
+            `)
+            .eq(
+                "employee_ref_id",
+                employeeId
+            )
+            .eq(
+                "deployment_id",
+                deploymentId
+            )
+            .eq(
+                "salary_month",
+                salaryMonth
+            )
+            .limit(1);
+
+        if (existingError) {
+            throw existingError;
+        }
+
+        if (
+            existingRows &&
+            existingRows.length > 0
+        ) {
+
+            return sendError(
+                res,
+                409,
+                "Payroll already exists for this employee, deployment and month",
+                {
+                    existing_payroll_id:
+                        existingRows[0].id,
+
+                    existing_status:
+                        existingRows[0].status
+                }
+            );
+        }
+
+        // --------------------------------------------------------
+        // ATTENDANCE
+        //
+        // Uses the SAME table as your current payroll system:
+        // third_party_emp_attendance
+        // --------------------------------------------------------
+
+        const {
+            data: attendanceRows,
+            error: attendanceError
+        } = await supabase
+            .from(
+                "third_party_emp_attendance"
+            )
+            .select(`
+                id,
+                employee_name,
+                billing_month,
+                status,
+                present_days,
+                absent_days,
+                leave_days,
+                overtime_hours,
+                deployment_id,
+                employee_id,
+                half_days,
+                lop_days,
+                payable_days
+            `)
+            .eq(
+                "employee_id",
+                employeeId
+            )
+            .eq(
+                "deployment_id",
+                deploymentId
+            )
+            .eq(
+                "billing_month",
+                salaryMonth
+            )
+            .order(
+                "id",
+                {
+                    ascending: false
+                }
+            )
+            .limit(1);
+
+        if (attendanceError) {
+            throw attendanceError;
+        }
+
+        const attendance =
+            attendanceRows?.[0] ||
+            null;
+
+        // --------------------------------------------------------
+        // NUMERIC INPUT
+        // --------------------------------------------------------
+
+        const getNumber =
+            (
+                field,
+                fallback = 0
+            ) => {
+
+                const raw =
+                    req.body[field];
+
+                if (
+                    raw === undefined ||
+                    raw === null ||
+                    raw === ""
+                ) {
+                    return Number(
+                        fallback
+                    );
+                }
+
+                const value =
+                    Number(raw);
+
+                if (
+                    !Number.isFinite(value) ||
+                    value < 0
+                ) {
+                    throw new Error(
+                        `Invalid value for ${field}`
+                    );
+                }
+
+                return value;
+            };
+
+        let basicSalary;
+        let allowances;
+        let overtime;
+        let bonus;
+
+        let pf;
+        let esic;
+        let tax;
+        let professionalTax;
+        let lop;
+
+        let employerPF;
+        let employerESIC;
+
+        try {
+
+            // ----------------------------------------------------
+            // If admin leaves Basic Salary blank,
+            // automatically use deployment pay rate.
+            // ----------------------------------------------------
+
+            basicSalary =
+                getNumber(
+                    "basic_salary",
+                    deployment.pay_rate || 0
+                );
+
+            allowances =
+                getNumber(
+                    "allowances"
+                );
+
+            overtime =
+                getNumber(
+                    "overtime"
+                );
+
+            bonus =
+                getNumber(
+                    "bonus"
+                );
+
+            pf =
+                getNumber(
+                    "pf"
+                );
+
+            esic =
+                getNumber(
+                    "esic"
+                );
+
+            tax =
+                getNumber(
+                    "tax"
+                );
+
+            professionalTax =
+                getNumber(
+                    "professional_tax"
+                );
+
+            lop =
+                getNumber(
+                    "lop"
+                );
+
+            employerPF =
+                getNumber(
+                    "employer_pf"
+                );
+
+            employerESIC =
+                getNumber(
+                    "employer_esic"
+                );
+
+        } catch (error) {
+
+            return sendError(
+                res,
+                400,
+                error.message
+            );
+        }
+
+        // --------------------------------------------------------
+        // BANK
+        // --------------------------------------------------------
+
+        const bankName =
+            req.body.bank_name
+                ? String(
+                    req.body.bank_name
+                ).trim()
+                : null;
+
+        const accountNumber =
+            req.body.account_number
+                ? String(
+                    req.body.account_number
+                ).trim()
+                : null;
+
+        const ifscCode =
+            req.body.ifsc_code
+                ? String(
+                    req.body.ifsc_code
+                )
+                    .trim()
+                    .toUpperCase()
+                : null;
+
+        // --------------------------------------------------------
+        // ATTENDANCE VALUES
+        //
+        // These are not manually entered here.
+        // They are automatically pulled from attendance.
+        // --------------------------------------------------------
+
+        const attendanceId =
+            attendance?.id ||
+            null;
+
+        // --------------------------------------------------------
+        // SALARY CALCULATIONS
+        // --------------------------------------------------------
+
+        const grossSalary =
+            basicSalary +
+            allowances +
+            overtime +
+            bonus;
+
+        const totalDeductions =
+            pf +
+            esic +
+            tax +
+            professionalTax +
+            lop;
+
+        const netSalary =
+            Math.max(
+                0,
+                grossSalary -
+                totalDeductions
+            );
+
+        const totalEmployerContribution =
+            employerPF +
+            employerESIC;
+
+        const totalEmployerCost =
+            grossSalary +
+            totalEmployerContribution;
+
+        // --------------------------------------------------------
+        // INSERT
+        // --------------------------------------------------------
+
+        const {
+            data: insertedPayroll,
+            error: insertError
+        } = await supabase
+            .from(
+                "third_party_payroll"
+            )
+            .insert({
+
+                employee_name:
+                    candidate.full_name,
+
+                salary_month:
+                    salaryMonth,
+
+                basic_salary:
+                    Number(
+                        basicSalary.toFixed(2)
+                    ),
+
+                allowances:
+                    Number(
+                        allowances.toFixed(2)
+                    ),
+
+                overtime:
+                    Number(
+                        overtime.toFixed(2)
+                    ),
+
+                bonus:
+                    Number(
+                        bonus.toFixed(2)
+                    ),
+
+                gross_salary:
+                    Number(
+                        grossSalary.toFixed(2)
+                    ),
+
+                pf:
+                    Number(
+                        pf.toFixed(2)
+                    ),
+
+                esic:
+                    Number(
+                        esic.toFixed(2)
+                    ),
+
+                tax:
+                    Number(
+                        tax.toFixed(2)
+                    ),
+
+                professional_tax:
+                    Number(
+                        professionalTax.toFixed(2)
+                    ),
+
+                lop:
+                    Number(
+                        lop.toFixed(2)
+                    ),
+
+                total_deductions:
+                    Number(
+                        totalDeductions.toFixed(2)
+                    ),
+
+                net_salary:
+                    Number(
+                        netSalary.toFixed(2)
+                    ),
+
+                employer_pf:
+                    Number(
+                        employerPF.toFixed(2)
+                    ),
+
+                employer_esic:
+                    Number(
+                        employerESIC.toFixed(2)
+                    ),
+
+                total_employer_contribution:
+                    Number(
+                        totalEmployerContribution.toFixed(2)
+                    ),
+
+                total_employer_cost:
+                    Number(
+                        totalEmployerCost.toFixed(2)
+                    ),
+
+                bank_name:
+                    bankName,
+
+                account_number:
+                    accountNumber,
+
+                ifsc_code:
+                    ifscCode,
+
+                status:
+                    "Pending",
+
+                employee_ref_id:
+                    employeeId,
+
+                attendance_id:
+                    attendanceId,
+
+                deployment_id:
+                    deploymentId,
+
+                payroll_batch_id:
+                    null,
+
+                client_id:
+                    clientId
+            })
+            .select()
+            .single();
+
+        if (insertError) {
+            throw insertError;
+        }
+
+        // --------------------------------------------------------
+        // RESPONSE
+        // --------------------------------------------------------
+
+        return res.status(201).json({
+
+            success: true,
+
+            message:
+                "Payroll created successfully",
+
+            data: {
+
+                ...insertedPayroll,
+
+                employee_email:
+                    candidate.email || "",
+
+                phone:
+                    candidate.phone || "",
+
+                designation:
+                    candidate.designation || "",
+
+                pay_rate:
+                    Number(
+                        deployment.pay_rate || 0
+                    ),
+
+                attendance: {
+
+                    id:
+                        attendance?.id ||
+                        null,
+
+                    present_days:
+                        Number(
+                            attendance?.present_days ||
+                            0
+                        ),
+
+                    absent_days:
+                        Number(
+                            attendance?.absent_days ||
+                            0
+                        ),
+
+                    leave_days:
+                        Number(
+                            attendance?.leave_days ||
+                            0
+                        ),
+
+                    half_days:
+                        Number(
+                            attendance?.half_days ||
+                            0
+                        ),
+
+                    lop_days:
+                        Number(
+                            attendance?.lop_days ||
+                            0
+                        ),
+
+                    overtime_hours:
+                        Number(
+                            attendance?.overtime_hours ||
+                            0
+                        ),
+
+                    payable_days:
+                        Number(
+                            attendance?.payable_days ||
+                            0
+                        )
+                }
+            }
+        });
+
+    } catch (error) {
+
+        console.error(
+            "POST /api/payroll:",
+            error
+        );
+
+        return sendError(
+            res,
+            500,
+            "Failed to create payroll",
+            error.message
+        );
+    }
+});
+// ============================================================
+// EDIT PAYROLL DETAILS
+// PATCH /api/payroll/:id/details
+// Allowed for Pending and Approved payrolls
+// ============================================================
+
+router.patch("/:id/details", async (req, res) => {
+  try {
+    const id = getId(req.params.id);
+
+    if (!id) {
+      return sendError(res, 400, "Invalid payroll ID");
+    }
+
+    const {
+      basic_salary,
+      allowances,
+      overtime,
+      bonus,
+
+      pf,
+      esic,
+      tax,
+      professional_tax,
+      lop,
+
+      employer_pf,
+      employer_esic,
+
+      bank_name,
+      account_number,
+      ifsc_code,
+    } = req.body;
+
+    // ----------------------------------------------------------
+    // GET EXISTING PAYROLL
+    // ----------------------------------------------------------
+
+    const { data: payroll, error: payrollError } = await supabase
+      .from("third_party_payroll")
+      .select(`
+        id,
+        employee_name,
+        salary_month,
+        basic_salary,
+        allowances,
+        overtime,
+        bonus,
+        pf,
+        esic,
+        tax,
+        professional_tax,
+        lop,
+        employer_pf,
+        employer_esic,
+        bank_name,
+        account_number,
+        ifsc_code,
+        status,
+        employee_ref_id,
+        attendance_id,
+        deployment_id,
+        client_id
+      `)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (payrollError) {
+      console.error("GET payroll for edit error:", payrollError);
+
+      return sendError(
+        res,
+        500,
+        payrollError.message || "Failed to fetch payroll"
+      );
+    }
+
+    if (!payroll) {
+      return sendError(res, 404, "Payroll record not found");
+    }
+
+    // ----------------------------------------------------------
+    // LOCKED PAYROLL CANNOT BE EDITED
+    // ----------------------------------------------------------
+
+    if (payroll.status === "Locked") {
+      return sendError(
+        res,
+        400,
+        "Locked payroll cannot be edited"
+      );
+    }
+
+    if (
+      payroll.status !== "Pending" &&
+      payroll.status !== "Approved"
+    ) {
+      return sendError(
+        res,
+        400,
+        `Payroll with status "${payroll.status}" cannot be edited`
+      );
+    }
+
+    // ----------------------------------------------------------
+    // NUMBER HELPER
+    // ----------------------------------------------------------
+
+    const getNumber = (value, fallback = 0) => {
+      if (value === undefined || value === null || value === "") {
+        return Number(fallback) || 0;
+      }
+
+      const number = Number(value);
+
+      if (!Number.isFinite(number) || number < 0) {
+        throw new Error("Salary and deduction values must be valid numbers");
+      }
+
+      return number;
+    };
+
+    // ----------------------------------------------------------
+    // UPDATED VALUES
+    // ----------------------------------------------------------
+
+    const basicSalary = getNumber(
+      basic_salary,
+      payroll.basic_salary
+    );
+
+    const allowancesValue = getNumber(
+      allowances,
+      payroll.allowances
+    );
+
+    const overtimeValue = getNumber(
+      overtime,
+      payroll.overtime
+    );
+
+    const bonusValue = getNumber(
+      bonus,
+      payroll.bonus
+    );
+
+    const pfValue = getNumber(
+      pf,
+      payroll.pf
+    );
+
+    const esicValue = getNumber(
+      esic,
+      payroll.esic
+    );
+
+    const taxValue = getNumber(
+      tax,
+      payroll.tax
+    );
+
+    const professionalTaxValue = getNumber(
+      professional_tax,
+      payroll.professional_tax
+    );
+
+    const lopValue = getNumber(
+      lop,
+      payroll.lop
+    );
+
+    const employerPfValue = getNumber(
+      employer_pf,
+      payroll.employer_pf
+    );
+
+    const employerEsicValue = getNumber(
+      employer_esic,
+      payroll.employer_esic
+    );
+
+    // ----------------------------------------------------------
+    // RECALCULATE PAYROLL
+    // ----------------------------------------------------------
+
+    const grossSalary =
+      basicSalary +
+      allowancesValue +
+      overtimeValue +
+      bonusValue;
+
+    const totalDeductions =
+      pfValue +
+      esicValue +
+      taxValue +
+      professionalTaxValue +
+      lopValue;
+
+    const netSalary = Math.max(
+      0,
+      grossSalary - totalDeductions
+    );
+
+    const totalEmployerContribution =
+      employerPfValue +
+      employerEsicValue;
+
+    const totalEmployerCost =
+      grossSalary +
+      totalEmployerContribution;
+
+    // ----------------------------------------------------------
+    // BANK DETAILS
+    // ----------------------------------------------------------
+
+    const bankName =
+      bank_name !== undefined
+        ? String(bank_name).trim() || null
+        : payroll.bank_name;
+
+    const accountNumber =
+      account_number !== undefined
+        ? String(account_number).trim() || null
+        : payroll.account_number;
+
+    const ifscCode =
+      ifsc_code !== undefined
+        ? String(ifsc_code).trim().toUpperCase() || null
+        : payroll.ifsc_code;
+
+    // ----------------------------------------------------------
+    // UPDATE PAYROLL
+    // ----------------------------------------------------------
+
+    const updateData = {
+      basic_salary: basicSalary,
+      allowances: allowancesValue,
+      overtime: overtimeValue,
+      bonus: bonusValue,
+
+      gross_salary: grossSalary,
+
+      pf: pfValue,
+      esic: esicValue,
+      tax: taxValue,
+      professional_tax: professionalTaxValue,
+      lop: lopValue,
+
+      total_deductions: totalDeductions,
+      net_salary: netSalary,
+
+      employer_pf: employerPfValue,
+      employer_esic: employerEsicValue,
+
+      total_employer_contribution:
+        totalEmployerContribution,
+
+      total_employer_cost:
+        totalEmployerCost,
+
+      bank_name: bankName,
+      account_number: accountNumber,
+      ifsc_code: ifscCode,
+    };
+
+    const { data: updatedPayroll, error: updateError } =
+      await supabase
+        .from("third_party_payroll")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+    if (updateError) {
+      console.error(
+        "UPDATE payroll details error:",
+        updateError
+      );
+
+      return sendError(
+        res,
+        500,
+        updateError.message || "Failed to update payroll"
+      );
+    }
+
+    // ----------------------------------------------------------
+    // UPDATE DEDUCTION RECORD IF IT EXISTS
+    // ----------------------------------------------------------
+
+    try {
+      const { data: deduction } = await supabase
+        .from("deductions")
+        .select("id, lop_days")
+        .eq("payroll_id", id)
+        .maybeSingle();
+
+      if (deduction) {
+        await supabase
+          .from("deductions")
+          .update({
+            employee_pf: pfValue,
+            employee_esic: esicValue,
+            tax_tds: taxValue,
+            professional_tax: professionalTaxValue,
+            lop_deduction: lopValue,
+          })
+          .eq("id", deduction.id);
+      }
+    } catch (deductionError) {
+      console.error(
+        "Deduction sync error:",
+        deductionError
+      );
+
+      // Payroll was already updated, so don't fail the
+      // main request because the optional deduction sync failed.
+    }
+
+    // ----------------------------------------------------------
+    // RESPONSE
+    // ----------------------------------------------------------
+
+    return res.json({
+      success: true,
+      message: "Payroll details updated successfully",
+      data: updatedPayroll,
+    });
+  } catch (error) {
+    console.error(
+      "PATCH /payroll/:id/details error:",
+      error
+    );
+
+    return sendError(
+      res,
+      500,
+      error.message || "Failed to update payroll details"
+    );
+  }
+});
 // ============================================================
 // EXPORT
 // ============================================================

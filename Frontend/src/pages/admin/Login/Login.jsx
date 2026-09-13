@@ -1,24 +1,24 @@
-    import React, {
-        useState,
-    } from "react";
+import React, {
+    useState,
+} from "react";
 
-    import {
-        useNavigate,
-        Link,
-    } from "react-router-dom";
+import {
+    useNavigate,
+    Link,
+} from "react-router-dom";
 
-    import {
-        supabase,
-    } from "../../../lib/supabaseClient";
+import {
+    supabase,
+} from "../../../lib/supabaseClient";
 
-    const API_BASE_URL = String(
-        import.meta.env.VITE_API_BASE_URL ||
-        (import.meta.env.PROD ? "/api" : "http://localhost:5000/api")
-    ).replace(/\/+$/, "");
+const API_BASE_URL = String(
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.PROD ? "/api" : "http://localhost:5000/api")
+).replace(/\/+$/, "");
 
-    // =====================================================
-    // AUTHORIZED SUPER ADMIN
-    // =====================================================
+// =====================================================
+// AUTHORIZED SUPER ADMIN
+// =====================================================
 import { useAuth } from "../../../auth/AuthProvider"; // add this import
 
 // inside SUPER_ADMIN_EMAIL — remove hardcode, use env var instead
@@ -27,424 +27,438 @@ const ADMIN_EMAIL = String(
 ).trim().toLowerCase();
 
 
-    function Login() {
+function Login() {
 
-        const navigate =
-            useNavigate();
-                const { login } = useAuth();
+    const navigate =
+        useNavigate();
+    const { login } = useAuth();
 
-        // =====================================================
-        // LOGIN DATA
-        // =====================================================
+    // =====================================================
+    // LOGIN DATA
+    // =====================================================
 
-        const [
-            email,
-            setEmail,
-        ] = useState("");
+    const [
+        email,
+        setEmail,
+    ] = useState("");
 
-        const [
-            password,
-            setPassword,
-        ] = useState("");
+    const [
+        password,
+        setPassword,
+    ] = useState("");
 
-        // =====================================================
-        // OTP
-        // =====================================================
+    // =====================================================
+    // OTP
+    // =====================================================
 
-        const [
-            otp,
-            setOtp,
-        ] = useState("");
+    const [
+        otp,
+        setOtp,
+    ] = useState("");
 
-        const [
-            otpStep,
-            setOtpStep,
-        ] = useState(false);
+    const [
+        otpStep,
+        setOtpStep,
+    ] = useState(false);
 
-        // =====================================================
-        // STATE
-        // =====================================================
+    // =====================================================
+    // STATE
+    // =====================================================
 
-        const [
-            error,
-            setError,
-        ] = useState("");
+    const [
+        error,
+        setError,
+    ] = useState("");
 
-        const [
-            loading,
-            setLoading,
-        ] = useState(false);
+    const [
+        loading,
+        setLoading,
+    ] = useState(false);
 
-        const [
-            otpLoading,
-            setOtpLoading,
-        ] = useState(false);
+    const [
+        otpLoading,
+        setOtpLoading,
+    ] = useState(false);
 
-        // =====================================================
-        // CLEAR APPLICATION LOGIN DATA
-        // =====================================================
+    // =====================================================
+    // CLEAR APPLICATION LOGIN DATA
+    // =====================================================
 
-        const clearLoginData = () => {
+    const clearLoginData = () => {
 
-            localStorage.removeItem(
-                "access_token"
-            );
+        localStorage.removeItem(
+            "access_token"
+        );
 
-            localStorage.removeItem(
-                "user"
-            );
+        localStorage.removeItem(
+            "user"
+        );
 
-            localStorage.removeItem(
-                "client_id"
-            );
+        localStorage.removeItem(
+            "client_id"
+        );
 
-            localStorage.removeItem(
-                "company_name"
-            );
+        localStorage.removeItem(
+            "company_name"
+        );
 
-            localStorage.removeItem(
-                "employee_id"
-            );
+        localStorage.removeItem(
+            "employee_id"
+        );
 
-            localStorage.removeItem(
-                "pending_login_user"
-            );
+        localStorage.removeItem(
+            "pending_login_user"
+        );
+    };
+
+    // =====================================================
+    // LOGIN
+    // =====================================================
+
+    const handleLogin =
+        async (e) => {
+
+            e.preventDefault();
+
+            setError("");
+            setLoading(true);
+
+            try {
+
+                // =================================================
+                // CLEAN INPUT
+                // =================================================
+
+                const cleanEmail =
+                    email
+                        .trim()
+                        .toLowerCase();
+
+                if (!cleanEmail) {
+
+                    throw new Error(
+                        "Please enter your email."
+                    );
+                }
+
+                if (!password) {
+
+                    throw new Error(
+                        "Please enter your password."
+                    );
+                }
+
+                // =================================================
+                // SUPABASE LOGIN
+                // =================================================
+
+                const {
+                    data: authData,
+                    error: authError,
+                } =
+                    await supabase.auth
+                        .signInWithPassword({
+
+                            email:
+                                cleanEmail,
+
+                            password:
+                                password,
+                        });
+
+                if (authError) {
+
+                    console.error(
+                        "Supabase login error:",
+                        authError
+                    );
+
+                    throw new Error(
+                        authError.message ||
+                        "Invalid email or password."
+                    );
+                }
+
+                const session =
+                    authData?.session;
+
+                const authUser =
+                    authData?.user;
+
+                if (
+                    !session ||
+                    !authUser
+                ) {
+
+                    throw new Error(
+                        "Login failed. No session was created."
+                    );
+                }
+
+                console.log(
+                    "SUPABASE AUTH USER:",
+                    authUser
+                );
+
+                // =================================================
+                // VERIFY PROFILE WITH BACKEND
+                // =================================================
+
+                console.log(
+                    "LOGIN API BASE URL:",
+                    API_BASE_URL
+                );
+
+                const response =
+                    await fetch(
+                        `${API_BASE_URL}/auth/me`,
+                        {
+
+                            method:
+                                "GET",
+
+                            headers: {
+
+                                Authorization:
+                                    `Bearer ${session.access_token}`,
+
+                                "Content-Type":
+                                    "application/json",
+                            },
+                        }
+                    );
+
+                const result =
+                    await response
+                        .json()
+                        .catch(
+                            () => ({})
+                        );
+
+                console.log(
+                    "AUTH ME RESPONSE:",
+                    result
+                );
+
+                // =================================================
+                // PROFILE MUST EXIST
+                // =================================================
+
+                if (
+                    !response.ok ||
+                    result.success !== true
+                ) {
+
+                    await supabase.auth
+                        .signOut();
+
+                    clearLoginData();
+
+                    throw new Error(
+                        result.message ||
+                        "Unable to verify your account."
+                    );
+                }
+
+                const user =
+                    result.user;
+
+                if (!user) {
+
+                    await supabase.auth
+                        .signOut();
+
+                    clearLoginData();
+
+                    throw new Error(
+                        "User profile was not returned by server."
+                    );
+                }
+
+                // =================================================
+                // ROLE
+                // =================================================
+
+                const role =
+                    String(
+                        user.role || ""
+                    )
+                        .trim()
+                        .toLowerCase();
+
+                const profileEmail =
+                    String(
+                        user.email ||
+                        authUser.email ||
+                        ""
+                    )
+                        .trim()
+                        .toLowerCase();
+
+                console.log(
+                    "LOGIN USER:",
+                    user
+                );
+
+                console.log(
+                    "LOGIN ROLE:",
+                    role
+                );
+
+                // =====================================================
+                // DEBUG SUPER ADMIN CHECK
+                // =====================================================
+
+                console.log("========== SUPER ADMIN CHECK ==========");
+                console.log("Profile Email:", profileEmail);
+                console.log("Configured Admin Email:", ADMIN_EMAIL);
+                console.log("Role:", role);
+                console.log(
+                    "Email Match:",
+                    profileEmail === ADMIN_EMAIL
+                );
+                console.log("=======================================");
+
+                // =================================================
+                // ALLOWED ROLES
+                //
+                // Super Admin + Normal Admin + Client + Employee
+                // are all allowed to continue to OTP.
+                // =================================================
+
+                if (
+                    role !== "superadmin" &&
+                    role !== "admin" &&
+                    role !== "client" &&
+                    role !== "employee"
+                ) {
+
+                    await supabase.auth
+                        .signOut();
+
+                    clearLoginData();
+
+                    throw new Error(
+                        "Access denied. You are not allowed to login."
+                    );
+                }
+
+                // =================================================
+                // SUPER ADMIN EMAIL CHECK
+                // =================================================
+
+                if (
+                    role === "superadmin" &&
+                    profileEmail !==
+                    ADMIN_EMAIL
+                ) {
+
+                    await supabase.auth
+                        .signOut();
+
+                    clearLoginData();
+
+                    throw new Error(
+                        "Access denied. Only the authorized Super Admin can login."
+                    );
+                }
+
+                // =================================================
+                // SEND LOGIN OTP
+                // =================================================
+
+                const otpResponse =
+                    await fetch(
+                        `${API_BASE_URL}/auth/send-login-otp`,
+                        {
+
+                            method:
+                                "POST",
+
+                            headers: {
+
+                                Authorization:
+                                    `Bearer ${session.access_token}`,
+
+                                "Content-Type":
+                                    "application/json",
+                            },
+                        }
+                    );
+
+                const otpResult =
+                    await otpResponse
+                        .json()
+                        .catch(
+                            () => ({})
+                        );
+
+                console.log(
+                    "SEND LOGIN OTP RESPONSE:",
+                    otpResult
+                );
+
+                if (
+                    !otpResponse.ok ||
+                    otpResult.success !== true
+                ) {
+
+                    await supabase.auth
+                        .signOut();
+
+                    clearLoginData();
+
+                    throw new Error(
+                        otpResult.message ||
+                        otpResult.message ||
+                        "Unable to send OTP."
+                    );
+                }
+
+                // =================================================
+                // TEMPORARY USER ONLY
+                //
+                // This is NOT used for authorization.
+                // Backend response after OTP is authoritative.
+                // =================================================
+
+                localStorage.setItem(
+                    "pending_login_user",
+                    JSON.stringify(user)
+                );
+
+                // =================================================
+                // SHOW OTP SCREEN
+                // =================================================
+
+                setOtp("");
+
+                setOtpStep(true);
+
+            } catch (err) {
+
+                console.error(
+                    "LOGIN ERROR:",
+                    err
+                );
+
+                console.error(
+                    "LOGIN API BASE URL:",
+                    API_BASE_URL
+                );
+
+                setError(
+                    err?.message ||
+                    "Unable to login."
+                );
+
+            } finally {
+
+                setLoading(false);
+            }
         };
 
-        // =====================================================
-        // LOGIN
-        // =====================================================
 
-        const handleLogin =
-            async (e) => {
-
-                e.preventDefault();
-
-                setError("");
-                setLoading(true);
-
-                try {
-
-                    // =================================================
-                    // CLEAN INPUT
-                    // =================================================
-
-                    const cleanEmail =
-                        email
-                            .trim()
-                            .toLowerCase();
-
-                    if (!cleanEmail) {
-
-                        throw new Error(
-                            "Please enter your email."
-                        );
-                    }
-
-                    if (!password) {
-
-                        throw new Error(
-                            "Please enter your password."
-                        );
-                    }
-
-                    // =================================================
-                    // SUPABASE LOGIN
-                    // =================================================
-
-                    const {
-                        data: authData,
-                        error: authError,
-                    } =
-                        await supabase.auth
-                            .signInWithPassword({
-
-                                email:
-                                    cleanEmail,
-
-                                password:
-                                    password,
-                            });
-
-                    if (authError) {
-
-                        console.error(
-                            "Supabase login error:",
-                            authError
-                        );
-
-                        throw new Error(
-                            authError.message ||
-                            "Invalid email or password."
-                        );
-                    }
-
-                    const session =
-                        authData?.session;
-
-                    const authUser =
-                        authData?.user;
-
-                    if (
-                        !session ||
-                        !authUser
-                    ) {
-
-                        throw new Error(
-                            "Login failed. No session was created."
-                        );
-                    }
-
-                    console.log(
-                        "SUPABASE AUTH USER:",
-                        authUser
-                    );
-
-                    // =================================================
-                    // VERIFY PROFILE WITH BACKEND
-                    // =================================================
-
-                    console.log(
-                        "LOGIN API BASE URL:",
-                        API_BASE_URL
-                    );
-
-                    const response =
-                        await fetch(
-                            `${API_BASE_URL}/auth/me`,
-                            {
-
-                                method:
-                                    "GET",
-
-                                headers: {
-
-                                    Authorization:
-                                        `Bearer ${session.access_token}`,
-
-                                    "Content-Type":
-                                        "application/json",
-                                },
-                            }
-                        );
-
-                    const result =
-                        await response
-                            .json()
-                            .catch(
-                                () => ({})
-                            );
-
-                    console.log(
-                        "AUTH ME RESPONSE:",
-                        result
-                    );
-
-                    // =================================================
-                    // PROFILE MUST EXIST
-                    // =================================================
-
-                    if (
-                        !response.ok ||
-                        result.success !== true
-                    ) {
-
-                        await supabase.auth
-                            .signOut();
-
-                        clearLoginData();
-
-                        throw new Error(
-                            result.message ||
-                            "Unable to verify your account."
-                        );
-                    }
-
-                    const user =
-                        result.user;
-
-                    if (!user) {
-
-                        await supabase.auth
-                            .signOut();
-
-                        clearLoginData();
-
-                        throw new Error(
-                            "User profile was not returned by server."
-                        );
-                    }
-
-                    // =================================================
-                    // ROLE
-                    // =================================================
-
-                    const role =
-                        String(
-                            user.role || ""
-                        )
-                            .trim()
-                            .toLowerCase();
-
-                    const profileEmail =
-                        String(
-                            user.email ||
-                            authUser.email ||
-                            ""
-                        )
-                            .trim()
-                            .toLowerCase();
-
-                    console.log(
-                        "LOGIN USER:",
-                        user
-                    );
-
-                    console.log(
-                        "LOGIN ROLE:",
-                        role
-                    );
-
-                    // =================================================
-                    // ALLOWED ROLES
-                    //
-                    // Super Admin + Normal Admin + Client + Employee
-                    // are all allowed to continue to OTP.
-                    // =================================================
-
-                    if (
-                        role !== "superadmin" &&
-                        role !== "admin" &&
-                        role !== "client" &&
-                        role !== "employee"
-                    ) {
-
-                        await supabase.auth
-                            .signOut();
-
-                        clearLoginData();
-
-                        throw new Error(
-                            "Access denied. You are not allowed to login."
-                        );
-                    }
-
-                    // =================================================
-                    // SUPER ADMIN EMAIL CHECK
-                    // =================================================
-
-                    if (
-                        role === "superadmin" &&
-                        profileEmail !==
-                            ADMIN_EMAIL
-                    ) {
-
-                        await supabase.auth
-                            .signOut();
-
-                        clearLoginData();
-
-                        throw new Error(
-                            "Access denied. Only the authorized Super Admin can login."
-                        );
-                    }
-
-                    // =================================================
-                    // SEND LOGIN OTP
-                    // =================================================
-
-                    const otpResponse =
-                        await fetch(
-                            `${API_BASE_URL}/auth/send-login-otp`,
-                            {
-
-                                method:
-                                    "POST",
-
-                                headers: {
-
-                                    Authorization:
-                                        `Bearer ${session.access_token}`,
-
-                                    "Content-Type":
-                                        "application/json",
-                                },
-                            }
-                        );
-
-                    const otpResult =
-                        await otpResponse
-                            .json()
-                            .catch(
-                                () => ({})
-                            );
-
-                    console.log(
-                        "SEND LOGIN OTP RESPONSE:",
-                        otpResult
-                    );
-
-                    if (
-                        !otpResponse.ok ||
-                        otpResult.success !== true
-                    ) {
-
-                        await supabase.auth
-                            .signOut();
-
-                        clearLoginData();
-
-                        throw new Error(
-                            otpResult.message ||
-                               otpResult.message ||
-                            "Unable to send OTP."
-                        );
-                    }
-
-                    // =================================================
-                    // TEMPORARY USER ONLY
-                    //
-                    // This is NOT used for authorization.
-                    // Backend response after OTP is authoritative.
-                    // =================================================
-
-                    localStorage.setItem(
-                        "pending_login_user",
-                        JSON.stringify(user)
-                    );
-
-                    // =================================================
-                    // SHOW OTP SCREEN
-                    // =================================================
-
-                    setOtp("");
-
-                    setOtpStep(true);
-
-                } catch (err) {
-
-                    console.error(
-                        "LOGIN ERROR:",
-                        err
-                    );
-
-                    console.error(
-                        "LOGIN API BASE URL:",
-                        API_BASE_URL
-                    );
-
-                    setError(
-                        err?.message ||
-                        "Unable to login."
-                    );
-
-                } finally {
-
-                    setLoading(false);
-                }
-            };
-
-    
     // =====================================================
     // VERIFY OTP
     // =====================================================
@@ -664,7 +678,7 @@ const ADMIN_EMAIL = String(
 
                     clearLoginData();
 
-                   localStorage.setItem("access_token", session.access_token);
+                    localStorage.setItem("access_token", session.access_token);
 
                     localStorage.setItem(
                         "user",
@@ -722,7 +736,7 @@ const ADMIN_EMAIL = String(
                         authenticatedUser.company_name ||
                         "Talent Corner"
                     );
-login(authenticatedUser);
+                    login(authenticatedUser);
                     navigate(
                         "/admindashboard",
                         {
@@ -866,30 +880,30 @@ login(authenticatedUser);
         };
 
 
-        // =====================================================
-        // BACK TO LOGIN
-        // =====================================================
+    // =====================================================
+    // BACK TO LOGIN
+    // =====================================================
 
-        const handleBackToLogin =
-            async () => {
+    const handleBackToLogin =
+        async () => {
 
-                await supabase.auth
-                    .signOut();
+            await supabase.auth
+                .signOut();
 
-                clearLoginData();
+            clearLoginData();
 
-                setOtp("");
-                setOtpStep(false);
-                setError("");
-            };
+            setOtp("");
+            setOtpStep(false);
+            setError("");
+        };
 
-        // =====================================================
-        // UI
-        // =====================================================
+    // =====================================================
+    // UI
+    // =====================================================
 
-        return (
+    return (
 
-            <div className="
+        <div className="
                 min-h-screen
                 flex
                 items-center
@@ -898,7 +912,7 @@ login(authenticatedUser);
                 px-4
             ">
 
-                <div className="
+            <div className="
                     w-full
                     max-w-md
                     bg-white
@@ -907,41 +921,41 @@ login(authenticatedUser);
                     p-8
                 ">
 
-                    {/* =================================================
+                {/* =================================================
                         HEADER
                     ================================================= */}
 
-                    <div className="
+                <div className="
                         text-center
                         mb-8
                     ">
 
-                        <h1 className="
+                    <h1 className="
                             text-3xl
                             font-bold
                             text-gray-900
                         ">
-                            Talent Corner
-                        </h1>
+                        Talent Corner
+                    </h1>
 
-                        <p className="
+                    <p className="
                             text-gray-500
                             mt-2
                         ">
-                            {otpStep
-                                ? "Verify your email"
-                                : "Login to your account"}
-                        </p>
+                        {otpStep
+                            ? "Verify your email"
+                            : "Login to your account"}
+                    </p>
 
-                    </div>
+                </div>
 
-                    {/* =================================================
+                {/* =================================================
                         ERROR
                     ================================================= */}
 
-                    {error && (
+                {error && (
 
-                        <div className="
+                    <div className="
                             mb-5
                             rounded-lg
                             border
@@ -953,122 +967,122 @@ login(authenticatedUser);
                             text-red-700
                         ">
 
-                            {error}
+                        {error}
 
-                        </div>
-                    )}
+                    </div>
+                )}
 
-                    {/* =================================================
+                {/* =================================================
                         NORMAL LOGIN
                     ================================================= */}
 
-                    {!otpStep ? (
+                {!otpStep ? (
 
-                        <form
-                            onSubmit={
-                                handleLogin
-                            }
-                            className="
+                    <form
+                        onSubmit={
+                            handleLogin
+                        }
+                        className="
                                 space-y-5
                             "
-                        >
+                    >
 
-                            {/* EMAIL */}
+                        {/* EMAIL */}
 
-                            <div>
+                        <div>
 
-                                <label className="
+                            <label className="
                                     block
                                     text-sm
                                     font-medium
                                     text-gray-700
                                     mb-2
                                 ">
-                                    Email
-                                </label>
+                                Email
+                            </label>
 
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) =>
-                                        setEmail(
-                                            e.target.value
-                                        )
-                                    }
-                                    placeholder="Enter your email"
-                                    autoComplete="email"
-                                    disabled={
-                                        loading
-                                    }
-                                    className="
-                                        w-full
-                                        rounded-lg
-                                        border
-                                        border-gray-300
-                                        px-4
-                                        py-3
-                                        outline-none
-                                        focus:border-blue-500
-                                        focus:ring-2
-                                        focus:ring-blue-100
-                                        disabled:bg-gray-100
-                                    "
-                                />
-
-                            </div>
-
-                            {/* PASSWORD */}
-
-                            <div>
-
-                                <label className="
-                                    block
-                                    text-sm
-                                    font-medium
-                                    text-gray-700
-                                    mb-2
-                                ">
-                                    Password
-                                </label>
-
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) =>
-                                        setPassword(
-                                            e.target.value
-                                        )
-                                    }
-                                    placeholder="Enter your password"
-                                    autoComplete="current-password"
-                                    disabled={
-                                        loading
-                                    }
-                                    className="
-                                        w-full
-                                        rounded-lg
-                                        border
-                                        border-gray-300
-                                        px-4
-                                        py-3
-                                        outline-none
-                                        focus:border-blue-500
-                                        focus:ring-2
-                                        focus:ring-blue-100
-                                        disabled:bg-gray-100
-                                    "
-                                />
-
-                            </div>
-
-                            {/* LOGIN */}
-
-                            <button
-                                type="submit"
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) =>
+                                    setEmail(
+                                        e.target.value
+                                    )
+                                }
+                                placeholder="Enter your email"
+                                autoComplete="email"
                                 disabled={
                                     loading
                                 }
                                 className="
+                                        w-full
+                                        rounded-lg
+                                        border
+                                        border-gray-300
+                                        px-4
+                                        py-3
+                                        outline-none
+                                        focus:border-blue-500
+                                        focus:ring-2
+                                        focus:ring-blue-100
+                                        disabled:bg-gray-100
+                                    "
+                            />
+
+                        </div>
+
+                        {/* PASSWORD */}
+
+                        <div>
+
+                            <label className="
+                                    block
+                                    text-sm
+                                    font-medium
+                                    text-gray-700
+                                    mb-2
+                                ">
+                                Password
+                            </label>
+
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) =>
+                                    setPassword(
+                                        e.target.value
+                                    )
+                                }
+                                placeholder="Enter your password"
+                                autoComplete="current-password"
+                                disabled={
+                                    loading
+                                }
+                                className="
+                                        w-full
+                                        rounded-lg
+                                        border
+                                        border-gray-300
+                                        px-4
+                                        py-3
+                                        outline-none
+                                        focus:border-blue-500
+                                        focus:ring-2
+                                        focus:ring-blue-100
+                                        disabled:bg-gray-100
+                                    "
+                            />
+
+                        </div>
+
+                        {/* LOGIN */}
+
+                        <button
+                            type="submit"
+                            disabled={
+                                loading
+                            }
+                            className="
                                     w-full
                                     rounded-lg
                                     bg-blue-600
@@ -1080,36 +1094,36 @@ login(authenticatedUser);
                                     disabled:cursor-not-allowed
                                     disabled:opacity-60
                                 "
-                            >
-
-                                {loading
-                                    ? "Sending OTP..."
-                                    : "Login"}
-
-                            </button>
-
-                        </form>
-
-                    ) : (
-
-                        /* =================================================
-                        OTP
-                        ================================================= */
-
-                        <form
-                            onSubmit={
-                                handleVerifyOtp
-                            }
-                            className="
-                                space-y-5
-                            "
                         >
 
-                            <div className="
+                            {loading
+                                ? "Sending OTP..."
+                                : "Login"}
+
+                        </button>
+
+                    </form>
+
+                ) : (
+
+                    /* =================================================
+                    OTP
+                    ================================================= */
+
+                    <form
+                        onSubmit={
+                            handleVerifyOtp
+                        }
+                        className="
+                                space-y-5
+                            "
+                    >
+
+                        <div className="
                                 text-center
                             ">
 
-                                <div className="
+                            <div className="
                                     mx-auto
                                     mb-4
                                     flex
@@ -1123,74 +1137,74 @@ login(authenticatedUser);
                                     text-xl
                                     font-bold
                                 ">
-                                    OTP
-                                </div>
+                                OTP
+                            </div>
 
-                                <h2 className="
+                            <h2 className="
                                     text-xl
                                     font-semibold
                                     text-gray-900
                                 ">
-                                    Verify Your Email
-                                </h2>
+                                Verify Your Email
+                            </h2>
 
-                                <p className="
+                            <p className="
                                     text-sm
                                     text-gray-500
                                     mt-2
                                 ">
-                                    A 6-digit OTP was sent to
-                                </p>
+                                A 6-digit OTP was sent to
+                            </p>
 
-                                <p className="
+                            <p className="
                                     font-medium
                                     text-gray-900
                                     mt-1
                                     break-all
                                 ">
-                                    {email}
-                                </p>
+                                {email}
+                            </p>
 
-                            </div>
+                        </div>
 
-                            {/* OTP INPUT */}
+                        {/* OTP INPUT */}
 
-                            <div>
+                        <div>
 
-                                <label className="
+                            <label className="
                                     block
                                     text-sm
                                     font-medium
                                     text-gray-700
                                     mb-2
                                 ">
-                                    Enter OTP
-                                </label>
+                                Enter OTP
+                            </label>
 
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    maxLength={6}
-                                    value={otp}
-                                    onChange={(e) =>
-                                        setOtp(
-                                            e.target.value
-                                                .replace(
-                                                    /\D/g,
-                                                    ""
-                                                )
-                                                .slice(
-                                                    0,
-                                                    6
-                                                )
-                                        )
-                                    }
-                                    placeholder="000000"
-                                    autoFocus
-                                    disabled={
-                                        otpLoading
-                                    }
-                                    className="
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={6}
+                                value={otp}
+                                onChange={(e) =>
+                                    setOtp(
+                                        e.target.value
+                                            .replace(
+                                                /\D/g,
+                                                ""
+                                            )
+                                            .slice(
+                                                0,
+                                                6
+                                            )
+                                    )
+                                }
+                                placeholder="000000"
+                                autoFocus
+                                disabled={
+                                    otpLoading
+                                }
+                                className="
                                         w-full
                                         rounded-lg
                                         border
@@ -1206,19 +1220,19 @@ login(authenticatedUser);
                                         focus:ring-blue-100
                                         disabled:bg-gray-100
                                     "
-                                />
+                            />
 
-                            </div>
+                        </div>
 
-                            {/* VERIFY */}
+                        {/* VERIFY */}
 
-                            <button
-                                type="submit"
-                                disabled={
-                                    otpLoading ||
-                                    otp.length !== 6
-                                }
-                                className="
+                        <button
+                            type="submit"
+                            disabled={
+                                otpLoading ||
+                                otp.length !== 6
+                            }
+                            className="
                                     w-full
                                     rounded-lg
                                     bg-blue-600
@@ -1230,99 +1244,99 @@ login(authenticatedUser);
                                     disabled:cursor-not-allowed
                                     disabled:opacity-60
                                 "
-                            >
+                        >
 
-                                {otpLoading
-                                    ? "Verifying..."
-                                    : "Verify OTP"}
+                            {otpLoading
+                                ? "Verifying..."
+                                : "Verify OTP"}
 
-                            </button>
+                        </button>
 
-                            {/* BACK */}
+                        {/* BACK */}
 
-                            <button
-                                type="button"
-                                onClick={
-                                    handleBackToLogin
-                                }
-                                disabled={
-                                    otpLoading
-                                }
-                                className="
+                        <button
+                            type="button"
+                            onClick={
+                                handleBackToLogin
+                            }
+                            disabled={
+                                otpLoading
+                            }
+                            className="
                                     w-full
                                     text-sm
                                     text-gray-500
                                     hover:text-gray-700
                                 "
-                            >
-                                ← Back to Login
-                            </button>
+                        >
+                            ← Back to Login
+                        </button>
 
-                        </form>
-                    )}
+                    </form>
+                )}
 
-                    {/* =================================================
+                {/* =================================================
                         SIGNUP
                     ================================================= */}
 
-                    {!otpStep && (
+                {!otpStep && (
 
-                        <div className="
+                    <div className="
                             mt-6
                             text-center
                         ">
 
-                            <p className="
+                        <p className="
                                 text-sm
                                 text-gray-500
                             ">
-                                Don't have an account?
-                            </p>
+                            Don't have an account?
+                        </p>
 
-                            <div className="
+                        <div className="
                                 flex
                                 justify-center
                                 gap-4
                                 mt-3
                             ">
 
-                                <Link
-                                    to="/signup/client"
-                                    className="
+                            <Link
+                                to="/signup/client"
+                                className="
                                         text-blue-600
                                         font-medium
                                         hover:underline
                                     "
-                                >
-                                    Client Signup
-                                </Link>
+                            >
+                                Client Signup
+                            </Link>
 
-                                <span className="
+                            <span className="
                                     text-gray-300
                                 ">
-                                    |
-                                </span>
+                                |
+                            </span>
 
-                                <Link
-                                    to="/signup/admin"
-                                    className="
+                            <Link
+                                to="/signup/admin"
+                                className="
                                         text-blue-600
                                         font-medium
                                         hover:underline
                                     "
-                                >
-                                    Admin Signup
-                                </Link>
-
-                            </div>
+                            >
+                                Admin Signup
+                            </Link>
 
                         </div>
-                    )}
 
-                </div>
+                    </div>
+                )}
 
             </div>
-        );
-    }
 
-    export default Login;
+        </div>
+    );
+}
+
+export default Login;

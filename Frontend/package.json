@@ -3,13 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
- "scripts": {
-  "dev": "vite",
-  "build": "vite build .", 
-  "lint": "oxlint",
-  "preview": "vite preview"
-}
-,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build .",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",
     "axios": "^1.19.0",
@@ -21,6 +20,7 @@
     "lucide-react": "^1.28.0",
     "nodemailer": "^10.0.1",
     "pdfkit": "^0.20.1",
+    "puppeteer": "^25.10.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2"

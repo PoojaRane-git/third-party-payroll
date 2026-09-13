@@ -19,17 +19,12 @@ import {
   ShieldAlert,
   RefreshCw,
   Calendar,
+  Pencil,
+  UserPlus,
 } from "lucide-react";
 
 import Sidebar from "./Layout/Sidebar";
-
-// =====================================================
-// API
-// =====================================================
-
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:5000/api";
+import api from "../services/api";
 
 // =====================================================
 // CONSTANTS
@@ -46,9 +41,6 @@ const ELIGIBLE_PAYSLIP_STATUSES = [
   PAYROLL_STATUSES.LOCKED,
 ];
 
-// =====================================================
-// CLIENTS
-// =====================================================
 // =====================================================
 // HELPERS
 // =====================================================
@@ -124,15 +116,24 @@ const formatSalaryMonth = (monthValue) => {
     return monthValue || "-";
   }
 
-  return new Intl.DateTimeFormat("en-IN", {
-    month: "long",
-    year: "numeric",
-  }).format(
-    new Date(year, month - 1, 1)
+  return new Intl.DateTimeFormat(
+    "en-IN",
+    {
+      month: "long",
+      year: "numeric",
+    }
+  ).format(
+    new Date(
+      year,
+      month - 1,
+      1
+    )
   );
 };
 
-const getCalendarDaysInMonth = (yyyyMm) => {
+const getCalendarDaysInMonth = (
+  yyyyMm
+) => {
   const normalized =
     normalizeSalaryMonth(yyyyMm);
 
@@ -162,10 +163,13 @@ const formatMoney = (value) => {
     return "0";
   }
 
-  return number.toLocaleString("en-IN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
+  return number.toLocaleString(
+    "en-IN",
+    {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }
+  );
 };
 
 const getNumericValue = (value) => {
@@ -174,6 +178,26 @@ const getNumericValue = (value) => {
   return Number.isFinite(number)
     ? number
     : 0;
+};
+
+const EMPTY_PAYROLL_FORM = {
+  basic_salary: 0,
+  allowances: 0,
+  overtime: 0,
+  bonus: 0,
+
+  pf: 0,
+  esic: 0,
+  tax: 0,
+  professional_tax: 0,
+  lop: 0,
+
+  employer_pf: 0,
+  employer_esic: 0,
+
+  bank_name: "",
+  account_number: "",
+  ifsc_code: "",
 };
 
 // =====================================================
@@ -192,6 +216,9 @@ export default function PayrollModule({
     useState("payroll");
 
   const [payrollRecords, setPayrollRecords] =
+    useState([]);
+
+  const [clients, setClients] =
     useState([]);
 
   const [loading, setLoading] =
@@ -221,86 +248,221 @@ export default function PayrollModule({
     useState(false);
 
   // =====================================================
+  // EDIT PAYROLL STATE
+  // =====================================================
+
+  const [editModalOpen, setEditModalOpen] =
+    useState(false);
+
+  const [editRecord, setEditRecord] =
+    useState(null);
+
+  const [editForm, setEditForm] =
+    useState(EMPTY_PAYROLL_FORM);
+
+  const [editSaving, setEditSaving] =
+    useState(false);
+
+  // =====================================================
+  // CREATE PAYROLL STATE
+  // =====================================================
+
+  const [createModalOpen, setCreateModalOpen] =
+    useState(false);
+
+  const [employeeOptions, setEmployeeOptions] =
+    useState([]);
+
+  const [employeeOptionsLoading, setEmployeeOptionsLoading] =
+    useState(false);
+
+  const [selectedDeploymentId, setSelectedDeploymentId] =
+    useState("");
+
+  const [prefillLoading, setPrefillLoading] =
+    useState(false);
+
+  const [prefillInfo, setPrefillInfo] =
+    useState(null);
+
+  const [createForm, setCreateForm] =
+    useState(EMPTY_PAYROLL_FORM);
+
+  const [createSaving, setCreateSaving] =
+    useState(false);
+
+  const [createError, setCreateError] =
+    useState("");
+
+  // =====================================================
+  // FETCH CLIENTS
+  // =====================================================
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchClients = async () => {
+      try {
+        const response =
+          await api.get("/clients");
+
+        const responseData =
+          response?.data;
+
+        const clientList =
+          Array.isArray(
+            responseData?.data
+          )
+            ? responseData.data
+            : Array.isArray(
+                responseData
+              )
+            ? responseData
+            : [];
+
+        if (!mounted) return;
+
+        setClients(clientList);
+
+        if (clientList.length > 0) {
+          const currentExists =
+            clientList.some(
+              (client) =>
+                String(client.id) ===
+                String(selectedClient)
+            );
+
+          if (!currentExists) {
+            setSelectedClient(
+              String(
+                clientList[0].id
+              )
+            );
+          }
+        }
+      } catch (err) {
+        console.error(
+          "GET /clients error:",
+          err
+        );
+
+        if (mounted) {
+          setClients([]);
+        }
+      }
+    };
+
+    fetchClients();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedClient]);
+
+  // =====================================================
   // CLIENT NAME
   // =====================================================
 
-  const getClientName = useCallback(
-    (record) => {
-      if (
-        record?.client_name &&
-        String(record.client_name).trim()
-      ) {
-        return record.client_name;
-      }
+  const getClientName =
+    useCallback(
+      (record) => {
+        if (
+          record?.client_name &&
+          String(
+            record.client_name
+          ).trim()
+        ) {
+          return record.client_name;
+        }
 
-      const client = CLIENTS.find(
-        (item) =>
-          String(item.id) ===
-          String(record?.client_id)
-      );
+        const client =
+          clients.find(
+            (item) =>
+              String(item.id) ===
+              String(
+                record?.client_id
+              )
+          );
 
-      return client?.company_name || "N/A";
-    },
-    []
-  );
+        return (
+          client?.company_name ||
+          "N/A"
+        );
+      },
+      [clients]
+    );
 
   // =====================================================
   // TOTAL EMPLOYEE DEDUCTIONS
   // =====================================================
 
   const getTotalDeductions =
-    useCallback((record) => {
-      const databaseTotal =
-        record?.total_deductions ??
-        record?.totalDeductions;
+    useCallback(
+      (record) => {
+        const databaseTotal =
+          record?.total_deductions ??
+          record?.totalDeductions;
 
-      if (
-        databaseTotal !== undefined &&
-        databaseTotal !== null
-      ) {
-        return getNumericValue(
-          databaseTotal
+        if (
+          databaseTotal !==
+            undefined &&
+          databaseTotal !== null
+        ) {
+          return getNumericValue(
+            databaseTotal
+          );
+        }
+
+        return (
+          getNumericValue(
+            record?.pf
+          ) +
+          getNumericValue(
+            record?.esic
+          ) +
+          getNumericValue(
+            record?.tax
+          ) +
+          getNumericValue(
+            record?.professional_tax
+          ) +
+          getNumericValue(
+            record?.lop
+          )
         );
-      }
-
-      return (
-        getNumericValue(record?.pf) +
-        getNumericValue(record?.esic) +
-        getNumericValue(record?.tax) +
-        getNumericValue(
-          record?.professional_tax
-        ) +
-        getNumericValue(record?.lop)
-      );
-    }, []);
+      },
+      []
+    );
 
   // =====================================================
   // EMPLOYER PF
   // =====================================================
 
-  const getEmployerPF = useCallback(
-    (record) => {
-      return getNumericValue(
-        record?.employer_pf ??
-        record?.employerPF
-      );
-    },
-    []
-  );
+  const getEmployerPF =
+    useCallback(
+      (record) => {
+        return getNumericValue(
+          record?.employer_pf ??
+            record?.employerPF
+        );
+      },
+      []
+    );
 
   // =====================================================
   // EMPLOYER ESIC
   // =====================================================
 
-  const getEmployerESIC = useCallback(
-    (record) => {
-      return getNumericValue(
-        record?.employer_esic ??
-        record?.employerESIC
-      );
-    },
-    []
-  );
+  const getEmployerESIC =
+    useCallback(
+      (record) => {
+        return getNumericValue(
+          record?.employer_esic ??
+            record?.employerESIC
+        );
+      },
+      []
+    );
 
   // =====================================================
   // TOTAL EMPLOYER CONTRIBUTION
@@ -314,7 +476,8 @@ export default function PayrollModule({
           record?.totalEmployerContribution;
 
         if (
-          databaseTotal !== undefined &&
+          databaseTotal !==
+            undefined &&
           databaseTotal !== null
         ) {
           return getNumericValue(
@@ -345,7 +508,8 @@ export default function PayrollModule({
           record?.totalEmployerCost;
 
         if (
-          databaseTotal !== undefined &&
+          databaseTotal !==
+            undefined &&
           databaseTotal !== null
         ) {
           return getNumericValue(
@@ -371,164 +535,156 @@ export default function PayrollModule({
   // FETCH PAYROLL
   // =====================================================
 
-  const fetchPayroll = useCallback(
-    async () => {
-      try {
-        setLoading(true);
-        setError("");
+  const fetchPayroll =
+    useCallback(
+      async () => {
+        try {
+          setLoading(true);
+          setError("");
 
-        const token =
-          localStorage.getItem("token") ||
-          localStorage.getItem("access_token");
-
-        const clientId =
-          Number(selectedClient);
-
-        const month =
-          normalizeSalaryMonth(
-            salaryMonth
-          );
-
-        if (
-          !Number.isInteger(clientId) ||
-          clientId <= 0
-        ) {
-          throw new Error(
-            "Invalid client selected."
-          );
-        }
-
-        if (
-          !/^\d{4}-\d{2}$/.test(month)
-        ) {
-          throw new Error(
-            "Invalid salary month."
-          );
-        }
-
-        const params =
-          new URLSearchParams({
-            client_id: String(clientId),
-            salary_month: month,
-          });
-
-        const response = await fetch(
-          `${API_BASE}/payroll?${params.toString()}`,
-          {
-            method: "GET",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-
-              ...(token
-                ? {
-                    Authorization:
-                      `Bearer ${token}`,
-                  }
-                : {}),
-            },
-          }
-        );
-
-        const contentType =
-          response.headers.get(
-            "content-type"
-          ) || "";
-
-        let json;
-
-        if (
-          contentType.includes(
-            "application/json"
-          )
-        ) {
-          json =
-            await response.json();
-        } else {
-          const text =
-            await response.text();
-
-          throw new Error(
-            `Server returned ${response.status}: ${text}`
-          );
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            json?.error ||
-              json?.message ||
-              "Failed to fetch payroll records."
-          );
-        }
-
-        if (
-          json?.success === false
-        ) {
-          throw new Error(
-            json?.message ||
-              json?.error ||
-              "Payroll request failed."
-          );
-        }
-
-        const records = Array.isArray(
-          json?.data
-        )
-          ? json.data
-          : [];
-
-        console.log(
-          "PAYROLL RECORDS:",
-          records
-        );
-
-        setPayrollRecords(records);
-
-        setSelectedSlip((current) => {
-          if (!current) {
-            return null;
-          }
-
-          const updated =
-            records.find(
-              (record) =>
-                String(record.id) ===
-                String(current.id)
+          const clientId =
+            Number(
+              selectedClient
             );
 
-          return updated || null;
-        });
-      } catch (err) {
-        console.error(
-          "GET /payroll error:",
-          err
-        );
+          const month =
+            normalizeSalaryMonth(
+              salaryMonth
+            );
 
-        setError(
-          err.message ||
-            "Failed to load payroll records."
-        );
+          if (
+            !Number.isInteger(
+              clientId
+            ) ||
+            clientId <= 0
+          ) {
+            throw new Error(
+              "Invalid client selected."
+            );
+          }
 
-        setPayrollRecords([]);
-        setSelectedSlip(null);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [
-      selectedClient,
-      salaryMonth,
-    ]
-  );
+          if (
+            !/^\d{4}-\d{2}$/.test(
+              month
+            )
+          ) {
+            throw new Error(
+              "Invalid salary month."
+            );
+          }
+
+          const response =
+            await api.get(
+              "/payroll",
+              {
+                params: {
+                  client_id:
+                    clientId,
+                  salary_month:
+                    month,
+                },
+              }
+            );
+
+          const json =
+            response?.data;
+
+          if (
+            json?.success ===
+            false
+          ) {
+            throw new Error(
+              json?.message ||
+                json?.error ||
+                "Payroll request failed."
+            );
+          }
+
+          const records =
+            Array.isArray(
+              json?.data
+            )
+              ? json.data
+              : Array.isArray(
+                  json
+                )
+              ? json
+              : [];
+
+          console.log(
+            "PAYROLL RECORDS:",
+            records
+          );
+
+          setPayrollRecords(
+            records
+          );
+
+          setSelectedSlip(
+            (current) => {
+              if (!current) {
+                return null;
+              }
+
+              const updated =
+                records.find(
+                  (record) =>
+                    String(
+                      record.id
+                    ) ===
+                    String(
+                      current.id
+                    )
+                );
+
+              return (
+                updated ||
+                null
+              );
+            }
+          );
+        } catch (err) {
+          console.error(
+            "GET /payroll error:",
+            err
+          );
+
+          const message =
+            err?.response
+              ?.data?.error ||
+            err?.response
+              ?.data?.message ||
+            err?.message ||
+            "Failed to load payroll records.";
+
+          setError(message);
+          setPayrollRecords([]);
+          setSelectedSlip(null);
+        } finally {
+          setLoading(false);
+        }
+      },
+      [
+        selectedClient,
+        salaryMonth,
+      ]
+    );
 
   // =====================================================
   // LOAD PAYROLL
   // =====================================================
 
   useEffect(() => {
+    if (!selectedClient) {
+      setLoading(false);
+      return;
+    }
+
     fetchPayroll();
-  }, [fetchPayroll]);
+  }, [
+    fetchPayroll,
+    selectedClient,
+  ]);
 
   // =====================================================
   // FILTER PAYROLL
@@ -551,7 +707,8 @@ export default function PayrollModule({
 
           const clientMatches =
             String(
-              record.client_id ?? ""
+              record.client_id ??
+                ""
             ) ===
             String(
               selectedClient
@@ -598,14 +755,22 @@ export default function PayrollModule({
           current &&
           payslipRecords.some(
             (record) =>
-              String(record.id) ===
-              String(current.id)
+              String(
+                record.id
+              ) ===
+              String(
+                current.id
+              )
           )
         ) {
           return payslipRecords.find(
             (record) =>
-              String(record.id) ===
-              String(current.id)
+              String(
+                record.id
+              ) ===
+              String(
+                current.id
+              )
           );
         }
 
@@ -684,62 +849,24 @@ export default function PayrollModule({
       }
 
       try {
-        const token =
-          localStorage.getItem("token") ||
-          localStorage.getItem("access_token");
-
         const response =
-          await fetch(
-            `${API_BASE}/payroll/${id}/status`,
+          await api.patch(
+            `/payroll/${id}/status`,
             {
-              method: "PATCH",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-
-                ...(token
-                  ? {
-                      Authorization:
-                        `Bearer ${token}`,
-                    }
-                  : {}),
-              },
-
-              body: JSON.stringify({
-                status:
-                  newStatus,
-              }),
+              status: newStatus,
             }
           );
 
-        const contentType =
-          response.headers.get(
-            "content-type"
-          ) || "";
-
-        let json;
+        const json =
+          response?.data;
 
         if (
-          contentType.includes(
-            "application/json"
-          )
+          json?.success ===
+          false
         ) {
-          json =
-            await response.json();
-        } else {
-          const text =
-            await response.text();
-
           throw new Error(
-            `Server returned ${response.status}: ${text}`
-          );
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            json?.error ||
-              json?.message ||
+            json?.message ||
+              json?.error ||
               "Failed to update payroll status."
           );
         }
@@ -755,8 +882,16 @@ export default function PayrollModule({
           err
         );
 
+        const message =
+          err?.response
+            ?.data?.error ||
+          err?.response
+            ?.data?.message ||
+          err?.message ||
+          "Failed to update payroll status.";
+
         alert(
-          `Failed to update payroll status: ${err.message}`
+          `Failed to update payroll status: ${message}`
         );
       }
     };
@@ -800,67 +935,29 @@ export default function PayrollModule({
           );
         }
 
-        const token =
-          localStorage.getItem("token") ||
-          localStorage.getItem("access_token");
-
         const response =
-          await fetch(
-            `${API_BASE}/payroll/generate`,
+          await api.post(
+            "/payroll/generate",
             {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-
-                ...(token
-                  ? {
-                      Authorization:
-                        `Bearer ${token}`,
-                    }
-                  : {}),
-              },
-
-              body: JSON.stringify({
-                client_id:
-                  Number(
-                    selectedClient
-                  ),
-
-                salary_month:
-                  payrollMonth,
-              }),
+              client_id:
+                Number(
+                  selectedClient
+                ),
+              salary_month:
+                payrollMonth,
             }
           );
 
-        const contentType =
-          response.headers.get(
-            "content-type"
-          ) || "";
-
-        let json;
+        const json =
+          response?.data;
 
         if (
-          contentType.includes(
-            "application/json"
-          )
+          json?.success ===
+          false
         ) {
-          json =
-            await response.json();
-        } else {
-          const text =
-            await response.text();
-
           throw new Error(
-            `Server returned ${response.status}: ${text}`
-          );
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            json?.error ||
-              json?.message ||
+            json?.message ||
+              json?.error ||
               "Payroll generation failed."
           );
         }
@@ -879,45 +976,630 @@ export default function PayrollModule({
           err
         );
 
-        setError(
-          err.message ||
-            "Payroll generation failed."
-        );
+        const message =
+          err?.response
+            ?.data?.error ||
+          err?.response
+            ?.data?.message ||
+          err?.message ||
+          "Payroll generation failed.";
+
+        setError(message);
 
         alert(
-          `Payroll generation failed: ${err.message}`
+          `Payroll generation failed: ${message}`
         );
       } finally {
         setGenerating(false);
       }
     };
 
-    const [clients, setClients] = useState([]);
+  // =====================================================
+  // EDIT PAYROLL
+  // =====================================================
 
-useEffect(() => {
-  const fetchClients = async () => {
-    try {
-      const token =
-        localStorage.getItem("token") ||
-        localStorage.getItem("access_token");
+  const openEditModal = (
+    record
+  ) => {
+    const status =
+      normalizeStatus(
+        record?.status
+      );
 
-      const response = await fetch(`${API_BASE}/clients`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      const json = await response.json();
-      setClients(Array.isArray(json?.data) ? json.data : []);
-    } catch (err) {
-      console.error("GET /clients error:", err);
-      setClients([]);
+    if (
+      status ===
+      PAYROLL_STATUSES.LOCKED
+    ) {
+      alert(
+        "Locked payroll cannot be edited."
+      );
+      return;
     }
+
+    setEditRecord(record);
+
+    setEditForm({
+      basic_salary:
+        record.basic_salary ??
+        0,
+
+      allowances:
+        record.allowances ??
+        0,
+
+      overtime:
+        record.overtime ??
+        record.overtime_amount ??
+        0,
+
+      bonus:
+        record.bonus ??
+        0,
+
+      pf:
+        record.pf ??
+        record.employee_pf ??
+        0,
+
+      esic:
+        record.esic ??
+        record.employee_esic ??
+        0,
+
+      tax:
+        record.tax ??
+        record.tds ??
+        0,
+
+      professional_tax:
+        record.professional_tax ??
+        0,
+
+      lop:
+        record.lop ??
+        record.lop_deduction ??
+        0,
+
+      employer_pf:
+        record.employer_pf ??
+        record.employerPF ??
+        0,
+
+      employer_esic:
+        record.employer_esic ??
+        record.employerESIC ??
+        0,
+
+      bank_name:
+        record.bank_name ??
+        "",
+
+      account_number:
+        record.account_number ??
+        record.bank_account_number ??
+        "",
+
+      ifsc_code:
+        record.ifsc_code ??
+        record.bank_ifsc ??
+        "",
+    });
+
+    setEditModalOpen(true);
   };
 
-  fetchClients();
-}, []);
+  const handleEditFieldChange =
+    (
+      field,
+      value
+    ) => {
+      setEditForm(
+        (prev) => ({
+          ...prev,
+          [field]: value,
+        })
+      );
+    };
+
+  const handleSaveEdit =
+    async () => {
+      if (!editRecord) {
+        return;
+      }
+
+      const status =
+        normalizeStatus(
+          editRecord.status
+        );
+
+      if (
+        status ===
+        PAYROLL_STATUSES.LOCKED
+      ) {
+        alert(
+          "Locked payroll cannot be edited."
+        );
+        return;
+      }
+
+      try {
+        setEditSaving(true);
+
+        const numericFields = [
+          "basic_salary",
+          "allowances",
+          "overtime",
+          "bonus",
+          "pf",
+          "esic",
+          "tax",
+          "professional_tax",
+          "lop",
+          "employer_pf",
+          "employer_esic",
+        ];
+
+        const payload = {
+          ...editForm,
+        };
+
+        numericFields.forEach(
+          (field) => {
+            payload[field] =
+              getNumericValue(
+                editForm[field]
+              );
+          }
+        );
+
+        const response =
+          await api.patch(
+            `/payroll/${editRecord.id}/details`,
+            payload
+          );
+
+        const json =
+          response?.data;
+
+        if (
+          json?.success ===
+          false
+        ) {
+          throw new Error(
+            json?.message ||
+              json?.error ||
+              "Failed to update payroll details."
+          );
+        }
+
+        await fetchPayroll();
+
+        setEditModalOpen(false);
+        setEditRecord(null);
+
+        alert(
+          json?.message ||
+            "Payroll details updated successfully."
+        );
+      } catch (err) {
+        console.error(
+          "Payroll edit error:",
+          err
+        );
+
+        const message =
+          err?.response
+            ?.data?.error ||
+          err?.response
+            ?.data?.message ||
+          err?.message ||
+          "Failed to update payroll details.";
+
+        alert(
+          `Failed to update payroll: ${message}`
+        );
+      } finally {
+        setEditSaving(false);
+      }
+    };
+
+  // =====================================================
+  // EMPTY CREATE FORM
+  // =====================================================
+
+  const emptyCreateForm =
+    () => ({
+      ...EMPTY_PAYROLL_FORM,
+    });
+
+  // =====================================================
+  // OPEN CREATE MODAL
+  // =====================================================
+
+  const openCreateModal =
+    async () => {
+      setCreateModalOpen(true);
+      setCreateError("");
+      setSelectedDeploymentId("");
+      setPrefillInfo(null);
+      setCreateForm(
+        emptyCreateForm()
+      );
+
+      if (!selectedClient) {
+        setCreateError(
+          "Please select a client first."
+        );
+        return;
+      }
+
+      try {
+        setEmployeeOptionsLoading(
+          true
+        );
+
+        const response =
+          await api.get(
+            "/payroll/lookup/employees",
+            {
+              params: {
+                client_id:
+                  Number(
+                    selectedClient
+                  ),
+              },
+            }
+          );
+
+        const json =
+          response?.data;
+
+        const list =
+          Array.isArray(
+            json?.data
+          )
+            ? json.data
+            : [];
+
+        setEmployeeOptions(
+          list
+        );
+
+        if (
+          list.length ===
+          0
+        ) {
+          setCreateError(
+            "No employees/deployments are available for this client."
+          );
+        }
+      } catch (err) {
+        console.error(
+          "GET /payroll/lookup/employees error:",
+          err
+        );
+
+        const message =
+          err?.response
+            ?.data?.error ||
+          err?.response
+            ?.data?.message ||
+          err?.message ||
+          "Failed to load employees.";
+
+        setEmployeeOptions(
+          []
+        );
+        setCreateError(
+          message
+        );
+      } finally {
+        setEmployeeOptionsLoading(
+          false
+        );
+      }
+    };
+
+  // =====================================================
+  // SELECT EMPLOYEE
+  // =====================================================
+
+  const handleSelectEmployee =
+    async (
+      deploymentId
+    ) => {
+      setSelectedDeploymentId(
+        deploymentId
+      );
+
+      setPrefillInfo(null);
+      setCreateError("");
+
+      setCreateForm(
+        emptyCreateForm()
+      );
+
+      if (!deploymentId) {
+        return;
+      }
+
+      try {
+        setPrefillLoading(
+          true
+        );
+
+        const response =
+          await api.get(
+            "/payroll/lookup/prefill",
+            {
+              params: {
+                deployment_id:
+                  deploymentId,
+
+                salary_month:
+                  normalizeSalaryMonth(
+                    salaryMonth
+                  ),
+              },
+            }
+          );
+
+        const json =
+          response?.data;
+
+        if (
+          json?.success ===
+          false
+        ) {
+          throw new Error(
+            json?.message ||
+              "Failed to load employee data."
+          );
+        }
+
+        const info =
+          json?.data;
+
+        if (!info) {
+          throw new Error(
+            "Employee information was not returned."
+          );
+        }
+
+        setPrefillInfo(
+          info
+        );
+
+        // =================================================
+        // AUTO-FILL PAY RATE
+        // =================================================
+
+        setCreateForm(
+          (prev) => ({
+            ...prev,
+
+            basic_salary:
+              info?.pay_rate ??
+              info?.basic_salary ??
+              0,
+
+            // If backend provides existing bank details
+            bank_name:
+              info?.bank_name ??
+              "",
+
+            account_number:
+              info?.account_number ??
+              info?.bank_account_number ??
+              "",
+
+            ifsc_code:
+              info?.ifsc_code ??
+              info?.bank_ifsc ??
+              "",
+          })
+        );
+
+        if (
+          info?.already_exists
+        ) {
+          setCreateError(
+            `A payroll record already exists for this employee this month (status: ${
+              info.existing_payroll_status ||
+              "Unknown"
+            }).`
+          );
+        }
+      } catch (err) {
+        console.error(
+          "GET /payroll/lookup/prefill error:",
+          err
+        );
+
+        const message =
+          err?.response
+            ?.data?.error ||
+          err?.response
+            ?.data?.message ||
+          err?.message ||
+          "Failed to load employee data.";
+
+        setCreateError(
+          message
+        );
+      } finally {
+        setPrefillLoading(
+          false
+        );
+      }
+    };
+
+  // =====================================================
+  // CREATE FIELD CHANGE
+  // =====================================================
+
+  const handleCreateFieldChange =
+    (
+      field,
+      value
+    ) => {
+      setCreateForm(
+        (prev) => ({
+          ...prev,
+          [field]: value,
+        })
+      );
+    };
+
+  // =====================================================
+  // CREATE PAYROLL
+  // =====================================================
+
+  const handleCreatePayroll =
+    async () => {
+      if (
+        !selectedDeploymentId ||
+        !prefillInfo
+      ) {
+        setCreateError(
+          "Please select an employee first."
+        );
+        return;
+      }
+
+      if (
+        prefillInfo.already_exists
+      ) {
+        setCreateError(
+          "A payroll record already exists for this employee this month."
+        );
+        return;
+      }
+
+      try {
+        setCreateSaving(
+          true
+        );
+
+        setCreateError("");
+
+        const numericFields = [
+          "basic_salary",
+          "allowances",
+          "overtime",
+          "bonus",
+          "pf",
+          "esic",
+          "tax",
+          "professional_tax",
+          "lop",
+          "employer_pf",
+          "employer_esic",
+        ];
+
+        const payload = {
+          client_id:
+            Number(
+              selectedClient
+            ),
+
+          deployment_id:
+            prefillInfo.deployment_id,
+
+          employee_ref_id:
+            prefillInfo.employee_id,
+
+          attendance_id:
+            prefillInfo.attendance_id ??
+            null,
+
+          salary_month:
+            normalizeSalaryMonth(
+              salaryMonth
+            ),
+
+          email:
+            prefillInfo.email ??
+            "",
+
+          ...createForm,
+        };
+
+        numericFields.forEach(
+          (field) => {
+            payload[field] =
+              getNumericValue(
+                createForm[field]
+              );
+          }
+        );
+
+        const response =
+          await api.post(
+            "/payroll",
+            payload
+          );
+
+        const json =
+          response?.data;
+
+        if (
+          json?.success ===
+          false
+        ) {
+          throw new Error(
+            json?.message ||
+              json?.error ||
+              "Failed to create payroll record."
+          );
+        }
+
+        await fetchPayroll();
+
+        setCreateModalOpen(
+          false
+        );
+
+        setSelectedDeploymentId(
+          ""
+        );
+
+        setPrefillInfo(
+          null
+        );
+
+        setCreateForm(
+          emptyCreateForm()
+        );
+
+        alert(
+          json?.message ||
+            "Payroll created successfully."
+        );
+      } catch (err) {
+        console.error(
+          "POST /payroll error:",
+          err
+        );
+
+        const message =
+          err?.response
+            ?.data?.error ||
+          err?.response
+            ?.data?.message ||
+          err?.message ||
+          "Failed to create payroll record.";
+
+        setCreateError(
+          message
+        );
+      } finally {
+        setCreateSaving(
+          false
+        );
+      }
+    };
+
   // =====================================================
   // CREATE PAYSLIP PDF
   // =====================================================
@@ -1127,7 +1809,8 @@ useEffect(() => {
               imageTimeout: 15000,
               foreignObjectRendering:
                 false,
-              removeContainer: true,
+              removeContainer:
+                true,
 
               onclone: (
                 clonedDocument
@@ -1430,99 +2113,104 @@ useEffect(() => {
     };
 
   // =====================================================
-// EMAIL PAYSLIP
-// SAME WORKING FUNCTION AS OLD EMAIL PAYSLIP BUTTON
-// =====================================================
+  // EMAIL PAYSLIP
+  // =====================================================
 
-const handleEmail = async () => {
-  if (!selectedSlip?.id) {
-    alert("Invalid payroll ID.");
-    return;
-  }
-
-  const status = normalizeStatus(selectedSlip.status);
-
-  if (!ELIGIBLE_PAYSLIP_STATUSES.includes(status)) {
-    alert(
-      "Payslip can be emailed only after payroll is Approved or Locked."
-    );
-    return;
-  }
-
-  try {
-    setEmailLoading(true);
-
-    const token =
-      localStorage.getItem("token") ||
-      localStorage.getItem("access_token");
-
-    const response = await fetch(
-      `${API_BASE}/payroll/${selectedSlip.id}/email`,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-
-          ...(token
-            ? {
-                Authorization: `Bearer ${token}`,
-              }
-            : {}),
-        },
+  const handleEmail =
+    async () => {
+      if (!selectedSlip?.id) {
+        alert(
+          "Invalid payroll ID."
+        );
+        return;
       }
-    );
 
-    const contentType =
-      response.headers.get("content-type") || "";
+      const status =
+        normalizeStatus(
+          selectedSlip.status
+        );
 
-    let data;
+      if (
+        !ELIGIBLE_PAYSLIP_STATUSES.includes(
+          status
+        )
+      ) {
+        alert(
+          "Payslip can be emailed only after payroll is Approved or Locked."
+        );
+        return;
+      }
 
-    if (contentType.includes("application/json")) {
-      data = await response.json();
-    } else {
-      const text = await response.text();
+      if (!selectedSlip.email) {
+        alert(
+          "Employee email address is not available."
+        );
+        return;
+      }
 
-      throw new Error(
-        `Server returned ${response.status}: ${text}`
-      );
-    }
+      try {
+        setEmailLoading(
+          true
+        );
 
-    if (!response.ok) {
-      throw new Error(
-        data?.error ||
+        const response =
+          await api.post(
+            `/payroll/${selectedSlip.id}/email`
+          );
+
+        const data =
+          response?.data;
+
+        if (
+          data?.success ===
+          false
+        ) {
+          throw new Error(
+            data?.message ||
+              data?.error ||
+              "Failed to email payslip."
+          );
+        }
+
+        alert(
           data?.message ||
-          "Failed to email payslip."
-      );
-    }
+            "Payslip emailed successfully."
+        );
+      } catch (error) {
+        console.error(
+          "EMAIL PAYSLIP ERROR:",
+          error
+        );
 
-    alert(
-      data?.message ||
-        "Payslip emailed successfully."
-    );
-  } catch (error) {
-    console.error(
-      "EMAIL PAYSLIP ERROR:",
-      error
-    );
+        const message =
+          error?.response
+            ?.data?.error ||
+          error?.response
+            ?.data?.message ||
+          error?.message ||
+          "Failed to send payslip.";
 
-    alert(
-      error?.message ||
-        "Failed to send payslip."
-    );
-  } finally {
-    setEmailLoading(false);
-  }
-};
+        alert(message);
+      } finally {
+        setEmailLoading(
+          false
+        );
+      }
+    };
 
   // =====================================================
   // CSV ESCAPE
   // =====================================================
 
-  const escapeCSV = (value) => {
+  const escapeCSV = (
+    value
+  ) => {
     return `"${String(
       value ?? ""
-    ).replace(/"/g, '""')}"`;
+    ).replace(
+      /"/g,
+      '""'
+    )}"`;
   };
 
   // =====================================================
@@ -1554,46 +2242,55 @@ const handleEmail = async () => {
         return;
       }
 
-      const csvHeader = [
-        "Beneficiary Name",
-        "Account Number",
-        "IFSC Code",
-        "Amount",
-        "Salary Month",
-        "Bank Name",
-        "Client",
-      ]
-        .map(escapeCSV)
-        .join(",") + "\n";
+      const csvHeader =
+        [
+          "Beneficiary Name",
+          "Account Number",
+          "IFSC Code",
+          "Amount",
+          "Salary Month",
+          "Bank Name",
+          "Client",
+        ]
+          .map(
+            escapeCSV
+          )
+          .join(",") +
+        "\n";
 
       const csvRows =
         approvedRecords
-          .map((record) =>
-            [
-              record.employee_name ||
-                "",
+          .map(
+            (record) =>
+              [
+                record.employee_name ||
+                  "",
 
-              record.account_number ||
-                "",
+                record.account_number ||
+                  "",
 
-              record.ifsc_code ||
-                "",
+                record.ifsc_code ||
+                  "",
 
-              getNumericValue(
-                record.net_salary
-              ),
+                getNumericValue(
+                  record.net_salary
+                ),
 
-              normalizeSalaryMonth(
-                record.salary_month
-              ),
+                normalizeSalaryMonth(
+                  record.salary_month
+                ),
 
-              record.bank_name ||
-                "",
+                record.bank_name ||
+                  "",
 
-              getClientName(record),
-            ]
-              .map(escapeCSV)
-              .join(",")
+                getClientName(
+                  record
+                ),
+              ]
+                .map(
+                  escapeCSV
+                )
+                .join(",")
           )
           .join("\n");
 
@@ -1610,23 +2307,33 @@ const handleEmail = async () => {
         );
 
       const url =
-        URL.createObjectURL(blob);
+        URL.createObjectURL(
+          blob
+        );
 
       const link =
-        document.createElement("a");
+        document.createElement(
+          "a"
+        );
 
       link.href = url;
 
       link.download =
         `Corporate_Bank_Disbursal_${selectedClient}_${salaryMonth}.csv`;
 
-      document.body.appendChild(link);
+      document.body.appendChild(
+        link
+      );
 
       link.click();
 
-      document.body.removeChild(link);
+      document.body.removeChild(
+        link
+      );
 
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(
+        url
+      );
     };
 
   // =====================================================
@@ -1636,24 +2343,17 @@ const handleEmail = async () => {
   if (loading) {
     return (
       <div className="flex min-h-screen bg-slate-50">
-
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
         />
 
         <div className="flex-1 flex items-center justify-center">
-
           <div className="flex items-center gap-2 text-slate-600 font-semibold text-sm">
-
             <Loader2 className="h-5 w-5 animate-spin text-slate-900" />
-
             Loading payroll records...
-
           </div>
-
         </div>
-
       </div>
     );
   }
@@ -1664,7 +2364,6 @@ const handleEmail = async () => {
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -1672,32 +2371,31 @@ const handleEmail = async () => {
 
       <main className="flex-1 p-8 space-y-6 overflow-y-auto">
 
-        {/* =====================================================
-            HEADER
-        ===================================================== */}
+        {/* HEADER */}
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
 
           <div>
-
             <h1 className="text-2xl font-bold text-slate-900">
               Payroll & Payslip Management
             </h1>
 
             <p className="text-sm text-slate-500">
-              Payroll generated only from client-approved attendance records.
+              Payroll generated from client-approved attendance, with controlled manual corrections.
             </p>
-
           </div>
 
           <div className="flex bg-slate-200/70 p-1 rounded-xl">
 
             <button
               onClick={() =>
-                setActiveSubTab("payroll")
+                setActiveSubTab(
+                  "payroll"
+                )
               }
               className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                activeSubTab === "payroll"
+                activeSubTab ===
+                "payroll"
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
               }`}
@@ -1707,10 +2405,13 @@ const handleEmail = async () => {
 
             <button
               onClick={() =>
-                setActiveSubTab("payslip")
+                setActiveSubTab(
+                  "payslip"
+                )
               }
               className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                activeSubTab === "payslip"
+                activeSubTab ===
+                "payslip"
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
               }`}
@@ -1722,9 +2423,7 @@ const handleEmail = async () => {
 
         </div>
 
-        {/* =====================================================
-            ERROR
-        ===================================================== */}
+        {/* ERROR */}
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
@@ -1736,7 +2435,9 @@ const handleEmail = async () => {
             </span>
 
             <button
-              onClick={fetchPayroll}
+              onClick={
+                fetchPayroll
+              }
               className="text-xs font-bold underline"
             >
               Retry
@@ -1749,7 +2450,8 @@ const handleEmail = async () => {
             PAYROLL TAB
         ===================================================== */}
 
-        {activeSubTab === "payroll" && (
+        {activeSubTab ===
+          "payroll" && (
           <div className="space-y-6">
 
             {/* INFO */}
@@ -1762,7 +2464,7 @@ const handleEmail = async () => {
                 </span>
 
                 <p className="text-indigo-700">
-                  Payroll is generated only from client-approved monthly attendance.
+                  Bulk payroll uses approved attendance records.
                 </p>
               </div>
 
@@ -1772,17 +2474,17 @@ const handleEmail = async () => {
                 </span>
 
                 <p className="text-indigo-700">
-                  Payroll is linked to employee attendance, deployment and client.
+                  Payroll remains linked to employee, deployment and client.
                 </p>
               </div>
 
               <div>
                 <span className="font-bold block mb-1">
-                  Employer Contributions
+                  Manual Control
                 </span>
 
                 <p className="text-indigo-700">
-                  Employer PF and Employer ESIC are added separately from employee deductions.
+                  Admin can correct Pending or Approved payroll before locking.
                 </p>
               </div>
 
@@ -1798,15 +2500,29 @@ const handleEmail = async () => {
                   Run Bulk Payroll by Client
                 </h3>
 
-                <button
-                  onClick={
-                    handleExportBankFile
-                  }
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center gap-1.5"
-                >
-                  <Download className="h-4 w-4" />
-                  Export Bank File (.csv)
-                </button>
+                <div className="flex flex-wrap gap-2">
+
+                  <button
+                    onClick={
+                      openCreateModal
+                    }
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center gap-1.5"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Create Payroll Manually
+                  </button>
+
+                  <button
+                    onClick={
+                      handleExportBankFile
+                    }
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center gap-1.5"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export Bank File (.csv)
+                  </button>
+
+                </div>
 
               </div>
 
@@ -1837,25 +2553,32 @@ const handleEmail = async () => {
                     className="w-full border border-slate-200 p-2.5 rounded-xl bg-white font-medium text-slate-800"
                   >
 
-                    {CLIENTS.map(
-                      (client) => (
-                        <option
-                          key={
-                            client.id
-                          }
-                          value={
-                            client.id
-                          }
-                        >
-                          {
-                            client.company_name
-                          }{" "}
-                          (ID:{" "}
-                          {
-                            client.id
-                          }
-                          )
-                        </option>
+                    {clients.length ===
+                    0 ? (
+                      <option value="">
+                        No clients available
+                      </option>
+                    ) : (
+                      clients.map(
+                        (client) => (
+                          <option
+                            key={
+                              client.id
+                            }
+                            value={
+                              client.id
+                            }
+                          >
+                            {
+                              client.company_name
+                            }{" "}
+                            (ID:{" "}
+                            {
+                              client.id
+                            }
+                            )
+                          </option>
+                        )
                       )
                     )}
 
@@ -1896,17 +2619,14 @@ const handleEmail = async () => {
                     Selected:{" "}
 
                     <span className="font-semibold text-slate-600">
-
                       {
                         formatSalaryMonth(
                           salaryMonth
                         )
                       }
-
                     </span>
 
                     <span className="ml-2 text-slate-400">
-
                       (
                       {
                         getCalendarDaysInMonth(
@@ -1914,7 +2634,6 @@ const handleEmail = async () => {
                         )
                       }{" "}
                       calendar days)
-
                     </span>
 
                   </p>
@@ -1928,7 +2647,8 @@ const handleEmail = async () => {
                   <button
                     type="submit"
                     disabled={
-                      generating
+                      generating ||
+                      !selectedClient
                     }
                     className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center justify-center gap-1.5"
                   >
@@ -1969,7 +2689,6 @@ const handleEmail = async () => {
               <table className="w-full text-left border-collapse">
 
                 <thead>
-
                   <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
 
                     <th className="p-4">
@@ -2013,15 +2732,14 @@ const handleEmail = async () => {
                     </th>
 
                   </tr>
-
                 </thead>
 
                 <tbody className="divide-y divide-slate-100 text-sm">
 
-                  {filteredPayrollRecords.length === 0 ? (
+                  {filteredPayrollRecords.length ===
+                  0 ? (
 
                     <tr>
-
                       <td
                         colSpan="10"
                         className="p-10 text-center"
@@ -2050,7 +2768,6 @@ const handleEmail = async () => {
                         </p>
 
                       </td>
-
                     </tr>
 
                   ) : (
@@ -2114,7 +2831,6 @@ const handleEmail = async () => {
                               </p>
 
                               <p className="text-[10px] text-slate-400 mt-1">
-
                                 Client ID:{" "}
                                 {
                                   rec.client_id ??
@@ -2128,19 +2844,16 @@ const handleEmail = async () => {
                                   rec.deployment_id ??
                                   "-"
                                 }
-
                               </p>
 
                             </td>
 
                             <td className="p-4 text-slate-600 text-xs">
-
                               {
                                 formatSalaryMonth(
                                   rec.salary_month
                                 )
                               }
-
                             </td>
 
                             <td className="p-4 text-xs">
@@ -2167,36 +2880,30 @@ const handleEmail = async () => {
                               </div>
 
                               <span className="text-rose-600 font-medium">
-
                                 LOP Days:{" "}
                                 {
                                   rec.lop_days ??
                                   "-"
                                 }
-
                               </span>
 
                               <p className="text-[10px] text-slate-400 mt-1">
-
                                 Attendance ID:{" "}
                                 {
                                   rec.attendance_id ??
                                   "-"
                                 }
-
                               </p>
 
                             </td>
 
                             <td className="p-4 font-semibold text-slate-800">
-
                               ₹
                               {
                                 formatMoney(
                                   rec.gross_salary
                                 )
                               }
-
                             </td>
 
                             <td className="p-4 text-rose-600 font-medium text-xs">
@@ -2247,78 +2954,60 @@ const handleEmail = async () => {
                               </div>
 
                               <div className="font-bold border-t border-rose-100 mt-1 pt-1">
-
                                 Total: ₹
                                 {
                                   formatMoney(
                                     totalDeductions
                                   )
                                 }
-
                               </div>
 
                             </td>
 
                             <td className="p-4 font-bold text-emerald-600">
-
                               ₹
                               {
                                 formatMoney(
                                   rec.net_salary
                                 )
                               }
-
                             </td>
 
                             <td className="p-4 text-xs">
 
                               <div className="text-slate-600">
-
                                 Employer PF:{" "}
-
                                 <span className="font-semibold text-slate-800">
-
                                   ₹
                                   {
                                     formatMoney(
                                       employerPF
                                     )
                                   }
-
                                 </span>
-
                               </div>
 
                               <div className="text-slate-600 mt-1">
-
                                 Employer ESIC:{" "}
-
                                 <span className="font-semibold text-slate-800">
-
                                   ₹
                                   {
                                     formatMoney(
                                       employerESIC
                                     )
                                   }
-
                                 </span>
-
                               </div>
 
                               <div className="border-t border-indigo-100 mt-2 pt-2">
-
                                 <span className="font-bold text-indigo-700">
-
                                   Total: ₹
                                   {
                                     formatMoney(
                                       totalEmployerContribution
                                     )
                                   }
-
                                 </span>
-
                               </div>
 
                             </td>
@@ -2326,14 +3015,12 @@ const handleEmail = async () => {
                             <td className="p-4">
 
                               <div className="font-bold text-slate-900">
-
                                 ₹
                                 {
                                   formatMoney(
                                     totalEmployerCost
                                   )
                                 }
-
                               </div>
 
                               <p className="text-[10px] text-slate-400 mt-1">
@@ -2354,10 +3041,6 @@ const handleEmail = async () => {
                               </span>
 
                             </td>
-
-                            {/* =====================================================
-                                ACTIONS
-                            ===================================================== */}
 
                             <td className="p-4 text-right">
 
@@ -2393,7 +3076,28 @@ const handleEmail = async () => {
                                   </button>
                                 )}
 
-                                {/* VIEW PAYSLIP ONLY */}
+                                {/* EDIT */}
+
+                                {(
+                                  status ===
+                                    PAYROLL_STATUSES.PENDING ||
+                                  status ===
+                                    PAYROLL_STATUSES.APPROVED
+                                ) && (
+                                  <button
+                                    onClick={() =>
+                                      openEditModal(
+                                        rec
+                                      )
+                                    }
+                                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    Edit
+                                  </button>
+                                )}
+
+                                {/* VIEW SLIP */}
 
                                 {ELIGIBLE_PAYSLIP_STATUSES.includes(
                                   status
@@ -2441,13 +3145,12 @@ const handleEmail = async () => {
             PAYSLIP TAB
         ===================================================== */}
 
-        {activeSubTab === "payslip" && (
+        {activeSubTab ===
+          "payslip" && (
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            {/* =====================================================
-                EMPLOYEE LIST
-            ===================================================== */}
+            {/* EMPLOYEE LIST */}
 
             <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3 h-fit">
 
@@ -2474,7 +3177,8 @@ const handleEmail = async () => {
 
               </p>
 
-              {payslipRecords.length === 0 ? (
+              {payslipRecords.length ===
+              0 ? (
 
                 <div className="p-4 text-center">
 
@@ -2583,9 +3287,7 @@ const handleEmail = async () => {
 
             </div>
 
-            {/* =====================================================
-                PAYSLIP
-            ===================================================== */}
+            {/* PAYSLIP */}
 
             <div
               ref={payslipRef}
@@ -2623,9 +3325,7 @@ const handleEmail = async () => {
                       </h2>
 
                       <p className="text-xs text-slate-500 mt-0.5">
-
                         Client:{" "}
-
                         <span className="font-semibold text-slate-700">
                           {
                             getClientName(
@@ -2633,11 +3333,9 @@ const handleEmail = async () => {
                             )
                           }
                         </span>
-
                       </p>
 
                       <p className="text-[10px] text-slate-400 mt-1">
-
                         Client ID:{" "}
                         {
                           selectedSlip.client_id ??
@@ -2651,7 +3349,6 @@ const handleEmail = async () => {
                           selectedSlip.deployment_id ??
                           "-"
                         }
-
                       </p>
 
                     </div>
@@ -2674,13 +3371,11 @@ const handleEmail = async () => {
                         Status:{" "}
 
                         <span className="font-semibold text-slate-700">
-
                           {
                             normalizeStatus(
                               selectedSlip.status
                             )
                           }
-
                         </span>
 
                       </p>
@@ -2694,7 +3389,6 @@ const handleEmail = async () => {
                   <div className="bg-slate-50 p-4 rounded-xl grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
 
                     <div>
-
                       <p className="text-slate-400 font-medium">
                         Employee Name
                       </p>
@@ -2705,87 +3399,67 @@ const handleEmail = async () => {
                           "Employee"
                         }
                       </p>
-
                     </div>
 
                     <div>
-
                       <p className="text-slate-400 font-medium">
                         Present
                       </p>
 
                       <p className="font-bold text-slate-900 text-sm mt-0.5">
-
                         {
                           selectedSlip.present_days ??
                           "-"
                         }
-
                         {" / "}
-
                         {
                           selectedSlip.total_days ??
                           getCalendarDaysInMonth(
                             selectedSlip.salary_month
                           )
                         }
-
                         {" Days"}
-
                       </p>
-
                     </div>
 
                     <div>
-
                       <p className="text-slate-400 font-medium">
                         LOP Days
                       </p>
 
                       <p className="font-bold text-rose-600 text-sm mt-0.5">
-
                         {
                           selectedSlip.lop_days ??
                           0
                         }
-
                       </p>
-
                     </div>
 
                     <div>
-
                       <p className="text-slate-400 font-medium">
                         Leave
                       </p>
 
                       <p className="font-bold text-slate-900 text-sm mt-0.5">
-
                         {
                           selectedSlip.leave_days ??
                           0
                         }
-
                       </p>
-
                     </div>
 
                     <div>
-
                       <p className="text-slate-400 font-medium">
                         Overtime
                       </p>
 
                       <p className="font-bold text-slate-900 text-sm mt-0.5">
-
                         {
                           selectedSlip.overtime_hours ??
                           0
                         }{" "}
                         hrs
-
                       </p>
-
                     </div>
 
                   </div>
@@ -2805,51 +3479,41 @@ const handleEmail = async () => {
                       <div className="p-4 space-y-3">
 
                         <div className="flex justify-between">
-
                           <span>
                             Basic Salary
                           </span>
 
                           <span className="font-semibold">
-
                             ₹
                             {
                               formatMoney(
                                 selectedSlip.basic_salary
                               )
                             }
-
                           </span>
-
                         </div>
 
                         <div className="flex justify-between">
-
                           <span>
                             Allowances
                           </span>
 
                           <span className="font-semibold">
-
                             ₹
                             {
                               formatMoney(
                                 selectedSlip.allowances
                               )
                             }
-
                           </span>
-
                         </div>
 
                         <div className="flex justify-between">
-
                           <span>
                             Overtime
                           </span>
 
                           <span className="font-semibold">
-
                             ₹
                             {
                               formatMoney(
@@ -2857,47 +3521,37 @@ const handleEmail = async () => {
                                 selectedSlip.overtime_amount
                               )
                             }
-
                           </span>
-
                         </div>
 
                         <div className="flex justify-between">
-
                           <span>
                             Bonus
                           </span>
 
                           <span className="font-semibold">
-
                             ₹
                             {
                               formatMoney(
                                 selectedSlip.bonus
                               )
                             }
-
                           </span>
-
                         </div>
 
                         <div className="flex justify-between pt-3 border-t border-slate-200 font-bold text-slate-900">
-
                           <span>
                             Gross Earnings
                           </span>
 
                           <span>
-
                             ₹
                             {
                               formatMoney(
                                 selectedSlip.gross_salary
                               )
                             }
-
                           </span>
-
                         </div>
 
                       </div>
@@ -2915,13 +3569,11 @@ const handleEmail = async () => {
                       <div className="p-4 space-y-3">
 
                         <div className="flex justify-between">
-
                           <span>
                             Provident Fund (PF)
                           </span>
 
                           <span className="font-semibold text-rose-600">
-
                             ₹
                             {
                               formatMoney(
@@ -2929,19 +3581,15 @@ const handleEmail = async () => {
                                 selectedSlip.employee_pf
                               )
                             }
-
                           </span>
-
                         </div>
 
                         <div className="flex justify-between">
-
                           <span>
                             ESIC
                           </span>
 
                           <span className="font-semibold text-rose-600">
-
                             ₹
                             {
                               formatMoney(
@@ -2949,19 +3597,15 @@ const handleEmail = async () => {
                                 selectedSlip.employee_esic
                               )
                             }
-
                           </span>
-
                         </div>
 
                         <div className="flex justify-between">
-
                           <span>
                             Tax (TDS)
                           </span>
 
                           <span className="font-semibold text-rose-600">
-
                             ₹
                             {
                               formatMoney(
@@ -2969,38 +3613,30 @@ const handleEmail = async () => {
                                 selectedSlip.tds
                               )
                             }
-
                           </span>
-
                         </div>
 
                         <div className="flex justify-between">
-
                           <span>
                             Professional Tax
                           </span>
 
                           <span className="font-semibold text-rose-600">
-
                             ₹
                             {
                               formatMoney(
                                 selectedSlip.professional_tax
                               )
                             }
-
                           </span>
-
                         </div>
 
                         <div className="flex justify-between">
-
                           <span>
                             Loss of Pay (LOP)
                           </span>
 
                           <span className="font-semibold text-rose-600">
-
                             ₹
                             {
                               formatMoney(
@@ -3008,19 +3644,15 @@ const handleEmail = async () => {
                                 selectedSlip.lop_deduction
                               )
                             }
-
                           </span>
-
                         </div>
 
                         <div className="flex justify-between pt-3 border-t border-slate-200 font-bold text-slate-900">
-
                           <span>
                             Total Deductions
                           </span>
 
                           <span>
-
                             ₹
                             {
                               formatMoney(
@@ -3029,9 +3661,7 @@ const handleEmail = async () => {
                                 )
                               )
                             }
-
                           </span>
-
                         </div>
 
                       </div>
@@ -3051,13 +3681,11 @@ const handleEmail = async () => {
                     <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
 
                       <div>
-
                         <p className="text-slate-500">
                           Employer PF
                         </p>
 
                         <p className="font-bold text-slate-900 mt-1">
-
                           ₹
                           {
                             formatMoney(
@@ -3066,19 +3694,15 @@ const handleEmail = async () => {
                               )
                             )
                           }
-
                         </p>
-
                       </div>
 
                       <div>
-
                         <p className="text-slate-500">
                           Employer ESIC
                         </p>
 
                         <p className="font-bold text-slate-900 mt-1">
-
                           ₹
                           {
                             formatMoney(
@@ -3087,19 +3711,15 @@ const handleEmail = async () => {
                               )
                             )
                           }
-
                         </p>
-
                       </div>
 
                       <div>
-
                         <p className="text-slate-500">
                           Total Employer Contribution
                         </p>
 
                         <p className="font-bold text-indigo-700 mt-1">
-
                           ₹
                           {
                             formatMoney(
@@ -3108,9 +3728,7 @@ const handleEmail = async () => {
                               )
                             )
                           }
-
                         </p>
-
                       </div>
 
                     </div>
@@ -3128,27 +3746,22 @@ const handleEmail = async () => {
                       </p>
 
                       <p className="text-2xl font-extrabold mt-0.5">
-
                         ₹
                         {
                           formatMoney(
                             selectedSlip.net_salary
                           )
                         }
-
                       </p>
 
                     </div>
 
                     <span className="text-xs font-medium bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg">
-
                       Account:{" "}
-
                       {
                         selectedSlip.account_number ||
                         "-"
                       }
-
                     </span>
 
                   </div>
@@ -3158,13 +3771,11 @@ const handleEmail = async () => {
                   <div className="bg-slate-900 text-white p-4 rounded-xl flex justify-between items-center">
 
                     <div>
-
                       <p className="text-xs text-slate-300 uppercase tracking-wider">
                         Total Employer Cost
                       </p>
 
                       <p className="text-xl font-extrabold mt-1">
-
                         ₹
                         {
                           formatMoney(
@@ -3173,9 +3784,7 @@ const handleEmail = async () => {
                             )
                           )
                         }
-
                       </p>
-
                     </div>
 
                     <div className="text-right text-xs text-slate-300">
@@ -3195,7 +3804,6 @@ const handleEmail = async () => {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
 
                       <div>
-
                         <span className="text-slate-400">
                           Client ID
                         </span>
@@ -3206,11 +3814,9 @@ const handleEmail = async () => {
                             "-"
                           }
                         </p>
-
                       </div>
 
                       <div>
-
                         <span className="text-slate-400">
                           Deployment ID
                         </span>
@@ -3221,11 +3827,9 @@ const handleEmail = async () => {
                             "-"
                           }
                         </p>
-
                       </div>
 
                       <div>
-
                         <span className="text-slate-400">
                           Attendance ID
                         </span>
@@ -3236,11 +3840,9 @@ const handleEmail = async () => {
                             "-"
                           }
                         </p>
-
                       </div>
 
                       <div>
-
                         <span className="text-slate-400">
                           Employee ID
                         </span>
@@ -3252,21 +3854,15 @@ const handleEmail = async () => {
                             "-"
                           }
                         </p>
-
                       </div>
 
                     </div>
 
                   </div>
 
-                  {/* =====================================================
-                      ACTIONS
-                      EMAIL IS ONLY HERE
-                  ===================================================== */}
+                  {/* ACTIONS */}
 
                   <div className="pdf-action-buttons flex flex-wrap gap-3 pt-4 border-t border-slate-100">
-
-                    {/* GENERATE PDF */}
 
                     <button
                       onClick={
@@ -3291,8 +3887,6 @@ const handleEmail = async () => {
 
                     </button>
 
-                    {/* DOWNLOAD PDF */}
-
                     <button
                       onClick={
                         handleDownload
@@ -3314,8 +3908,6 @@ const handleEmail = async () => {
 
                     </button>
 
-                    {/* EMAIL TO EMPLOYEE */}
-
                     <button
                       onClick={
                         handleEmail
@@ -3323,6 +3915,7 @@ const handleEmail = async () => {
                       disabled={
                         emailLoading ||
                         !selectedSlip ||
+                        !selectedSlip.email ||
                         !ELIGIBLE_PAYSLIP_STATUSES.includes(
                           normalizeStatus(
                             selectedSlip.status
@@ -3353,7 +3946,6 @@ const handleEmail = async () => {
                     {selectedSlip.email ? (
 
                       <div className="text-[11px] text-slate-400">
-
                         Payslip email will be sent to:
 
                         <span className="font-semibold text-slate-600 ml-1">
@@ -3361,20 +3953,16 @@ const handleEmail = async () => {
                             selectedSlip.email
                           }
                         </span>
-
                       </div>
 
                     ) : (
 
                       <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
-
                         Employee email address is not available.
                         Add an employee email before using{" "}
-
                         <strong className="ml-1">
                           Email to Employee
                         </strong>.
-
                       </div>
 
                     )}
@@ -3391,8 +3979,1074 @@ const handleEmail = async () => {
 
         )}
 
-      </main>
+        {/* =====================================================
+            EDIT PAYROLL MODAL
+        ===================================================== */}
 
+        {editModalOpen &&
+          editRecord && (
+
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
+
+              {/* MODAL HEADER */}
+
+              <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Edit Payroll
+                  </h3>
+
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {
+                      editRecord.employee_name ||
+                      "Employee"
+                    }
+
+                    {" • "}
+
+                    {
+                      formatSalaryMonth(
+                        editRecord.salary_month
+                      )
+                    }
+
+                    {" • "}
+
+                    <span className="font-semibold">
+                      {
+                        normalizeStatus(
+                          editRecord.status
+                        )
+                      }
+                    </span>
+                  </p>
+                </div>
+
+                <button
+                  onClick={() =>
+                    setEditModalOpen(
+                      false
+                    )
+                  }
+                  className="text-slate-400 hover:text-slate-700 text-xl font-bold"
+                >
+                  ×
+                </button>
+
+              </div>
+
+              <div className="p-6 space-y-6">
+
+                {/* WARNING */}
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                  <strong>
+                    Manual Payroll Correction:
+                  </strong>{" "}
+                  These values will overwrite the current payroll values.
+                  Locked payroll cannot be edited.
+                </div>
+
+                {/* SALARY */}
+
+                <div>
+
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    Salary & Earnings
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+
+                    {[
+                      [
+                        "basic_salary",
+                        "Basic Salary",
+                      ],
+                      [
+                        "allowances",
+                        "Allowances",
+                      ],
+                      [
+                        "overtime",
+                        "Overtime Amount",
+                      ],
+                      [
+                        "bonus",
+                        "Bonus",
+                      ],
+                    ].map(
+                      ([
+                        field,
+                        label,
+                      ]) => (
+                        <div
+                          key={
+                            field
+                          }
+                        >
+                          <label className="block font-bold text-slate-600 mb-1">
+                            {label}
+                          </label>
+
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={
+                              editForm[
+                                field
+                              ] ??
+                              0
+                            }
+                            onChange={(
+                              e
+                            ) =>
+                              handleEditFieldChange(
+                                field,
+                                e.target
+                                  .value
+                              )
+                            }
+                            className="w-full border border-slate-200 p-2.5 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                          />
+                        </div>
+                      )
+                    )}
+
+                  </div>
+
+                </div>
+
+                {/* DEDUCTIONS */}
+
+                <div>
+
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    Employee Deductions
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+
+                    {[
+                      [
+                        "pf",
+                        "Employee PF",
+                      ],
+                      [
+                        "esic",
+                        "Employee ESIC",
+                      ],
+                      [
+                        "tax",
+                        "Tax / TDS",
+                      ],
+                      [
+                        "professional_tax",
+                        "Professional Tax",
+                      ],
+                      [
+                        "lop",
+                        "LOP Deduction",
+                      ],
+                    ].map(
+                      ([
+                        field,
+                        label,
+                      ]) => (
+                        <div
+                          key={
+                            field
+                          }
+                        >
+                          <label className="block font-bold text-slate-600 mb-1">
+                            {label}
+                          </label>
+
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={
+                              editForm[
+                                field
+                              ] ??
+                              0
+                            }
+                            onChange={(
+                              e
+                            ) =>
+                              handleEditFieldChange(
+                                field,
+                                e.target
+                                  .value
+                              )
+                            }
+                            className="w-full border border-slate-200 p-2.5 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                          />
+                        </div>
+                      )
+                    )}
+
+                  </div>
+
+                </div>
+
+                {/* EMPLOYER */}
+
+                <div>
+
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    Employer Contributions
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+
+                    <div>
+
+                      <label className="block font-bold text-slate-600 mb-1">
+                        Employer PF
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={
+                          editForm.employer_pf ??
+                          0
+                        }
+                        onChange={(
+                          e
+                        ) =>
+                          handleEditFieldChange(
+                            "employer_pf",
+                            e.target.value
+                          )
+                        }
+                        className="w-full border border-slate-200 p-2.5 rounded-lg"
+                      />
+
+                    </div>
+
+                    <div>
+
+                      <label className="block font-bold text-slate-600 mb-1">
+                        Employer ESIC
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={
+                          editForm.employer_esic ??
+                          0
+                        }
+                        onChange={(
+                          e
+                        ) =>
+                          handleEditFieldChange(
+                            "employer_esic",
+                            e.target.value
+                          )
+                        }
+                        className="w-full border border-slate-200 p-2.5 rounded-lg"
+                      />
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* BANK */}
+
+                <div>
+
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    Bank Details
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+
+                    <div>
+
+                      <label className="block font-bold text-slate-600 mb-1">
+                        Bank Name
+                      </label>
+
+                      <input
+                        type="text"
+                        value={
+                          editForm.bank_name ??
+                          ""
+                        }
+                        onChange={(
+                          e
+                        ) =>
+                          handleEditFieldChange(
+                            "bank_name",
+                            e.target.value
+                          )
+                        }
+                        className="w-full border border-slate-200 p-2.5 rounded-lg"
+                      />
+
+                    </div>
+
+                    <div>
+
+                      <label className="block font-bold text-slate-600 mb-1">
+                        Account Number
+                      </label>
+
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={
+                          editForm.account_number ??
+                          ""
+                        }
+                        onChange={(
+                          e
+                        ) =>
+                          handleEditFieldChange(
+                            "account_number",
+                            e.target.value
+                          )
+                        }
+                        className="w-full border border-slate-200 p-2.5 rounded-lg"
+                      />
+
+                    </div>
+
+                    <div>
+
+                      <label className="block font-bold text-slate-600 mb-1">
+                        IFSC Code
+                      </label>
+
+                      <input
+                        type="text"
+                        value={
+                          editForm.ifsc_code ??
+                          ""
+                        }
+                        onChange={(
+                          e
+                        ) =>
+                          handleEditFieldChange(
+                            "ifsc_code",
+                            e.target.value.toUpperCase()
+                          )
+                        }
+                        className="w-full border border-slate-200 p-2.5 rounded-lg uppercase"
+                      />
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* FOOTER */}
+
+              <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
+
+                <button
+                  onClick={() =>
+                    setEditModalOpen(
+                      false
+                    )
+                  }
+                  disabled={
+                    editSaving
+                  }
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={
+                    handleSaveEdit
+                  }
+                  disabled={
+                    editSaving
+                  }
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white inline-flex items-center gap-2"
+                >
+
+                  {editSaving && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+
+                  {editSaving
+                    ? "Saving..."
+                    : "Save Changes"}
+
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* =====================================================
+            CREATE PAYROLL MODAL
+        ===================================================== */}
+
+        {createModalOpen && (
+
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
+
+              {/* HEADER */}
+
+              <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
+
+                <div>
+
+                  <h3 className="text-base font-bold text-slate-900">
+                    Create Payroll Manually
+                  </h3>
+
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {
+                      formatSalaryMonth(
+                        salaryMonth
+                      )
+                    }
+
+                    {" • "}
+
+                    {
+                      getClientName({
+                        client_id:
+                          selectedClient,
+                      })
+                    }
+                  </p>
+
+                </div>
+
+                <button
+                  onClick={() =>
+                    setCreateModalOpen(
+                      false
+                    )
+                  }
+                  className="text-slate-400 hover:text-slate-700 text-xl font-bold"
+                >
+                  ×
+                </button>
+
+              </div>
+
+              <div className="p-6 space-y-6">
+
+                {/* ERROR */}
+
+                {createError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-xl text-xs">
+                    {createError}
+                  </div>
+                )}
+
+                {/* EMPLOYEE */}
+
+                <div>
+
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    Employee Selection
+                  </h4>
+
+                  <label className="block font-bold text-slate-600 mb-1 text-xs">
+                    Select Employee / Deployment
+                  </label>
+
+                  <select
+                    value={
+                      selectedDeploymentId
+                    }
+                    onChange={(e) =>
+                      handleSelectEmployee(
+                        e.target.value
+                      )
+                    }
+                    disabled={
+                      employeeOptionsLoading
+                    }
+                    className="w-full border border-slate-200 p-3 rounded-xl bg-white font-medium text-slate-800"
+                  >
+
+                    <option value="">
+                      {employeeOptionsLoading
+                        ? "Loading employees..."
+                        : "Select an employee"}
+                    </option>
+
+                    {employeeOptions.map(
+                      (emp) => (
+                        <option
+                          key={
+                            emp.deployment_id
+                          }
+                          value={
+                            emp.deployment_id
+                          }
+                        >
+                          {
+                            emp.employee_name
+                          }
+
+                          {" — "}
+
+                          {
+                            emp.project_name ||
+                            "No project"
+                          }
+
+                          {" (Deployment #"}
+                          {
+                            emp.deployment_id
+                          }
+                          {")"}
+                        </option>
+                      )
+                    )}
+
+                  </select>
+
+                </div>
+
+                {/* PREFILL LOADING */}
+
+                {prefillLoading && (
+
+                  <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-xl p-3">
+
+                    <Loader2 className="h-4 w-4 animate-spin" />
+
+                    Loading employee salary and attendance...
+
+                  </div>
+
+                )}
+
+                {/* PREFILL INFO */}
+
+                {prefillInfo &&
+                  !prefillLoading && (
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+
+                    <h4 className="text-xs font-bold text-slate-700 mb-3">
+                      Auto-Filled Employee Information
+                    </h4>
+
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
+
+                      <div>
+                        <span className="text-slate-400 block">
+                          Employee
+                        </span>
+
+                        <span className="font-bold text-slate-800">
+                          {
+                            prefillInfo.employee_name ||
+                            "Employee"
+                          }
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block">
+                          Pay Rate
+                        </span>
+
+                        <span className="font-bold text-slate-800">
+                          ₹
+                          {
+                            formatMoney(
+                              prefillInfo.pay_rate
+                            )
+                          }
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block">
+                          Present Days
+                        </span>
+
+                        <span className="font-bold text-slate-800">
+                          {
+                            prefillInfo.present_days ??
+                            0
+                          }
+
+                          {" / "}
+
+                          {
+                            prefillInfo.total_days ??
+                            getCalendarDaysInMonth(
+                              salaryMonth
+                            )
+                          }
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block">
+                          LOP Days
+                        </span>
+
+                        <span className="font-bold text-rose-600">
+                          {
+                            prefillInfo.lop_days ??
+                            0
+                          }
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-400 block">
+                          OT Hours
+                        </span>
+
+                        <span className="font-bold text-slate-800">
+                          {
+                            prefillInfo.overtime_hours ??
+                            0
+                          }
+                        </span>
+                      </div>
+
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-200">
+
+                      <span className="text-slate-400 block text-[11px]">
+                        Employee Email
+                      </span>
+
+                      <span className="font-bold text-slate-800 text-xs">
+                        {
+                          prefillInfo.email ||
+                          "-"
+                        }
+                      </span>
+
+                    </div>
+
+                    {prefillInfo.already_exists && (
+
+                      <div className="mt-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2.5 text-xs">
+
+                        A payroll record already exists for this employee for{" "}
+                        <strong>
+                          {
+                            formatSalaryMonth(
+                              salaryMonth
+                            )
+                          }
+                        </strong>
+                        .
+
+                        {" Status: "}
+
+                        <strong>
+                          {
+                            prefillInfo.existing_payroll_status ||
+                            "Unknown"
+                          }
+                        </strong>
+
+                      </div>
+
+                    )}
+
+                  </div>
+                )}
+
+                {/* MANUAL FIELDS */}
+
+                {prefillInfo && (
+
+                  <>
+
+                    {/* EARNINGS */}
+
+                    <div>
+
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                        Salary & Earnings
+                      </h4>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+
+                        {[
+                          [
+                            "basic_salary",
+                            "Basic Salary",
+                          ],
+                          [
+                            "allowances",
+                            "Allowances",
+                          ],
+                          [
+                            "overtime",
+                            "Overtime Amount",
+                          ],
+                          [
+                            "bonus",
+                            "Bonus",
+                          ],
+                        ].map(
+                          ([
+                            field,
+                            label,
+                          ]) => (
+                            <div
+                              key={
+                                field
+                              }
+                            >
+
+                              <label className="block font-bold text-slate-600 mb-1">
+                                {label}
+                              </label>
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={
+                                  createForm[
+                                    field
+                                  ] ??
+                                  0
+                                }
+                                onChange={(
+                                  e
+                                ) =>
+                                  handleCreateFieldChange(
+                                    field,
+                                    e.target
+                                      .value
+                                  )
+                                }
+                                className="w-full border border-slate-200 p-2.5 rounded-lg"
+                              />
+
+                            </div>
+                          )
+                        )}
+
+                      </div>
+
+                    </div>
+
+                    {/* DEDUCTIONS */}
+
+                    <div>
+
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                        Employee Deductions
+                      </h4>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+
+                        {[
+                          [
+                            "pf",
+                            "Employee PF",
+                          ],
+                          [
+                            "esic",
+                            "Employee ESIC",
+                          ],
+                          [
+                            "tax",
+                            "Tax / TDS",
+                          ],
+                          [
+                            "professional_tax",
+                            "Professional Tax",
+                          ],
+                          [
+                            "lop",
+                            "LOP Deduction",
+                          ],
+                        ].map(
+                          ([
+                            field,
+                            label,
+                          ]) => (
+                            <div
+                              key={
+                                field
+                              }
+                            >
+
+                              <label className="block font-bold text-slate-600 mb-1">
+                                {label}
+                              </label>
+
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={
+                                  createForm[
+                                    field
+                                  ] ??
+                                  0
+                                }
+                                onChange={(
+                                  e
+                                ) =>
+                                  handleCreateFieldChange(
+                                    field,
+                                    e.target
+                                      .value
+                                  )
+                                }
+                                className="w-full border border-slate-200 p-2.5 rounded-lg"
+                              />
+
+                            </div>
+                          )
+                        )}
+
+                      </div>
+
+                    </div>
+
+                    {/* EMPLOYER */}
+
+                    <div>
+
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                        Employer Contributions
+                      </h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+
+                        <div>
+
+                          <label className="block font-bold text-slate-600 mb-1">
+                            Employer PF
+                          </label>
+
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={
+                              createForm.employer_pf ??
+                              0
+                            }
+                            onChange={(
+                              e
+                            ) =>
+                              handleCreateFieldChange(
+                                "employer_pf",
+                                e.target
+                                  .value
+                              )
+                            }
+                            className="w-full border border-slate-200 p-2.5 rounded-lg"
+                          />
+
+                        </div>
+
+                        <div>
+
+                          <label className="block font-bold text-slate-600 mb-1">
+                            Employer ESIC
+                          </label>
+
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={
+                              createForm.employer_esic ??
+                              0
+                            }
+                            onChange={(
+                              e
+                            ) =>
+                              handleCreateFieldChange(
+                                "employer_esic",
+                                e.target
+                                  .value
+                              )
+                            }
+                            className="w-full border border-slate-200 p-2.5 rounded-lg"
+                          />
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    {/* BANK */}
+
+                    <div>
+
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                        Bank Details
+                      </h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+
+                        <div>
+
+                          <label className="block font-bold text-slate-600 mb-1">
+                            Bank Name
+                          </label>
+
+                          <input
+                            type="text"
+                            value={
+                              createForm.bank_name ??
+                              ""
+                            }
+                            onChange={(
+                              e
+                            ) =>
+                              handleCreateFieldChange(
+                                "bank_name",
+                                e.target
+                                  .value
+                              )
+                            }
+                            className="w-full border border-slate-200 p-2.5 rounded-lg"
+                          />
+
+                        </div>
+
+                        <div>
+
+                          <label className="block font-bold text-slate-600 mb-1">
+                            Account Number
+                          </label>
+
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={
+                              createForm.account_number ??
+                              ""
+                            }
+                            onChange={(
+                              e
+                            ) =>
+                              handleCreateFieldChange(
+                                "account_number",
+                                e.target
+                                  .value
+                              )
+                            }
+                            className="w-full border border-slate-200 p-2.5 rounded-lg"
+                          />
+
+                        </div>
+
+                        <div>
+
+                          <label className="block font-bold text-slate-600 mb-1">
+                            IFSC Code
+                          </label>
+
+                          <input
+                            type="text"
+                            value={
+                              createForm.ifsc_code ??
+                              ""
+                            }
+                            onChange={(
+                              e
+                            ) =>
+                              handleCreateFieldChange(
+                                "ifsc_code",
+                                e.target.value.toUpperCase()
+                              )
+                            }
+                            className="w-full border border-slate-200 p-2.5 rounded-lg uppercase"
+                          />
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  </>
+                )}
+
+              </div>
+
+              {/* FOOTER */}
+
+              <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
+
+                <button
+                  onClick={() =>
+                    setCreateModalOpen(
+                      false
+                    )
+                  }
+                  disabled={
+                    createSaving
+                  }
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={
+                    handleCreatePayroll
+                  }
+                  disabled={
+                    createSaving ||
+                    !prefillInfo ||
+                    prefillInfo?.already_exists
+                  }
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-400 text-white inline-flex items-center gap-2"
+                >
+
+                  {createSaving && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+
+                  {createSaving
+                    ? "Creating..."
+                    : "Create Payroll"}
+
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+      </main>
     </div>
   );
 }
