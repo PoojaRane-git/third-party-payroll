@@ -22,6 +22,9 @@ const SUPER_ADMIN_EMAIL = "talentcorner103@gmail.com";
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 
+console.log("DEBUG EMAIL_USER:", JSON.stringify(EMAIL_USER));
+console.log("DEBUG EMAIL_PASS exists:", !!EMAIL_PASS, "length:", EMAIL_PASS ? EMAIL_PASS.length : 0);
+
 // ============================================================
 // EMAIL TRANSPORTER
 // ============================================================
