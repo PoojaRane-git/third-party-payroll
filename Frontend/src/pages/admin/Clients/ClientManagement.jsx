@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
     Search,
@@ -14,7 +13,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../Layout/Sidebar";
- import api from '../../services/api'
+import api from "../../services/api";
 
 export default function ClientManagement({
     activeTab,
@@ -33,115 +32,117 @@ export default function ClientManagement({
     // MODALS
     // =====================================================
 
-    const [showAddModal, setShowAddModal] =
-        useState(false);
-
-    const [showEditModal, setShowEditModal] =
-        useState(false);
-
-    const [showViewModal, setShowViewModal] =
-        useState(false);
-
-    const [showEmployeeModal, setShowEmployeeModal] =
-        useState(false);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showViewModal, setShowViewModal] = useState(false);
+    const [showEmployeeModal, setShowEmployeeModal] = useState(false);
 
     // =====================================================
     // CLIENT SELECTION
     // =====================================================
 
-    const [selectedClient, setSelectedClient] =
-        useState(null);
-
-    const [currentClientName, setCurrentClientName] =
-        useState("");
-
-    const [
-        selectedClientEmployees,
-        setSelectedClientEmployees,
-    ] = useState([]);
-
-    const [activeMenuId, setActiveMenuId] =
-        useState(null);
+    const [selectedClient, setSelectedClient] = useState(null);
+    const [currentClientName, setCurrentClientName] = useState("");
+    const [selectedClientEmployees, setSelectedClientEmployees] = useState([]);
+    const [activeMenuId, setActiveMenuId] = useState(null);
 
     // =====================================================
     // FORM STATES
     // =====================================================
 
-    const [companyName, setCompanyName] =
+    // Existing fields
+    const [companyName, setCompanyName] = useState("");
+    const [logo, setLogo] = useState("🏢");
+    const [industry, setIndustry] = useState("");
+    const [gstin, setGstin] = useState("");
+    const [contactPerson, setContactPerson] = useState("");
+    const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
+    const [billingAddress, setBillingAddress] = useState("");
+    const [stateCode, setStateCode] = useState("");
+    const [creditTerms, setCreditTerms] = useState("Net 30");
+    const [status, setStatus] = useState("Active");
+    const [serviceFee, setServiceFee] = useState("");
+
+    // =====================================================
+    // NEW CLIENT FIELDS
+    // =====================================================
+
+    // 1. Company Code
+    const [clientCode, setClientCode] = useState("");
+
+    // 2. PAN
+    const [pan, setPan] = useState("");
+
+    // 3. CIN / Registration Number
+    const [cinRegistrationNumber, setCinRegistrationNumber] =
         useState("");
 
-    const [logo, setLogo] =
-        useState("🏢");
+    // 4. Website
+    const [website, setWebsite] = useState("");
 
-    const [industry, setIndustry] =
+    // 5. Contact Person Designation
+    const [contactPersonDesignation, setContactPersonDesignation] =
         useState("");
 
-    const [gstin, setGstin] =
-        useState("");
+    // 6. Billing Frequency
+    const [billingFrequency, setBillingFrequency] =
+        useState("Monthly");
 
-    const [contactPerson, setContactPerson] =
-        useState("");
+    // 7. Billing Model
+    const [billingModel, setBillingModel] =
+        useState("Monthly");
 
-    const [email, setEmail] =
-        useState("");
+    // 8. City
+    const [city, setCity] = useState("");
 
-    const [phone, setPhone] =
-        useState("");
+    // 9. State
+    const [state, setState] = useState("");
 
-    const [billingAddress, setBillingAddress] =
-        useState("");
+    // 10. Pincode
+    const [pincode, setPincode] = useState("");
 
-    const [stateCode, setStateCode] =
-        useState("");
-
-    const [creditTerms, setCreditTerms] =
-        useState("Net 30");
-
-    const [status, setStatus] =
-        useState("Active");
-
-    const [serviceFee, setServiceFee] =
-        useState("");
-
-    const [savingClient, setSavingClient] =
+    // 11. Client Status
+    // Already existed as `status`
+    // 12. Create Client Portal Login
+    const [portalLoginEnabled, setPortalLoginEnabled] =
         useState(false);
+
+    // =====================================================
+    // SAVING
+    // =====================================================
+
+    const [savingClient, setSavingClient] = useState(false);
 
     // =====================================================
     // FETCH CLIENTS
     // =====================================================
 
-   const fetchClients = async () => {
-    try {
-        const res = await api.get("/clients");
+    const fetchClients = async () => {
+        try {
+            const res = await api.get("/clients");
 
-        const data = res.data;
+            const data = res.data;
 
-        console.log(
-            "CLIENT API RESPONSE:",
-            data
-        );
+            console.log("CLIENT API RESPONSE:", data);
 
-        const clientList =
-            Array.isArray(data)
-                ? data
-                : Array.isArray(data?.data)
-                    ? data.data
-                    : [];
+            const clientList =
+                Array.isArray(data)
+                    ? data
+                    : Array.isArray(data?.data)
+                        ? data.data
+                        : [];
 
-        setClients(clientList);
+            setClients(clientList);
+        } catch (err) {
+            console.error("Error fetching clients:", err);
 
-    } catch (err) {
-        console.error(
-            "Error fetching clients:",
-            err
-        );
-
-        console.error(
-            "CLIENT API ERROR:",
-            err?.response?.data
-        );
-    }
-};
+            console.error(
+                "CLIENT API ERROR:",
+                err?.response?.data
+            );
+        }
+    };
 
     useEffect(() => {
         fetchClients();
@@ -152,6 +153,7 @@ export default function ClientManagement({
     // =====================================================
 
     const resetForm = () => {
+        // Existing
         setCompanyName("");
         setLogo("🏢");
         setIndustry("");
@@ -164,103 +166,171 @@ export default function ClientManagement({
         setCreditTerms("Net 30");
         setStatus("Active");
         setServiceFee("");
+
+        // New
+        setClientCode("");
+        setPan("");
+        setCinRegistrationNumber("");
+        setWebsite("");
+        setContactPersonDesignation("");
+        setBillingFrequency("Monthly");
+        setBillingModel("Monthly");
+        setCity("");
+        setState("");
+        setPincode("");
+        setPortalLoginEnabled(false);
     };
 
     // =====================================================
     // ADD CLIENT
     // =====================================================
 
-   const addClient = async (e) => {
-    e.preventDefault();
+    const addClient = async (e) => {
+        e.preventDefault();
 
-    if (
-        !companyName.trim() ||
-        !contactPerson.trim() ||
-        !email.trim() ||
-        !phone.trim()
-    ) {
-        alert("Please fill all required fields");
-        return;
-    }
+        if (
+            !companyName.trim() ||
+            !contactPerson.trim() ||
+            !email.trim() ||
+            !phone.trim()
+        ) {
+            alert("Please fill all required fields");
+            return;
+        }
 
-    try {
-        setSavingClient(true);
+        try {
+            setSavingClient(true);
 
-        const res = await api.post("/clients", {
-            company_name: companyName.trim(),
+            const res = await api.post("/clients", {
+                // =================================================
+                // EXISTING FIELDS
+                // =================================================
 
-            logo: logo || "🏢",
+                company_name: companyName.trim(),
 
-            industry:
-                industry.trim() || null,
+                logo: logo || "🏢",
 
-            gstin:
-                gstin.trim()
-                    ? gstin.trim().toUpperCase()
-                    : null,
+                industry:
+                    industry.trim() || null,
 
-            contact_person:
-                contactPerson.trim(),
+                gstin:
+                    gstin.trim()
+                        ? gstin.trim().toUpperCase()
+                        : null,
 
-            email:
-                email.trim().toLowerCase(),
+                contact_person:
+                    contactPerson.trim(),
 
-            phone:
-                phone.trim(),
+                email:
+                    email.trim().toLowerCase(),
 
-            billing_address:
-                billingAddress.trim() || null,
+                phone:
+                    phone.trim(),
 
-            state_code:
-                stateCode.trim() || null,
+                billing_address:
+                    billingAddress.trim() || null,
 
-            credit_terms:
-                creditTerms || "Net 30",
+                state_code:
+                    stateCode.trim() || null,
 
-            status:
-                status || "Active",
+                credit_terms:
+                    creditTerms || "Net 30",
 
-            service_fee:
-                serviceFee !== ""
-                    ? Number(serviceFee)
-                    : null,
-        });
+                status:
+                    status || "Active",
 
-        console.log(
-            "ADD CLIENT RESPONSE:",
-            res.data
-        );
+                service_fee:
+                    serviceFee !== ""
+                        ? Number(serviceFee)
+                        : null,
 
-        resetForm();
+                // =================================================
+                // NEW FIELDS
+                // =================================================
 
-        setShowAddModal(false);
+                // 1. Company Code
+                client_code:
+                    clientCode.trim() || null,
 
-        await fetchClients();
+                // 2. PAN
+                pan:
+                    pan.trim()
+                        ? pan.trim().toUpperCase()
+                        : null,
 
-        alert("Client created successfully");
+                // 3. CIN / Registration Number
+                cin_registration_number:
+                    cinRegistrationNumber.trim() || null,
 
-    } catch (err) {
-        console.error(
-            "Error adding client:",
-            err
-        );
+                // 4. Website
+                website:
+                    website.trim() || null,
 
-        console.error(
-            "ADD CLIENT ERROR:",
-            err?.response?.data
-        );
+                // 5. Contact Person Designation
+                contact_person_designation:
+                    contactPersonDesignation.trim() || null,
 
-        alert(
-            err?.response?.data?.message ||
-            err?.response?.data?.error ||
-            err.message ||
-            "Failed to add client"
-        );
+                // 6. Billing Frequency
+                billing_frequency:
+                    billingFrequency || "Monthly",
 
-    } finally {
-        setSavingClient(false);
-    }
-};
+                // 7. Billing Model
+                billing_model:
+                    billingModel || "Monthly",
+
+                // 8. City
+                city:
+                    city.trim() || null,
+
+                // 9. State
+                state:
+                    state.trim() || null,
+
+                // 10. Pincode
+                pincode:
+                    pincode.trim() || null,
+
+                // 11. Client Status
+                // already sent above as `status`
+
+                // 12. Client Portal Login
+                portal_login_enabled:
+                    portalLoginEnabled,
+            });
+
+            console.log(
+                "ADD CLIENT RESPONSE:",
+                res.data
+            );
+
+            resetForm();
+
+            setShowAddModal(false);
+
+            await fetchClients();
+
+            alert("Client created successfully");
+        } catch (err) {
+            console.error(
+                "Error adding client:",
+                err
+            );
+
+            console.error(
+                "ADD CLIENT ERROR:",
+                err?.response?.data
+            );
+
+            alert(
+                err?.response?.data?.message ||
+                err?.response?.data?.error ||
+                err.message ||
+                "Failed to add client"
+            );
+        } finally {
+            setSavingClient(false);
+        }
+    };
 
     // =====================================================
     // EDIT CLIENT
@@ -274,7 +344,9 @@ export default function ClientManagement({
 
         setSelectedClient(client);
 
-        // Load existing data into form
+        // =================================================
+        // EXISTING
+        // =================================================
 
         setCompanyName(
             client.company_name || ""
@@ -313,24 +385,66 @@ export default function ClientManagement({
         );
 
         setCreditTerms(
-            client.credit_terms ||
-            "Net 30"
+            client.credit_terms || "Net 30"
         );
 
         setStatus(
-            client.status ||
-            "Active"
+            client.status || "Active"
         );
 
         setServiceFee(
-            client.service_fee !==
-                null &&
-            client.service_fee !==
-                undefined
-                ? String(
-                    client.service_fee
-                )
+            client.service_fee !== null &&
+            client.service_fee !== undefined
+                ? String(client.service_fee)
                 : ""
+        );
+
+        // =================================================
+        // NEW
+        // =================================================
+
+        setClientCode(
+            client.client_code || ""
+        );
+
+        setPan(
+            client.pan || ""
+        );
+
+        setCinRegistrationNumber(
+            client.cin_registration_number || ""
+        );
+
+        setWebsite(
+            client.website || ""
+        );
+
+        setContactPersonDesignation(
+            client.contact_person_designation || ""
+        );
+
+        setBillingFrequency(
+            client.billing_frequency || "Monthly"
+        );
+
+        setBillingModel(
+            client.billing_model || "Monthly"
+        );
+
+        setCity(
+            client.city || ""
+        );
+
+        setState(
+            client.state || ""
+        );
+
+        setPincode(
+            client.pincode || ""
+        );
+
+        setPortalLoginEnabled(
+            Boolean(client.portal_login_enabled)
         );
 
         setActiveMenuId(null);
@@ -342,306 +456,360 @@ export default function ClientManagement({
     // UPDATE CLIENT
     // =====================================================
 
-   const updateClient = async (e) => {
-    e.preventDefault();
+    const updateClient = async (e) => {
+        e.preventDefault();
 
-    if (!selectedClient?.id) {
-        alert("Invalid client selected");
-        return;
-    }
-
-    if (
-        !companyName.trim() ||
-        !contactPerson.trim() ||
-        !email.trim() ||
-        !phone.trim()
-    ) {
-        alert("Please fill all required fields");
-        return;
-    }
-
-    try {
-        setSavingClient(true);
-
-        const clientId = selectedClient.id;
-
-        console.log(
-            "Updating client:",
-            clientId
-        );
-
-        const res = await api.put(
-            `/clients/${clientId}`,
-            {
-                company_name:
-                    companyName.trim(),
-
-                logo:
-                    logo || "🏢",
-
-                industry:
-                    industry.trim() || null,
-
-                gstin:
-                    gstin.trim()
-                        ? gstin.trim().toUpperCase()
-                        : null,
-
-                contact_person:
-                    contactPerson.trim(),
-
-                email:
-                    email.trim().toLowerCase(),
-
-                phone:
-                    phone.trim(),
-
-                billing_address:
-                    billingAddress.trim() || null,
-
-                state_code:
-                    stateCode.trim() || null,
-
-                credit_terms:
-                    creditTerms || "Net 30",
-
-                status:
-                    status || "Active",
-
-                service_fee:
-                    serviceFee !== ""
-                        ? Number(serviceFee)
-                        : null,
-            }
-        );
-
-        console.log(
-            "UPDATE CLIENT RESPONSE:",
-            res.data
-        );
-
-        const data = res.data;
-
-        if (data?.data) {
-            setSelectedClient(data.data);
+        if (!selectedClient?.id) {
+            alert("Invalid client selected");
+            return;
         }
 
-        setShowEditModal(false);
+        if (
+            !companyName.trim() ||
+            !contactPerson.trim() ||
+            !email.trim() ||
+            !phone.trim()
+        ) {
+            alert("Please fill all required fields");
+            return;
+        }
 
-        resetForm();
+        try {
+            setSavingClient(true);
 
-        await fetchClients();
+            const clientId = selectedClient.id;
 
-        alert("Client updated successfully");
+            console.log(
+                "Updating client:",
+                clientId
+            );
 
-    } catch (err) {
-        console.error(
-            "Error updating client:",
-            err
-        );
+            const res = await api.put(
+                `/clients/${clientId}`,
+                {
+                    // =================================================
+                    // EXISTING
+                    // =================================================
 
-        console.error(
-            "UPDATE CLIENT ERROR:",
-            err?.response?.data
-        );
+                    company_name:
+                        companyName.trim(),
 
-        alert(
-            err?.response?.data?.message ||
-            err?.response?.data?.error ||
-            err.message ||
-            "Failed to update client"
-        );
+                    logo:
+                        logo || "🏢",
 
-    } finally {
-        setSavingClient(false);
-    }
-};
+                    industry:
+                        industry.trim() || null,
+
+                    gstin:
+                        gstin.trim()
+                            ? gstin.trim().toUpperCase()
+                            : null,
+
+                    contact_person:
+                        contactPerson.trim(),
+
+                    email:
+                        email.trim().toLowerCase(),
+
+                    phone:
+                        phone.trim(),
+
+                    billing_address:
+                        billingAddress.trim() || null,
+
+                    state_code:
+                        stateCode.trim() || null,
+
+                    credit_terms:
+                        creditTerms || "Net 30",
+
+                    status:
+                        status || "Active",
+
+                    service_fee:
+                        serviceFee !== ""
+                            ? Number(serviceFee)
+                            : null,
+
+                    // =================================================
+                    // NEW
+                    // =================================================
+
+                    client_code:
+                        clientCode.trim() || null,
+
+                    pan:
+                        pan.trim()
+                            ? pan.trim().toUpperCase()
+                            : null,
+
+                    cin_registration_number:
+                        cinRegistrationNumber.trim() || null,
+
+                    website:
+                        website.trim() || null,
+
+                    contact_person_designation:
+                        contactPersonDesignation.trim() || null,
+
+                    billing_frequency:
+                        billingFrequency || "Monthly",
+
+                    billing_model:
+                        billingModel || "Monthly",
+
+                    city:
+                        city.trim() || null,
+
+                    state:
+                        state.trim() || null,
+
+                    pincode:
+                        pincode.trim() || null,
+
+                    portal_login_enabled:
+                        portalLoginEnabled,
+                }
+            );
+
+            console.log(
+                "UPDATE CLIENT RESPONSE:",
+                res.data
+            );
+
+            const data = res.data;
+
+            if (data?.data) {
+                setSelectedClient(data.data);
+            }
+
+            setShowEditModal(false);
+
+            resetForm();
+
+            await fetchClients();
+
+            alert("Client updated successfully");
+        } catch (err) {
+            console.error(
+                "Error updating client:",
+                err
+            );
+
+            console.error(
+                "UPDATE CLIENT ERROR:",
+                err?.response?.data
+            );
+
+            alert(
+                err?.response?.data?.message ||
+                err?.response?.data?.error ||
+                err.message ||
+                "Failed to update client"
+            );
+        } finally {
+            setSavingClient(false);
+        }
+    };
+
     // =====================================================
     // DEACTIVATE CLIENT
     // =====================================================
-const handleDeactivateClient = async (client) => {
-    const confirmDeactivate =
-        window.confirm(
-            `Are you sure you want to deactivate ${client.company_name}? Historical payroll data will be preserved.`
+
+    const handleDeactivateClient = async (client) => {
+        const confirmDeactivate =
+            window.confirm(
+                `Are you sure you want to deactivate ${client.company_name}? Historical payroll data will be preserved.`
+            );
+
+        if (!confirmDeactivate) {
+            return;
+        }
+
+        try {
+            const res = await api.patch(
+                `/clients/${client.id}/deactivate`
+            );
+
+            console.log(
+                "DEACTIVATE CLIENT RESPONSE:",
+                res.data
+            );
+
+            setActiveMenuId(null);
+
+            await fetchClients();
+
+            alert(
+                "Client deactivated successfully"
+            );
+        } catch (err) {
+            console.error(
+                "Error deactivating client:",
+                err
+            );
+
+            console.error(
+                "DEACTIVATE CLIENT ERROR:",
+                err?.response?.data
+            );
+
+            alert(
+                err?.response?.data?.message ||
+                err?.response?.data?.error ||
+                err.message ||
+                "Failed to deactivate client"
+            );
+        }
+    };
+
+    // =====================================================
+    // VIEW EMPLOYEES
+    // =====================================================
+
+    const handleViewEmployees = async (client) => {
+        setCurrentClientName(
+            client.company_name || "Client"
         );
 
-    if (!confirmDeactivate) {
-        return;
-    }
+        try {
+            console.log(
+                "Fetching deployments for client:",
+                client.id
+            );
 
-    try {
-        const res = await api.patch(
-            `/clients/${client.id}/deactivate`
-        );
+            const res = await api.get(
+                `/deployments/client/${client.id}`
+            );
 
-        console.log(
-            "DEACTIVATE CLIENT RESPONSE:",
-            res.data
-        );
+            console.log(
+                "Deployment API response:",
+                res.data
+            );
 
-        setActiveMenuId(null);
+            const data = res.data;
 
-        await fetchClients();
+            const deploymentList =
+                Array.isArray(data)
+                    ? data
+                    : Array.isArray(data?.data)
+                        ? data.data
+                        : [];
 
-        alert(
-            "Client deactivated successfully"
-        );
+            setSelectedClientEmployees(
+                deploymentList
+            );
 
-    } catch (err) {
-        console.error(
-            "Error deactivating client:",
-            err
-        );
+            setShowEmployeeModal(true);
+        } catch (err) {
+            console.error(
+                "DEPLOYMENT FETCH ERROR:",
+                err
+            );
 
-        console.error(
-            "DEACTIVATE CLIENT ERROR:",
-            err?.response?.data
-        );
+            console.error(
+                "DEPLOYMENT API RESPONSE:",
+                err?.response?.data
+            );
 
-        alert(
-            err?.response?.data?.message ||
-            err?.response?.data?.error ||
-            err.message ||
-            "Failed to deactivate client"
-        );
-    }
-};
+            setSelectedClientEmployees([]);
+
+            alert(
+                `Could not fetch employee deployment details.\n\n${
+                    err?.response?.data?.message ||
+                    err?.response?.data?.error ||
+                    err.message ||
+                    "Request failed"
+                }`
+            );
+        } finally {
+            setActiveMenuId(null);
+        }
+    };
+
     // =====================================================
     // VIEW CLIENT
     // =====================================================
 
-    const handleViewEmployees = async (client) => {
-    setCurrentClientName(
-        client.company_name || "Client"
-    );
-
-    try {
-        console.log(
-            "Fetching deployments for client:",
-            client.id
-        );
-
-        const res = await api.get(
-            `/deployments/client/${client.id}`
-        );
-
-        console.log(
-            "Deployment API response:",
-            res.data
-        );
-
-        const data = res.data;
-
-        const deploymentList =
-            Array.isArray(data)
-                ? data
-                : Array.isArray(data?.data)
-                    ? data.data
-                    : [];
-
-        setSelectedClientEmployees(
-            deploymentList
-        );
-
-        setShowEmployeeModal(true);
-
-    } catch (err) {
-        console.error(
-            "DEPLOYMENT FETCH ERROR:",
-            err
-        );
-
-        console.error(
-            "DEPLOYMENT API RESPONSE:",
-            err?.response?.data
-        );
-
-        setSelectedClientEmployees([]);
-
-        alert(
-            `Could not fetch employee deployment details.\n\n${
-                err?.response?.data?.message ||
-                err?.response?.data?.error ||
-                err.message ||
-                "Request failed"
-            }`
-        );
-
-    } finally {
+    const handleViewClient = (client) => {
+        setSelectedClient(client);
+        setShowViewModal(true);
         setActiveMenuId(null);
-    }
-};
+    };
+
     // =====================================================
     // VIEW CONTRACT
     // =====================================================
 
-    const handleViewContract =
-        (client) => {
-            navigate(
-                `/contracts?client_id=${client.id}&company_name=${encodeURIComponent(
-                    client.company_name
-                )}`
-            );
+    const handleViewContract = (client) => {
+        navigate(
+            `/contracts?client_id=${client.id}&company_name=${encodeURIComponent(
+                client.company_name
+            )}`
+        );
 
-            setActiveMenuId(null);
-        };
+        setActiveMenuId(null);
+    };
 
     // =====================================================
     // SEARCH
     // =====================================================
 
     const filteredClients =
-        clients.filter(
-            (client) => {
-                const search =
-                    searchQuery
-                        .toLowerCase()
-                        .trim();
+        clients.filter((client) => {
+            const search =
+                searchQuery
+                    .toLowerCase()
+                    .trim();
 
-                if (!search) {
-                    return true;
-                }
-
-                return (
-                    client.company_name
-                        ?.toLowerCase()
-                        .includes(search) ||
-
-                    client.contact_person
-                        ?.toLowerCase()
-                        .includes(search) ||
-
-                    client.email
-                        ?.toLowerCase()
-                        .includes(search) ||
-
-                    client.phone
-                        ?.toLowerCase()
-                        .includes(search)
-                );
+            if (!search) {
+                return true;
             }
-        );
+
+            return (
+                client.company_name
+                    ?.toLowerCase()
+                    .includes(search) ||
+
+                client.client_code
+                    ?.toLowerCase()
+                    .includes(search) ||
+
+                client.contact_person
+                    ?.toLowerCase()
+                    .includes(search) ||
+
+                client.email
+                    ?.toLowerCase()
+                    .includes(search) ||
+
+                client.phone
+                    ?.toLowerCase()
+                    .includes(search) ||
+
+                client.industry
+                    ?.toLowerCase()
+                    .includes(search)
+            );
+        });
 
     // =====================================================
     // SERVICE FEE
     // =====================================================
 
-    const formatServiceFee =
-        (fee) => {
-            if (
-                fee === null ||
-                fee === undefined ||
-                fee === ""
-            ) {
-                return "N/A";
-            }
+    const formatServiceFee = (fee) => {
+        if (
+            fee === null ||
+            fee === undefined ||
+            fee === ""
+        ) {
+            return "N/A";
+        }
 
-            return `₹${Number(
-                fee
-            ).toLocaleString(
-                "en-IN"
-            )}`;
-        };
+        return `₹${Number(
+            fee
+        ).toLocaleString("en-IN")}`;
+    };
 
     // =====================================================
     // FORM INPUT CLASS
@@ -685,8 +853,6 @@ const handleDeactivateClient = async (client) => {
 
                     <div className="flex items-center gap-3 w-full sm:w-auto">
 
-                        {/* SEARCH */}
-
                         <div className="relative w-full sm:w-64">
 
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -705,13 +871,9 @@ const handleDeactivateClient = async (client) => {
 
                         </div>
 
-                        {/* ADD CLIENT */}
-
                         <button
                             onClick={() =>
-                                setShowAddModal(
-                                    true
-                                )
+                                setShowAddModal(true)
                             }
                             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold"
                         >
@@ -732,9 +894,7 @@ const handleDeactivateClient = async (client) => {
 
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                             Active Enterprise Accounts (
-                            {
-                                filteredClients.length
-                            }
+                            {filteredClients.length}
                             )
                         </span>
 
@@ -753,7 +913,7 @@ const handleDeactivateClient = async (client) => {
                                 <tr className="border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase bg-slate-50/30">
 
                                     <th className="p-4">
-                                        ID
+                                        Client ID
                                     </th>
 
                                     <th className="p-4">
@@ -770,6 +930,10 @@ const handleDeactivateClient = async (client) => {
 
                                     <th className="p-4">
                                         Phone
+                                    </th>
+
+                                    <th className="p-4">
+                                        Billing Model
                                     </th>
 
                                     <th className="p-4">
@@ -790,28 +954,34 @@ const handleDeactivateClient = async (client) => {
 
                             <tbody className="divide-y divide-slate-100">
 
-                                {filteredClients.length >
-                                0 ? (
+                                {filteredClients.length > 0 ? (
 
                                     filteredClients.map(
-                                        (
-                                            client
-                                        ) => (
+                                        (client) => (
 
                                             <tr
-                                                key={
-                                                    client.id
-                                                }
+                                                key={client.id}
                                                 className="hover:bg-slate-50 transition"
                                             >
 
-                                                {/* ID */}
+                                                {/* CLIENT ID */}
 
-                                                <td className="p-4 font-mono text-xs text-slate-500">
-                                                    #
-                                                    {
-                                                        client.id
-                                                    }
+                                                <td className="p-4">
+
+                                                    <div className="font-mono text-xs font-bold text-blue-600">
+                                                        {client.client_code ||
+                                                            `CLI-${String(
+                                                                client.id
+                                                            ).padStart(
+                                                                4,
+                                                                "0"
+                                                            )}`}
+                                                    </div>
+
+                                                    <div className="text-[10px] text-slate-400 mt-1">
+                                                        DB #{client.id}
+                                                    </div>
+
                                                 </td>
 
                                                 {/* COMPANY */}
@@ -827,12 +997,24 @@ const handleDeactivateClient = async (client) => {
                                                             }
                                                         </span>
 
-                                                        <span className="font-semibold text-slate-900">
-                                                            {
-                                                                client.company_name ||
-                                                                "N/A"
-                                                            }
-                                                        </span>
+                                                        <div>
+
+                                                            <span className="font-semibold text-slate-900 block">
+                                                                {
+                                                                    client.company_name ||
+                                                                    "N/A"
+                                                                }
+                                                            </span>
+
+                                                            {client.industry && (
+                                                                <span className="text-[11px] text-slate-400">
+                                                                    {
+                                                                        client.industry
+                                                                    }
+                                                                </span>
+                                                            )}
+
+                                                        </div>
 
                                                     </div>
 
@@ -840,16 +1022,28 @@ const handleDeactivateClient = async (client) => {
 
                                                 {/* CONTACT */}
 
-                                                <td className="p-4 text-slate-700">
-                                                    {
-                                                        client.contact_person ||
-                                                        "N/A"
-                                                    }
+                                                <td className="p-4">
+
+                                                    <div className="text-slate-700 text-sm">
+                                                        {
+                                                            client.contact_person ||
+                                                            "N/A"
+                                                        }
+                                                    </div>
+
+                                                    {client.contact_person_designation && (
+                                                        <div className="text-[11px] text-slate-400">
+                                                            {
+                                                                client.contact_person_designation
+                                                            }
+                                                        </div>
+                                                    )}
+
                                                 </td>
 
                                                 {/* EMAIL */}
 
-                                                <td className="p-4 text-slate-600">
+                                                <td className="p-4 text-slate-600 text-sm">
                                                     {
                                                         client.email ||
                                                         "N/A"
@@ -863,6 +1057,26 @@ const handleDeactivateClient = async (client) => {
                                                         client.phone ||
                                                         "N/A"
                                                     }
+                                                </td>
+
+                                                {/* BILLING MODEL */}
+
+                                                <td className="p-4">
+
+                                                    <div className="text-xs font-semibold text-slate-700">
+                                                        {
+                                                            client.billing_model ||
+                                                            "Monthly"
+                                                        }
+                                                    </div>
+
+                                                    <div className="text-[10px] text-slate-400 mt-1">
+                                                        {
+                                                            client.billing_frequency ||
+                                                            "Monthly"
+                                                        }
+                                                    </div>
+
                                                 </td>
 
                                                 {/* SERVICE FEE */}
@@ -886,7 +1100,10 @@ const handleDeactivateClient = async (client) => {
                                                             client.status ===
                                                             "Active"
                                                                 ? "bg-emerald-50 text-emerald-600"
-                                                                : "bg-amber-50 text-amber-600"
+                                                                : client.status ===
+                                                                    "Suspended"
+                                                                    ? "bg-red-50 text-red-600"
+                                                                    : "bg-amber-50 text-amber-600"
                                                         }`}
                                                     >
                                                         {
@@ -968,8 +1185,6 @@ const handleDeactivateClient = async (client) => {
 
                                                                 <div className="absolute right-0 top-9 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50">
 
-                                                                    {/* EDIT */}
-
                                                                     <button
                                                                         onClick={() =>
                                                                             handleEditClient(
@@ -981,8 +1196,6 @@ const handleDeactivateClient = async (client) => {
                                                                         <Edit className="h-3.5 w-3.5 text-blue-600" />
                                                                         Edit Client
                                                                     </button>
-
-                                                                    {/* DEACTIVATE */}
 
                                                                     <button
                                                                         onClick={() =>
@@ -1006,6 +1219,7 @@ const handleDeactivateClient = async (client) => {
                                                 </td>
 
                                             </tr>
+
                                         )
                                     )
 
@@ -1014,7 +1228,7 @@ const handleDeactivateClient = async (client) => {
                                     <tr>
 
                                         <td
-                                            colSpan="8"
+                                            colSpan="9"
                                             className="p-8 text-center text-slate-400"
                                         >
                                             No client organizations found.
@@ -1040,19 +1254,25 @@ const handleDeactivateClient = async (client) => {
 
                     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
 
-                        <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full overflow-hidden">
+                        <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full overflow-hidden">
 
                             <div className="flex justify-between items-center px-6 py-4 border-b">
 
-                                <h3 className="font-bold text-slate-900">
-                                    Add New Enterprise Client
-                                </h3>
+                                <div>
+
+                                    <h3 className="font-bold text-slate-900">
+                                        Add New Enterprise Client
+                                    </h3>
+
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Create a client account and billing profile.
+                                    </p>
+
+                                </div>
 
                                 <button
                                     onClick={() => {
-                                        setShowAddModal(
-                                            false
-                                        );
+                                        setShowAddModal(false);
                                         resetForm();
                                     }}
                                 >
@@ -1063,78 +1283,75 @@ const handleDeactivateClient = async (client) => {
 
                             <form
                                 onSubmit={addClient}
-                                className="p-6 space-y-4 max-h-[75vh] overflow-y-auto"
+                                className="p-6 space-y-6 max-h-[78vh] overflow-y-auto"
                             >
 
                                 <ClientFormFields
-                                    companyName={
-                                        companyName
-                                    }
-                                    setCompanyName={
-                                        setCompanyName
-                                    }
+                                    companyName={companyName}
+                                    setCompanyName={setCompanyName}
                                     logo={logo}
-                                    setLogo={
-                                        setLogo
-                                    }
-                                    industry={
-                                        industry
-                                    }
-                                    setIndustry={
-                                        setIndustry
-                                    }
+                                    setLogo={setLogo}
+                                    industry={industry}
+                                    setIndustry={setIndustry}
                                     gstin={gstin}
-                                    setGstin={
-                                        setGstin
-                                    }
-                                    contactPerson={
-                                        contactPerson
-                                    }
-                                    setContactPerson={
-                                        setContactPerson
-                                    }
+                                    setGstin={setGstin}
+                                    contactPerson={contactPerson}
+                                    setContactPerson={setContactPerson}
                                     email={email}
-                                    setEmail={
-                                        setEmail
-                                    }
+                                    setEmail={setEmail}
                                     phone={phone}
-                                    setPhone={
-                                        setPhone
-                                    }
-                                    serviceFee={
-                                        serviceFee
-                                    }
-                                    setServiceFee={
-                                        setServiceFee
-                                    }
-                                    creditTerms={
-                                        creditTerms
-                                    }
-                                    setCreditTerms={
-                                        setCreditTerms
-                                    }
+                                    setPhone={setPhone}
+                                    serviceFee={serviceFee}
+                                    setServiceFee={setServiceFee}
+                                    creditTerms={creditTerms}
+                                    setCreditTerms={setCreditTerms}
                                     status={status}
-                                    setStatus={
-                                        setStatus
+                                    setStatus={setStatus}
+                                    stateCode={stateCode}
+                                    setStateCode={setStateCode}
+                                    billingAddress={billingAddress}
+                                    setBillingAddress={setBillingAddress}
+                                    clientCode={clientCode}
+                                    setClientCode={setClientCode}
+                                    pan={pan}
+                                    setPan={setPan}
+                                    cinRegistrationNumber={
+                                        cinRegistrationNumber
                                     }
-                                    stateCode={
-                                        stateCode
+                                    setCinRegistrationNumber={
+                                        setCinRegistrationNumber
                                     }
-                                    setStateCode={
-                                        setStateCode
+                                    website={website}
+                                    setWebsite={setWebsite}
+                                    contactPersonDesignation={
+                                        contactPersonDesignation
                                     }
-                                    billingAddress={
-                                        billingAddress
+                                    setContactPersonDesignation={
+                                        setContactPersonDesignation
                                     }
-                                    setBillingAddress={
-                                        setBillingAddress
+                                    billingFrequency={
+                                        billingFrequency
                                     }
-                                    inputClass={
-                                        inputClass
+                                    setBillingFrequency={
+                                        setBillingFrequency
                                     }
-                                    labelClass={
-                                        labelClass
+                                    billingModel={billingModel}
+                                    setBillingModel={setBillingModel}
+                                    city={city}
+                                    setCity={setCity}
+                                    state={state}
+                                    setState={setState}
+                                    pincode={pincode}
+                                    setPincode={setPincode}
+                                    portalLoginEnabled={
+                                        portalLoginEnabled
                                     }
+                                    setPortalLoginEnabled={
+                                        setPortalLoginEnabled
+                                    }
+                                    inputClass={inputClass}
+                                    labelClass={labelClass}
+                                    isEdit={false}
                                 />
 
                                 <div className="pt-4 border-t flex justify-end gap-3">
@@ -1142,9 +1359,7 @@ const handleDeactivateClient = async (client) => {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setShowAddModal(
-                                                false
-                                            );
+                                            setShowAddModal(false);
                                             resetForm();
                                         }}
                                         className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold"
@@ -1154,9 +1369,7 @@ const handleDeactivateClient = async (client) => {
 
                                     <button
                                         type="submit"
-                                        disabled={
-                                            savingClient
-                                        }
+                                        disabled={savingClient}
                                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-2"
                                     >
                                         <Plus className="h-4 w-4" />
@@ -1179,186 +1392,165 @@ const handleDeactivateClient = async (client) => {
                     EDIT CLIENT MODAL
                 ================================================= */}
 
-                {showEditModal &&
-                    selectedClient && (
+                {showEditModal && selectedClient && (
 
-                        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
 
-                            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full overflow-hidden">
+                        <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full overflow-hidden">
 
-                                {/* HEADER */}
+                            <div className="flex justify-between items-center px-6 py-4 border-b bg-blue-50">
 
-                                <div className="flex justify-between items-center px-6 py-4 border-b bg-blue-50">
+                                <div>
 
-                                    <div>
+                                    <h3 className="font-bold text-slate-900">
+                                        Edit Client
+                                    </h3>
 
-                                        <h3 className="font-bold text-slate-900">
-                                            Edit Client
-                                        </h3>
-
-                                        <p className="text-xs text-slate-500 mt-1">
-                                            Update details for{" "}
-                                            <span className="font-semibold">
-                                                {
-                                                    selectedClient.company_name
-                                                }
-                                            </span>
-                                        </p>
-
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowEditModal(
-                                                false
-                                            );
-                                            resetForm();
-                                        }}
-                                        className="p-2 hover:bg-blue-100 rounded-lg"
-                                    >
-                                        <X className="h-5 w-5 text-slate-500" />
-                                    </button>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Update details for{" "}
+                                        <span className="font-semibold">
+                                            {
+                                                selectedClient.company_name
+                                            }
+                                        </span>
+                                    </p>
 
                                 </div>
 
-                                {/* FORM */}
-
-                                <form
-                                    onSubmit={
-                                        updateClient
-                                    }
-                                    className="p-6 space-y-4 max-h-[75vh] overflow-y-auto"
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowEditModal(false);
+                                        resetForm();
+                                    }}
+                                    className="p-2 hover:bg-blue-100 rounded-lg"
                                 >
-
-                                    <ClientFormFields
-                                        companyName={
-                                            companyName
-                                        }
-                                        setCompanyName={
-                                            setCompanyName
-                                        }
-                                        logo={logo}
-                                        setLogo={
-                                            setLogo
-                                        }
-                                        industry={
-                                            industry
-                                        }
-                                        setIndustry={
-                                            setIndustry
-                                        }
-                                        gstin={
-                                            gstin
-                                        }
-                                        setGstin={
-                                            setGstin
-                                        }
-                                        contactPerson={
-                                            contactPerson
-                                        }
-                                        setContactPerson={
-                                            setContactPerson
-                                        }
-                                        email={
-                                            email
-                                        }
-                                        setEmail={
-                                            setEmail
-                                        }
-                                        phone={
-                                            phone
-                                        }
-                                        setPhone={
-                                            setPhone
-                                        }
-                                        serviceFee={
-                                            serviceFee
-                                        }
-                                        setServiceFee={
-                                            setServiceFee
-                                        }
-                                        creditTerms={
-                                            creditTerms
-                                        }
-                                        setCreditTerms={
-                                            setCreditTerms
-                                        }
-                                        status={
-                                            status
-                                        }
-                                        setStatus={
-                                            setStatus
-                                        }
-                                        stateCode={
-                                            stateCode
-                                        }
-                                        setStateCode={
-                                            setStateCode
-                                        }
-                                        billingAddress={
-                                            billingAddress
-                                        }
-                                        setBillingAddress={
-                                            setBillingAddress
-                                        }
-                                        inputClass={
-                                            inputClass
-                                        }
-                                        labelClass={
-                                            labelClass
-                                        }
-                                        isEdit
-                                    />
-
-                                    <div className="pt-4 border-t flex justify-between items-center">
-
-                                        <span className="text-xs text-slate-400">
-                                            Client ID: #
-                                            {
-                                                selectedClient.id
-                                            }
-                                        </span>
-
-                                        <div className="flex gap-3">
-
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setShowEditModal(
-                                                        false
-                                                    );
-                                                    resetForm();
-                                                }}
-                                                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold"
-                                            >
-                                                Cancel
-                                            </button>
-
-                                            <button
-                                                type="submit"
-                                                disabled={
-                                                    savingClient
-                                                }
-                                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-2"
-                                            >
-                                                <Save className="h-4 w-4" />
-
-                                                {savingClient
-                                                    ? "Updating..."
-                                                    : "Update Client"}
-                                            </button>
-
-                                        </div>
-
-                                    </div>
-
-                                </form>
+                                    <X className="h-5 w-5 text-slate-500" />
+                                </button>
 
                             </div>
 
+                            <form
+                                onSubmit={updateClient}
+                                className="p-6 space-y-6 max-h-[78vh] overflow-y-auto"
+                            >
+
+                                <ClientFormFields
+                                    companyName={companyName}
+                                    setCompanyName={setCompanyName}
+                                    logo={logo}
+                                    setLogo={setLogo}
+                                    industry={industry}
+                                    setIndustry={setIndustry}
+                                    gstin={gstin}
+                                    setGstin={setGstin}
+                                    contactPerson={contactPerson}
+                                    setContactPerson={setContactPerson}
+                                    email={email}
+                                    setEmail={setEmail}
+                                    phone={phone}
+                                    setPhone={setPhone}
+                                    serviceFee={serviceFee}
+                                    setServiceFee={setServiceFee}
+                                    creditTerms={creditTerms}
+                                    setCreditTerms={setCreditTerms}
+                                    status={status}
+                                    setStatus={setStatus}
+                                    stateCode={stateCode}
+                                    setStateCode={setStateCode}
+                                    billingAddress={billingAddress}
+                                    setBillingAddress={setBillingAddress}
+                                    clientCode={clientCode}
+                                    setClientCode={setClientCode}
+                                    pan={pan}
+                                    setPan={setPan}
+                                    cinRegistrationNumber={
+                                        cinRegistrationNumber
+                                    }
+                                    setCinRegistrationNumber={
+                                        setCinRegistrationNumber
+                                    }
+                                    website={website}
+                                    setWebsite={setWebsite}
+                                    contactPersonDesignation={
+                                        contactPersonDesignation
+                                    }
+                                    setContactPersonDesignation={
+                                        setContactPersonDesignation
+                                    }
+                                    billingFrequency={
+                                        billingFrequency
+                                    }
+                                    setBillingFrequency={
+                                        setBillingFrequency
+                                    }
+                                    billingModel={billingModel}
+                                    setBillingModel={setBillingModel}
+                                    city={city}
+                                    setCity={setCity}
+                                    state={state}
+                                    setState={setState}
+                                    pincode={pincode}
+                                    setPincode={setPincode}
+                                    portalLoginEnabled={
+                                        portalLoginEnabled
+                                    }
+                                    setPortalLoginEnabled={
+                                        setPortalLoginEnabled
+                                    }
+                                    inputClass={inputClass}
+                                    labelClass={labelClass}
+                                    isEdit={true}
+                                />
+
+                                <div className="pt-4 border-t flex justify-between items-center">
+
+                                    <span className="text-xs text-slate-400">
+                                        Client ID:{" "}
+                                        {selectedClient.client_code ||
+                                            `CLI-${String(
+                                                selectedClient.id
+                                            ).padStart(
+                                                4,
+                                                "0"
+                                            )}`}
+                                    </span>
+
+                                    <div className="flex gap-3">
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowEditModal(false);
+                                                resetForm();
+                                            }}
+                                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold"
+                                        >
+                                            Cancel
+                                        </button>
+
+                                        <button
+                                            type="submit"
+                                            disabled={savingClient}
+                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-2"
+                                        >
+                                            <Save className="h-4 w-4" />
+
+                                            {savingClient
+                                                ? "Updating..."
+                                                : "Update Client"}
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
+                            </form>
+
                         </div>
-                    )}
+
+                    </div>
+                )}
 
                 {/* =================================================
                     EMPLOYEES MODAL
@@ -1373,23 +1565,21 @@ const handleDeactivateClient = async (client) => {
                             <div className="flex justify-between items-center px-6 py-4 border-b bg-slate-50">
 
                                 <div>
+
                                     <h3 className="font-bold text-slate-900">
                                         Employees Deployed at{" "}
-                                        {
-                                            currentClientName
-                                        }
+                                        {currentClientName}
                                     </h3>
 
                                     <p className="text-xs text-slate-500 mt-1">
                                         Current employee deployment and billing details
                                     </p>
+
                                 </div>
 
                                 <button
                                     onClick={() =>
-                                        setShowEmployeeModal(
-                                            false
-                                        )
+                                        setShowEmployeeModal(false)
                                     }
                                     className="p-2 hover:bg-slate-200 rounded-lg"
                                 >
@@ -1454,8 +1644,7 @@ const handleDeactivateClient = async (client) => {
 
                                         <tbody className="divide-y">
 
-                                            {selectedClientEmployees.length >
-                                            0 ? (
+                                            {selectedClientEmployees.length > 0 ? (
 
                                                 selectedClientEmployees.map(
                                                     (
@@ -1477,8 +1666,7 @@ const handleDeactivateClient = async (client) => {
                                                                 {
                                                                     deployment.deployment_id ||
                                                                     deployment.id ||
-                                                                    index +
-                                                                    1
+                                                                    index + 1
                                                                 }
                                                             </td>
 
@@ -1585,7 +1773,6 @@ const handleDeactivateClient = async (client) => {
                                                             </td>
 
                                                         </tr>
-
                                                     )
                                                 )
 
@@ -1623,9 +1810,7 @@ const handleDeactivateClient = async (client) => {
 
                                 <button
                                     onClick={() =>
-                                        setShowEmployeeModal(
-                                            false
-                                        )
+                                        setShowEmployeeModal(false)
                                     }
                                     className="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-semibold"
                                 >
@@ -1643,83 +1828,205 @@ const handleDeactivateClient = async (client) => {
                     VIEW CLIENT MODAL
                 ================================================= */}
 
-                {showViewModal &&
-                    selectedClient && (
+                {showViewModal && selectedClient && (
 
-                        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
 
-                            <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full overflow-hidden">
+                        <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full overflow-hidden">
 
-                                <div className="flex justify-between items-center px-6 py-4 border-b bg-slate-50">
+                            <div className="flex justify-between items-center px-6 py-4 border-b bg-slate-50">
 
-                                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                                <h3 className="font-bold text-slate-900 flex items-center gap-2">
 
-                                        <span>
-                                            {
-                                                selectedClient.logo ||
-                                                "🏢"
-                                            }
-                                        </span>
-
-                                        <span>
-                                            {
-                                                selectedClient.company_name
-                                            }
-                                        </span>
-
-                                    </h3>
-
-                                    <button
-                                        onClick={() =>
-                                            setShowViewModal(
-                                                false
-                                            )
+                                    <span>
+                                        {
+                                            selectedClient.logo ||
+                                            "🏢"
                                         }
-                                    >
-                                        <X className="h-5 w-5 text-slate-400" />
-                                    </button>
+                                    </span>
 
-                                </div>
+                                    <span>
+                                        {
+                                            selectedClient.company_name
+                                        }
+                                    </span>
 
-                                <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+                                </h3>
 
-                                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl">
+                                <button
+                                    onClick={() =>
+                                        setShowViewModal(false)
+                                    }
+                                >
+                                    <X className="h-5 w-5 text-slate-400" />
+                                </button>
 
-                                        <InfoItem
+                            </div>
+
+                            <div className="p-6 space-y-6 max-h-[78vh] overflow-y-auto">
+
+                                {/* COMPANY */}
+
+                                <div>
+
+                                    <h4 className="text-xs font-bold uppercase text-slate-400 mb-3">
+                                        Company Information
+                                    </h4>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                                        <InfoCard
                                             label="Client ID"
+                                            value={
+                                                selectedClient.client_code ||
+                                                `CLI-${String(
+                                                    selectedClient.id
+                                                ).padStart(
+                                                    4,
+                                                    "0"
+                                                )}`
+                                            }
+                                        />
+
+                                        <InfoCard
+                                            label="Database ID"
                                             value={`#${selectedClient.id}`}
                                         />
 
-                                        <InfoItem
-                                            label="Status"
-                                            value={
-                                                selectedClient.status ||
-                                                "Active"
-                                            }
-                                        />
-
-                                        <InfoItem
+                                        <InfoCard
                                             label="Company"
                                             value={
                                                 selectedClient.company_name
                                             }
                                         />
 
-                                        <InfoItem
+                                        <InfoCard
                                             label="Industry"
                                             value={
                                                 selectedClient.industry
                                             }
                                         />
 
-                                        <InfoItem
+                                        <InfoCard
+                                            label="GSTIN"
+                                            value={
+                                                selectedClient.gstin
+                                            }
+                                        />
+
+                                        <InfoCard
+                                            label="PAN"
+                                            value={
+                                                selectedClient.pan
+                                            }
+                                        />
+
+                                        <InfoCard
+                                            label="CIN / Registration Number"
+                                            value={
+                                                selectedClient.cin_registration_number
+                                            }
+                                        />
+
+                                        <InfoCard
+                                            label="Website"
+                                            value={
+                                                selectedClient.website
+                                            }
+                                        />
+
+                                        <InfoCard
+                                            label="State Code"
+                                            value={
+                                                selectedClient.state_code
+                                            }
+                                        />
+
+                                        <InfoCard
+                                            label="Status"
+                                            value={
+                                                selectedClient.status
+                                            }
+                                        />
+
+                                    </div>
+
+                                </div>
+
+                                {/* CONTACT */}
+
+                                <div>
+
+                                    <h4 className="text-xs font-bold uppercase text-slate-400 mb-3">
+                                        Contact Information
+                                    </h4>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                                        <InfoCard
+                                            label="Contact Person"
+                                            value={
+                                                selectedClient.contact_person
+                                            }
+                                        />
+
+                                        <InfoCard
+                                            label="Designation"
+                                            value={
+                                                selectedClient.contact_person_designation
+                                            }
+                                        />
+
+                                        <InfoCard
+                                            label="Email Address"
+                                            value={
+                                                selectedClient.email
+                                            }
+                                        />
+
+                                        <InfoCard
+                                            label="Phone Number"
+                                            value={
+                                                selectedClient.phone
+                                            }
+                                        />
+
+                                    </div>
+
+                                </div>
+
+                                {/* BILLING */}
+
+                                <div>
+
+                                    <h4 className="text-xs font-bold uppercase text-slate-400 mb-3">
+                                        Commercial & Billing
+                                    </h4>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                                        <InfoCard
                                             label="Service Fee"
                                             value={formatServiceFee(
                                                 selectedClient.service_fee
                                             )}
                                         />
 
-                                        <InfoItem
+                                        <InfoCard
+                                            label="Billing Model"
+                                            value={
+                                                selectedClient.billing_model
+                                            }
+                                        />
+
+                                        <InfoCard
+                                            label="Billing Frequency"
+                                            value={
+                                                selectedClient.billing_frequency
+                                            }
+                                        />
+
+                                        <InfoCard
                                             label="Credit Terms"
                                             value={
                                                 selectedClient.credit_terms
@@ -1728,57 +2035,83 @@ const handleDeactivateClient = async (client) => {
 
                                     </div>
 
-                                    <div>
+                                </div>
 
-                                        <h4 className="text-xs font-bold uppercase text-slate-400 mb-3">
-                                            Contact & Account Information
-                                        </h4>
+                                {/* ADDRESS */}
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
 
-                                            <InfoCard
-                                                label="Contact Person"
-                                                value={
-                                                    selectedClient.contact_person
-                                                }
-                                            />
+                                    <h4 className="text-xs font-bold uppercase text-slate-400 mb-3">
+                                        Billing Address
+                                    </h4>
 
-                                            <InfoCard
-                                                label="Email Address"
-                                                value={
-                                                    selectedClient.email
-                                                }
-                                            />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-                                            <InfoCard
-                                                label="Phone Number"
-                                                value={
-                                                    selectedClient.phone
-                                                }
-                                            />
+                                        <InfoCard
+                                            label="Address"
+                                            value={
+                                                selectedClient.billing_address
+                                            }
+                                        />
 
-                                            <InfoCard
-                                                label="GSTIN"
-                                                value={
-                                                    selectedClient.gstin
-                                                }
-                                            />
+                                        <InfoCard
+                                            label="City"
+                                            value={
+                                                selectedClient.city
+                                            }
+                                        />
 
-                                            <InfoCard
-                                                label="State Code"
-                                                value={
-                                                    selectedClient.state_code
-                                                }
-                                            />
+                                        <InfoCard
+                                            label="State"
+                                            value={
+                                                selectedClient.state
+                                            }
+                                        />
 
-                                            <InfoCard
-                                                label="Billing Address"
-                                                value={
-                                                    selectedClient.billing_address
-                                                }
-                                            />
+                                        <InfoCard
+                                            label="Pincode"
+                                            value={
+                                                selectedClient.pincode
+                                            }
+                                        />
+
+                                    </div>
+
+                                </div>
+
+                                {/* PORTAL */}
+
+                                <div>
+
+                                    <h4 className="text-xs font-bold uppercase text-slate-400 mb-3">
+                                        Client Portal
+                                    </h4>
+
+                                    <div className="p-4 bg-slate-50 rounded-xl flex items-center justify-between">
+
+                                        <div>
+
+                                            <p className="text-sm font-semibold text-slate-800">
+                                                Client Portal Login
+                                            </p>
+
+                                            <p className="text-xs text-slate-500 mt-1">
+                                                Portal access for the client account
+                                            </p>
 
                                         </div>
+
+                                        <span
+                                            className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
+                                                selectedClient.portal_login_enabled
+                                                    ? "bg-emerald-50 text-emerald-600"
+                                                    : "bg-slate-100 text-slate-500"
+                                            }`}
+                                        >
+                                            {selectedClient.portal_login_enabled
+                                                ? "Enabled"
+                                                : "Disabled"}
+                                        </span>
 
                                     </div>
 
@@ -1787,7 +2120,9 @@ const handleDeactivateClient = async (client) => {
                             </div>
 
                         </div>
-                    )}
+
+                    </div>
+                )}
 
             </main>
         </div>
@@ -1799,6 +2134,7 @@ const handleDeactivateClient = async (client) => {
 // =====================================================
 
 function ClientFormFields({
+    // Existing
     companyName,
     setCompanyName,
 
@@ -1835,299 +2171,656 @@ function ClientFormFields({
     billingAddress,
     setBillingAddress,
 
+    // New
+    clientCode,
+    setClientCode,
+
+    pan,
+    setPan,
+
+    cinRegistrationNumber,
+    setCinRegistrationNumber,
+
+    website,
+    setWebsite,
+
+    contactPersonDesignation,
+    setContactPersonDesignation,
+
+    billingFrequency,
+    setBillingFrequency,
+
+    billingModel,
+    setBillingModel,
+
+    city,
+    setCity,
+
+    state,
+    setState,
+
+    pincode,
+    setPincode,
+
+    portalLoginEnabled,
+    setPortalLoginEnabled,
+
     inputClass,
     labelClass,
 
     isEdit = false,
 }) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-6">
 
-            {/* COMPANY */}
-
-            <div>
-                <label className={labelClass}>
-                    Company Name *
-                </label>
-
-                <input
-                    required
-                    value={companyName}
-                    onChange={(e) =>
-                        setCompanyName(
-                            e.target.value
-                        )
-                    }
-                    placeholder="ABC Technologies"
-                    className={inputClass}
-                />
-            </div>
-
-            {/* INDUSTRY */}
+            {/* =================================================
+                COMPANY INFORMATION
+            ================================================= */}
 
             <div>
-                <label className={labelClass}>
-                    Industry
-                </label>
 
-                <input
-                    value={industry}
-                    onChange={(e) =>
-                        setIndustry(
-                            e.target.value
-                        )
-                    }
-                    placeholder="IT & Software"
-                    className={inputClass}
-                />
-            </div>
+                <h4 className="text-sm font-bold text-slate-800 mb-3">
+                    Company Information
+                </h4>
 
-            {/* LOGO */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-            <div>
-                <label className={labelClass}>
-                    Logo / Icon
-                </label>
+                    {/* COMPANY NAME */}
 
-                <input
-                    value={logo}
-                    onChange={(e) =>
-                        setLogo(
-                            e.target.value
-                        )
-                    }
-                    placeholder="🏢"
-                    className={inputClass}
-                />
-            </div>
+                    <div>
+                        <label className={labelClass}>
+                            Company Name *
+                        </label>
 
-            {/* GSTIN */}
+                        <input
+                            required
+                            value={companyName}
+                            onChange={(e) =>
+                                setCompanyName(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="ABC Technologies"
+                            className={inputClass}
+                        />
+                    </div>
 
-            <div>
-                <label className={labelClass}>
-                    GSTIN
-                </label>
+                    {/* COMPANY CODE */}
 
-                <input
-                    value={gstin}
-                    onChange={(e) =>
-                        setGstin(
-                            e.target.value.toUpperCase()
-                        )
-                    }
-                    placeholder="27AAACT2719K1ZO"
-                    className={`${inputClass} font-mono`}
-                />
-            </div>
+                    <div>
+                        <label className={labelClass}>
+                            Company Code
+                        </label>
 
-            {/* STATE CODE */}
+                        <input
+                            value={clientCode}
+                            onChange={(e) =>
+                                setClientCode(
+                                    e.target.value.toUpperCase()
+                                )
+                            }
+                            placeholder="CLI-0001"
+                            className={`${inputClass} font-mono`}
+                        />
 
-            <div>
-                <label className={labelClass}>
-                    State Code
-                </label>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                            Leave blank to generate automatically.
+                        </p>
+                    </div>
 
-                <input
-                    value={stateCode}
-                    onChange={(e) =>
-                        setStateCode(
-                            e.target.value
-                        )
-                    }
-                    placeholder="27"
-                    className={inputClass}
-                />
-            </div>
+                    {/* INDUSTRY */}
 
-            {/* CONTACT */}
+                    <div>
+                        <label className={labelClass}>
+                            Industry
+                        </label>
 
-            <div>
-                <label className={labelClass}>
-                    Contact Person *
-                </label>
+                        <input
+                            value={industry}
+                            onChange={(e) =>
+                                setIndustry(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="IT & Software"
+                            className={inputClass}
+                        />
+                    </div>
 
-                <input
-                    required
-                    value={contactPerson}
-                    onChange={(e) =>
-                        setContactPerson(
-                            e.target.value
-                        )
-                    }
-                    placeholder="Rajesh Kumar"
-                    className={inputClass}
-                />
-            </div>
+                    {/* LOGO */}
 
-            {/* EMAIL */}
+                    <div>
+                        <label className={labelClass}>
+                            Logo / Icon
+                        </label>
 
-            <div>
-                <label className={labelClass}>
-                    Email *
-                </label>
+                        <input
+                            value={logo}
+                            onChange={(e) =>
+                                setLogo(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="🏢"
+                            className={inputClass}
+                        />
+                    </div>
 
-                <input
-                    required
-                    type="email"
-                    value={email}
-                    onChange={(e) =>
-                        setEmail(
-                            e.target.value
-                        )
-                    }
-                    placeholder="contact@company.com"
-                    className={inputClass}
-                />
-            </div>
+                    {/* GSTIN */}
 
-            {/* PHONE */}
+                    <div>
+                        <label className={labelClass}>
+                            GSTIN
+                        </label>
 
-            <div>
-                <label className={labelClass}>
-                    Phone *
-                </label>
+                        <input
+                            value={gstin}
+                            onChange={(e) =>
+                                setGstin(
+                                    e.target.value.toUpperCase()
+                                )
+                            }
+                            placeholder="27AAACT2719K1ZO"
+                            className={`${inputClass} font-mono`}
+                        />
+                    </div>
 
-                <input
-                    required
-                    value={phone}
-                    onChange={(e) =>
-                        setPhone(
-                            e.target.value
-                        )
-                    }
-                    placeholder="+91 9876543210"
-                    className={inputClass}
-                />
-            </div>
+                    {/* PAN */}
 
-            {/* SERVICE FEE */}
+                    <div>
+                        <label className={labelClass}>
+                            PAN
+                        </label>
 
-            <div>
-                <label className={labelClass}>
-                    Service Fee (₹) *
-                </label>
+                        <input
+                            value={pan}
+                            onChange={(e) =>
+                                setPan(
+                                    e.target.value.toUpperCase()
+                                )
+                            }
+                            placeholder="AAACT2719K"
+                            maxLength={10}
+                            className={`${inputClass} font-mono`}
+                        />
+                    </div>
 
-                <input
-                    required
-                    type="number"
-                    min="0"
-                    value={serviceFee}
-                    onChange={(e) =>
-                        setServiceFee(
-                            e.target.value
-                        )
-                    }
-                    placeholder="50000"
-                    className={inputClass}
-                />
-            </div>
+                    {/* CIN */}
 
-            {/* CREDIT TERMS */}
+                    <div>
+                        <label className={labelClass}>
+                            CIN / Registration Number
+                        </label>
 
-            <div>
-                <label className={labelClass}>
-                    Credit Terms
-                </label>
+                        <input
+                            value={cinRegistrationNumber}
+                            onChange={(e) =>
+                                setCinRegistrationNumber(
+                                    e.target.value.toUpperCase()
+                                )
+                            }
+                            placeholder="U72200MH1995PLC084781"
+                            className={`${inputClass} font-mono`}
+                        />
+                    </div>
 
-                <select
-                    value={creditTerms}
-                    onChange={(e) =>
-                        setCreditTerms(
-                            e.target.value
-                        )
-                    }
-                    className={inputClass}
-                >
-                    <option value="Net 15">
-                        Net 15
-                    </option>
+                    {/* WEBSITE */}
 
-                    <option value="Net 30">
-                        Net 30
-                    </option>
+                    <div>
+                        <label className={labelClass}>
+                            Website
+                        </label>
 
-                    <option value="Net 45">
-                        Net 45
-                    </option>
+                        <input
+                            type="url"
+                            value={website}
+                            onChange={(e) =>
+                                setWebsite(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="https://www.company.com"
+                            className={inputClass}
+                        />
+                    </div>
 
-                    <option value="Net 60">
-                        Net 60
-                    </option>
-                </select>
-            </div>
+                    {/* STATE CODE */}
 
-            {/* STATUS */}
+                    <div>
+                        <label className={labelClass}>
+                            State Code
+                        </label>
 
-            {isEdit && (
-                <div>
-                    <label className={labelClass}>
-                        Status
-                    </label>
+                        <input
+                            value={stateCode}
+                            onChange={(e) =>
+                                setStateCode(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="27"
+                            className={inputClass}
+                        />
+                    </div>
 
-                    <select
-                        value={status}
-                        onChange={(e) =>
-                            setStatus(
-                                e.target.value
-                            )
-                        }
-                        className={inputClass}
-                    >
-                        <option value="Active">
-                            Active
-                        </option>
-
-                        <option value="Inactive">
-                            Inactive
-                        </option>
-                    </select>
                 </div>
-            )}
-
-            {/* BILLING ADDRESS */}
-
-            <div className="sm:col-span-2">
-
-                <label className={labelClass}>
-                    Billing Address
-                </label>
-
-                <textarea
-                    rows="2"
-                    value={billingAddress}
-                    onChange={(e) =>
-                        setBillingAddress(
-                            e.target.value
-                        )
-                    }
-                    placeholder="Mumbai, Maharashtra"
-                    className={inputClass}
-                />
 
             </div>
 
-        </div>
-    );
-}
+            {/* =================================================
+                CONTACT
+            ================================================= */}
 
-// =====================================================
-// INFO ITEM
-// =====================================================
+            <div>
 
-function InfoItem({
-    label,
-    value,
-}) {
-    return (
-        <div>
+                <h4 className="text-sm font-bold text-slate-800 mb-3">
+                    Primary Contact
+                </h4>
 
-            <span className="block text-[11px] font-semibold text-slate-400 uppercase">
-                {label}
-            </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-            <span className="font-semibold text-slate-800">
-                {value || "N/A"}
-            </span>
+                    {/* CONTACT PERSON */}
+
+                    <div>
+                        <label className={labelClass}>
+                            Contact Person *
+                        </label>
+
+                        <input
+                            required
+                            value={contactPerson}
+                            onChange={(e) =>
+                                setContactPerson(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="Rajesh Kumar"
+                            className={inputClass}
+                        />
+                    </div>
+
+                    {/* DESIGNATION */}
+
+                    <div>
+                        <label className={labelClass}>
+                            Contact Person Designation
+                        </label>
+
+                        <input
+                            value={contactPersonDesignation}
+                            onChange={(e) =>
+                                setContactPersonDesignation(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="HR Manager"
+                            className={inputClass}
+                        />
+                    </div>
+
+                    {/* EMAIL */}
+
+                    <div>
+                        <label className={labelClass}>
+                            Email *
+                        </label>
+
+                        <input
+                            required
+                            type="email"
+                            value={email}
+                            onChange={(e) =>
+                                setEmail(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="contact@company.com"
+                            className={inputClass}
+                        />
+                    </div>
+
+                    {/* PHONE */}
+
+                    <div>
+                        <label className={labelClass}>
+                            Phone *
+                        </label>
+
+                        <input
+                            required
+                            value={phone}
+                            onChange={(e) =>
+                                setPhone(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="+91 9876543210"
+                            className={inputClass}
+                        />
+                    </div>
+
+                </div>
+
+            </div>
+
+            {/* =================================================
+                COMMERCIAL & BILLING
+            ================================================= */}
+
+            <div>
+
+                <h4 className="text-sm font-bold text-slate-800 mb-3">
+                    Commercial & Billing
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                    {/* SERVICE FEE */}
+
+                    <div>
+                        <label className={labelClass}>
+                            Service Fee (₹) *
+                        </label>
+
+                        <input
+                            required
+                            type="number"
+                            min="0"
+                            value={serviceFee}
+                            onChange={(e) =>
+                                setServiceFee(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="50000"
+                            className={inputClass}
+                        />
+                    </div>
+
+                    {/* BILLING MODEL */}
+
+                    <div>
+                        <label className={labelClass}>
+                            Billing Model
+                        </label>
+
+                        <select
+                            value={billingModel}
+                            onChange={(e) =>
+                                setBillingModel(
+                                    e.target.value
+                                )
+                            }
+                            className={inputClass}
+                        >
+                            <option value="Monthly">
+                                Monthly
+                            </option>
+
+                            <option value="Per Employee">
+                                Per Employee
+                            </option>
+
+                            <option value="Per Day">
+                                Per Day
+                            </option>
+
+                            <option value="Percentage">
+                                Percentage
+                            </option>
+                        </select>
+                    </div>
+
+                    {/* BILLING FREQUENCY */}
+
+                    <div>
+                        <label className={labelClass}>
+                            Billing Frequency
+                        </label>
+
+                        <select
+                            value={billingFrequency}
+                            onChange={(e) =>
+                                setBillingFrequency(
+                                    e.target.value
+                                )
+                            }
+                            className={inputClass}
+                        >
+                            <option value="Monthly">
+                                Monthly
+                            </option>
+
+                            <option value="Weekly">
+                                Weekly
+                            </option>
+
+                            <option value="Per Payroll">
+                                Per Payroll
+                            </option>
+                        </select>
+                    </div>
+
+                    {/* CREDIT TERMS */}
+
+                    <div>
+                        <label className={labelClass}>
+                            Credit Terms
+                        </label>
+
+                        <select
+                            value={creditTerms}
+                            onChange={(e) =>
+                                setCreditTerms(
+                                    e.target.value
+                                )
+                            }
+                            className={inputClass}
+                        >
+                            <option value="Net 15">
+                                Net 15
+                            </option>
+
+                            <option value="Net 30">
+                                Net 30
+                            </option>
+
+                            <option value="Net 45">
+                                Net 45
+                            </option>
+
+                            <option value="Net 60">
+                                Net 60
+                            </option>
+                        </select>
+                    </div>
+
+                </div>
+
+            </div>
+
+            {/* =================================================
+                BILLING ADDRESS
+            ================================================= */}
+
+            <div>
+
+                <h4 className="text-sm font-bold text-slate-800 mb-3">
+                    Billing Address
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                    {/* ADDRESS */}
+
+                    <div className="sm:col-span-2">
+
+                        <label className={labelClass}>
+                            Billing Address
+                        </label>
+
+                        <textarea
+                            rows="2"
+                            value={billingAddress}
+                            onChange={(e) =>
+                                setBillingAddress(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="123 Business Park, Andheri East"
+                            className={inputClass}
+                        />
+
+                    </div>
+
+                    {/* CITY */}
+
+                    <div>
+                        <label className={labelClass}>
+                            City
+                        </label>
+
+                        <input
+                            value={city}
+                            onChange={(e) =>
+                                setCity(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="Mumbai"
+                            className={inputClass}
+                        />
+                    </div>
+
+                    {/* STATE */}
+
+                    <div>
+                        <label className={labelClass}>
+                            State
+                        </label>
+
+                        <input
+                            value={state}
+                            onChange={(e) =>
+                                setState(
+                                    e.target.value
+                                )
+                            }
+                            placeholder="Maharashtra"
+                            className={inputClass}
+                        />
+                    </div>
+
+                    {/* PINCODE */}
+
+                    <div>
+                        <label className={labelClass}>
+                            Pincode
+                        </label>
+
+                        <input
+                            inputMode="numeric"
+                            maxLength={6}
+                            value={pincode}
+                            onChange={(e) =>
+                                setPincode(
+                                    e.target.value.replace(
+                                        /\D/g,
+                                        ""
+                                    )
+                                )
+                            }
+                            placeholder="400069"
+                            className={inputClass}
+                        />
+                    </div>
+
+                </div>
+
+            </div>
+
+            {/* =================================================
+                CLIENT ACCOUNT
+            ================================================= */}
+
+            <div>
+
+                <h4 className="text-sm font-bold text-slate-800 mb-3">
+                    Client Account
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                    {/* STATUS */}
+
+                    <div>
+
+                        <label className={labelClass}>
+                            Client Status
+                        </label>
+
+                        <select
+                            value={status}
+                            onChange={(e) =>
+                                setStatus(
+                                    e.target.value
+                                )
+                            }
+                            className={inputClass}
+                        >
+
+                            <option value="Active">
+                                Active
+                            </option>
+
+                            <option value="Inactive">
+                                Inactive
+                            </option>
+
+                            <option value="Suspended">
+                                Suspended
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    {/* PORTAL LOGIN */}
+
+                    <div>
+
+                        <label className={labelClass}>
+                            Client Portal Login
+                        </label>
+
+                        <label className="flex items-center gap-3 px-3 py-2 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50">
+
+                            <input
+                                type="checkbox"
+                                checked={portalLoginEnabled}
+                                onChange={(e) =>
+                                    setPortalLoginEnabled(
+                                        e.target.checked
+                                    )
+                                }
+                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+
+                            <span className="text-sm text-slate-700">
+                                Create Client Portal Login
+                            </span>
+
+                        </label>
+
+                        <p className="text-[10px] text-slate-400 mt-1">
+                            Authentication should be handled through Supabase Auth.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
 
         </div>
     );
@@ -2155,4 +2848,3 @@ function InfoCard({
         </div>
     );
 }
-
