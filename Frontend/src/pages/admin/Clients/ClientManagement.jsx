@@ -110,41 +110,38 @@ export default function ClientManagement({
     // FETCH CLIENTS
     // =====================================================
 
-    const fetchClients = async () => {
-        try {
-            const res = await api.ge("/clients");
-          
+   const fetchClients = async () => {
+    try {
+        const res = await api.get("/clients");
 
-            const data = res.data;
+        const data = res.data;
 
-            console.log(
-                "CLIENT API RESPONSE:",
-                data
-            );
+        console.log(
+            "CLIENT API RESPONSE:",
+            data
+        );
 
-            if (!res.ok) {
-                throw new Error(
-                    data.message ||
-                    "Failed to fetch clients"
-                );
-            }
+        const clientList =
+            Array.isArray(data)
+                ? data
+                : Array.isArray(data?.data)
+                    ? data.data
+                    : [];
 
-            const clientList =
-                Array.isArray(data)
-                    ? data
-                    : Array.isArray(data.data)
-                        ? data.data
-                        : [];
+        setClients(clientList);
 
-            setClients(clientList);
+    } catch (err) {
+        console.error(
+            "Error fetching clients:",
+            err
+        );
 
-        } catch (err) {
-            console.error(
-                "Error fetching clients:",
-                err
-            );
-        }
-    };
+        console.error(
+            "CLIENT API ERROR:",
+            err?.response?.data
+        );
+    }
+};
 
     useEffect(() => {
         fetchClients();
