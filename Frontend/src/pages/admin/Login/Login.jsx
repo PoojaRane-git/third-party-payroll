@@ -1,539 +1,1317 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "../../../lib/supabaseClient";
-import { useAuth } from "../../../auth/AuthProvider";
+    import React, {
+        useState,
+    } from "react";
 
-const Login = () => {
-    const navigate = useNavigate();
-    const { login } = useAuth();
+    import {
+        useNavigate,
+        Link,
+    } from "react-router-dom";
 
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [otp, setOtp] = useState("");
+    import {
+        supabase,
+    } from "../../../lib/supabaseClient";
 
-    const [showOtp, setShowOtp] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-
-    const API_BASE = String(
-        import.meta.env.VITE_API_BASE_URL || "/api"
+    const API_BASE_URL = String(
+        import.meta.env.VITE_API_BASE_URL ||
+        (import.meta.env.PROD ? "/api" : "http://localhost:5000/api")
     ).replace(/\/+$/, "");
 
-    // ============================================================
-    // CLEAR OLD LOGIN DATA
-    // ============================================================
+    // =====================================================
+    // AUTHORIZED SUPER ADMIN
+    // =====================================================
 
-    const clearLoginData = () => {
-        localStorage.removeItem("user");
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("client_id");
-        localStorage.removeItem("company_name");
-        localStorage.removeItem("employee_id");
-        localStorage.removeItem("pending_login_user");
-    };
+    const SUPER_ADMIN_EMAIL =
+        "talentcorner103@gmail.com";
 
-    // ============================================================
-    // STEP 1 — PASSWORD LOGIN
-    // ============================================================
+    function Login() {
 
-    const handlePasswordLogin = async (e) => {
-        e.preventDefault();
+        const navigate =
+            useNavigate();
 
-        setError("");
-        setLoading(true);
+        // =====================================================
+        // LOGIN DATA
+        // =====================================================
 
-        try {
-            if (!email || !password) {
-                throw new Error("Please enter email and password.");
-            }
+        const [
+            email,
+            setEmail,
+        ] = useState("");
 
-            // ----------------------------------------------------
-            // SUPABASE PASSWORD LOGIN
-            // ----------------------------------------------------
+        const [
+            password,
+            setPassword,
+        ] = useState("");
 
-            const {
-                data: authData,
-                error: authError,
-            } = await supabase.auth.signInWithPassword({
-                email: email.trim(),
-                password,
-            });
+        // =====================================================
+        // OTP
+        // =====================================================
 
-            if (authError) {
-                throw new Error(authError.message);
-            }
+        const [
+            otp,
+            setOtp,
+        ] = useState("");
 
-            if (!authData?.session?.access_token) {
-                throw new Error("Authentication session not created.");
-            }
+        const [
+            otpStep,
+            setOtpStep,
+        ] = useState(false);
 
-            const accessToken = authData.session.access_token;
+        // =====================================================
+        // STATE
+        // =====================================================
 
-            console.log("SUPABASE LOGIN SUCCESS");
+        const [
+            error,
+            setError,
+        ] = useState("");
 
-            // ----------------------------------------------------
-            // GET USER FROM BACKEND
-            // ----------------------------------------------------
+        const [
+            loading,
+            setLoading,
+        ] = useState(false);
 
-            const response = await fetch(`${API_BASE}/auth/me`, {
-                method: "GET",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    "Content-Type": "application/json",
-                },
-            });
+        const [
+            otpLoading,
+            setOtpLoading,
+        ] = useState(false);
 
-            const result = await response.json();
+        // =====================================================
+        // CLEAR APPLICATION LOGIN DATA
+        // =====================================================
 
-            console.log("AUTH /ME RESPONSE:", result);
+        const clearLoginData = () => {
 
-            if (!response.ok) {
-                throw new Error(
-                    result?.message ||
-                    result?.error ||
-                    "Unable to authenticate user."
-                );
-            }
+            localStorage.removeItem(
+                "access_token"
+            );
 
-            const authenticatedUser = result.user || result;
+            localStorage.removeItem(
+                "user"
+            );
 
-            if (!authenticatedUser) {
-                throw new Error("User information not found.");
-            }
+            localStorage.removeItem(
+                "client_id"
+            );
 
-            console.log("AUTHENTICATED USER:", authenticatedUser);
+            localStorage.removeItem(
+                "company_name"
+            );
 
-            // ----------------------------------------------------
-            // ROLE
-            // ----------------------------------------------------
+            localStorage.removeItem(
+                "employee_id"
+            );
 
-            const role = String(
-                authenticatedUser.role || ""
-            ).toLowerCase();
+            localStorage.removeItem(
+                "pending_login_user"
+            );
+        };
 
-            // ----------------------------------------------------
-            // CHECK ALLOWED ROLES
-            // ----------------------------------------------------
+        // =====================================================
+        // LOGIN
+        // =====================================================
 
-            const allowedRoles = [
-                "superadmin",
-                "admin",
-                "client",
-                "employee",
-            ];
+        const handleLogin =
+            async (e) => {
 
-            if (!allowedRoles.includes(role)) {
-                throw new Error(
-                    `Invalid user role: ${authenticatedUser.role}`
-                );
-            }
+                e.preventDefault();
 
-            // ----------------------------------------------------
-            // SUPERADMIN EMAIL CHECK
-            // ----------------------------------------------------
+                setError("");
+                setLoading(true);
 
-            if (
-                role === "superadmin" &&
-                authenticatedUser.email?.toLowerCase() !==
-                    "talentcorner103@gmail.com"
-            ) {
-                throw new Error("Unauthorized superadmin account.");
-            }
+                try {
 
-            // ----------------------------------------------------
-            // SEND OTP
-            // ----------------------------------------------------
+                    // =================================================
+                    // CLEAN INPUT
+                    // =================================================
 
-            const otpResponse = await fetch(
-                `${API_BASE}/auth/send-login-otp`,
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        email: authenticatedUser.email,
-                    }),
+                    const cleanEmail =
+                        email
+                            .trim()
+                            .toLowerCase();
+
+                    if (!cleanEmail) {
+
+                        throw new Error(
+                            "Please enter your email."
+                        );
+                    }
+
+                    if (!password) {
+
+                        throw new Error(
+                            "Please enter your password."
+                        );
+                    }
+
+                    // =================================================
+                    // SUPABASE LOGIN
+                    // =================================================
+
+                    const {
+                        data: authData,
+                        error: authError,
+                    } =
+                        await supabase.auth
+                            .signInWithPassword({
+
+                                email:
+                                    cleanEmail,
+
+                                password:
+                                    password,
+                            });
+
+                    if (authError) {
+
+                        console.error(
+                            "Supabase login error:",
+                            authError
+                        );
+
+                        throw new Error(
+                            authError.message ||
+                            "Invalid email or password."
+                        );
+                    }
+
+                    const session =
+                        authData?.session;
+
+                    const authUser =
+                        authData?.user;
+
+                    if (
+                        !session ||
+                        !authUser
+                    ) {
+
+                        throw new Error(
+                            "Login failed. No session was created."
+                        );
+                    }
+
+                    console.log(
+                        "SUPABASE AUTH USER:",
+                        authUser
+                    );
+
+                    // =================================================
+                    // VERIFY PROFILE WITH BACKEND
+                    // =================================================
+
+                    console.log(
+                        "LOGIN API BASE URL:",
+                        API_BASE_URL
+                    );
+
+                    const response =
+                        await fetch(
+                            `${API_BASE_URL}/auth/me`,
+                            {
+
+                                method:
+                                    "GET",
+
+                                headers: {
+
+                                    Authorization:
+                                        `Bearer ${session.access_token}`,
+
+                                    "Content-Type":
+                                        "application/json",
+                                },
+                            }
+                        );
+
+                    const result =
+                        await response
+                            .json()
+                            .catch(
+                                () => ({})
+                            );
+
+                    console.log(
+                        "AUTH ME RESPONSE:",
+                        result
+                    );
+
+                    // =================================================
+                    // PROFILE MUST EXIST
+                    // =================================================
+
+                    if (
+                        !response.ok ||
+                        result.success !== true
+                    ) {
+
+                        await supabase.auth
+                            .signOut();
+
+                        clearLoginData();
+
+                        throw new Error(
+                            result.message ||
+                            "Unable to verify your account."
+                        );
+                    }
+
+                    const user =
+                        result.user;
+
+                    if (!user) {
+
+                        await supabase.auth
+                            .signOut();
+
+                        clearLoginData();
+
+                        throw new Error(
+                            "User profile was not returned by server."
+                        );
+                    }
+
+                    // =================================================
+                    // ROLE
+                    // =================================================
+
+                    const role =
+                        String(
+                            user.role || ""
+                        )
+                            .trim()
+                            .toLowerCase();
+
+                    const profileEmail =
+                        String(
+                            user.email ||
+                            authUser.email ||
+                            ""
+                        )
+                            .trim()
+                            .toLowerCase();
+
+                    console.log(
+                        "LOGIN USER:",
+                        user
+                    );
+
+                    console.log(
+                        "LOGIN ROLE:",
+                        role
+                    );
+
+                    // =================================================
+                    // ALLOWED ROLES
+                    //
+                    // Super Admin + Normal Admin + Client + Employee
+                    // are all allowed to continue to OTP.
+                    // =================================================
+
+                    if (
+                        role !== "superadmin" &&
+                        role !== "admin" &&
+                        role !== "client" &&
+                        role !== "employee"
+                    ) {
+
+                        await supabase.auth
+                            .signOut();
+
+                        clearLoginData();
+
+                        throw new Error(
+                            "Access denied. You are not allowed to login."
+                        );
+                    }
+
+                    // =================================================
+                    // SUPER ADMIN EMAIL CHECK
+                    // =================================================
+
+                    if (
+                        role === "superadmin" &&
+                        profileEmail !==
+                            SUPER_ADMIN_EMAIL
+                    ) {
+
+                        await supabase.auth
+                            .signOut();
+
+                        clearLoginData();
+
+                        throw new Error(
+                            "Access denied. Only the authorized Super Admin can login."
+                        );
+                    }
+
+                    // =================================================
+                    // SEND LOGIN OTP
+                    // =================================================
+
+                    const otpResponse =
+                        await fetch(
+                            `${API_BASE_URL}/auth/send-login-otp`,
+                            {
+
+                                method:
+                                    "POST",
+
+                                headers: {
+
+                                    Authorization:
+                                        `Bearer ${session.access_token}`,
+
+                                    "Content-Type":
+                                        "application/json",
+                                },
+                            }
+                        );
+
+                    const otpResult =
+                        await otpResponse
+                            .json()
+                            .catch(
+                                () => ({})
+                            );
+
+                    console.log(
+                        "SEND LOGIN OTP RESPONSE:",
+                        otpResult
+                    );
+
+                    if (
+                        !otpResponse.ok ||
+                        otpResult.success !== true
+                    ) {
+
+                        await supabase.auth
+                            .signOut();
+
+                        clearLoginData();
+
+                        throw new Error(
+                            otpResult.message ||
+                            "Unable to send OTP."
+                        );
+                    }
+
+                    // =================================================
+                    // TEMPORARY USER ONLY
+                    //
+                    // This is NOT used for authorization.
+                    // Backend response after OTP is authoritative.
+                    // =================================================
+
+                    localStorage.setItem(
+                        "pending_login_user",
+                        JSON.stringify(user)
+                    );
+
+                    // =================================================
+                    // SHOW OTP SCREEN
+                    // =================================================
+
+                    setOtp("");
+
+                    setOtpStep(true);
+
+                } catch (err) {
+
+                    console.error(
+                        "LOGIN ERROR:",
+                        err
+                    );
+
+                    console.error(
+                        "LOGIN API BASE URL:",
+                        API_BASE_URL
+                    );
+
+                    setError(
+                        err?.message ||
+                        "Unable to login."
+                    );
+
+                } finally {
+
+                    setLoading(false);
                 }
-            );
+            };
 
-            const otpResult = await otpResponse.json();
+    
+    // =====================================================
+    // VERIFY OTP
+    // =====================================================
 
-            console.log("SEND OTP RESPONSE:", otpResult);
+    const handleVerifyOtp =
+        async (e) => {
 
-            if (!otpResponse.ok) {
-                throw new Error(
-                    otpResult?.message ||
-                    otpResult?.error ||
-                    "Failed to send OTP."
-                );
-            }
+            e.preventDefault();
 
-            // ----------------------------------------------------
-            // SAVE TEMP USER
-            // ----------------------------------------------------
+            setError("");
+            setOtpLoading(true);
 
-            localStorage.setItem(
-                "pending_login_user",
-                JSON.stringify(authenticatedUser)
-            );
+            try {
 
-            setShowOtp(true);
+                // =================================================
+                // CLEAN OTP
+                // =================================================
 
-        } catch (err) {
-            console.error("LOGIN ERROR:", err);
+                const cleanOtp =
+                    otp.trim();
 
-            setError(
-                err?.message ||
-                "Login failed. Please try again."
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
+                if (
+                    !/^\d{6}$/.test(
+                        cleanOtp
+                    )
+                ) {
 
-    // ============================================================
-    // STEP 2 — OTP VERIFICATION
-    // ============================================================
-
-    const handleVerifyOtp = async (e) => {
-        e.preventDefault();
-
-        setError("");
-        setLoading(true);
-
-        try {
-            if (!otp || otp.length !== 6) {
-                throw new Error("Please enter the 6-digit OTP.");
-            }
-
-            // ----------------------------------------------------
-            // GET CURRENT SUPABASE SESSION
-            // ----------------------------------------------------
-
-            const {
-                data: sessionData,
-                error: sessionError,
-            } = await supabase.auth.getSession();
-
-            if (sessionError) {
-                throw new Error(sessionError.message);
-            }
-
-            const session = sessionData?.session;
-
-            if (!session?.access_token) {
-                throw new Error(
-                    "Authentication session expired. Please login again."
-                );
-            }
-
-            // ----------------------------------------------------
-            // VERIFY OTP
-            // ----------------------------------------------------
-
-            const response = await fetch(
-                `${API_BASE}/auth/verify-login-otp`,
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${session.access_token}`,
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        email: email.trim(),
-                        otp: otp.trim(),
-                    }),
+                    throw new Error(
+                        "Please enter the 6-digit OTP."
+                    );
                 }
-            );
 
-            const result = await response.json();
+                // =================================================
+                // GET CURRENT SUPABASE SESSION
+                // =================================================
 
-            console.log("VERIFY OTP RESPONSE:", result);
+                const {
+                    data: sessionData,
+                    error: sessionError,
+                } =
+                    await supabase.auth
+                        .getSession();
 
-            if (!response.ok) {
+                if (sessionError) {
+
+                    throw new Error(
+                        sessionError.message ||
+                        "Unable to get login session."
+                    );
+                }
+
+                const session =
+                    sessionData?.session;
+
+                if (!session) {
+
+                    throw new Error(
+                        "Your login session has expired. Please login again."
+                    );
+                }
+
+                // =================================================
+                // VERIFY OTP WITH BACKEND
+                // =================================================
+
+                const response =
+                    await fetch(
+                        `${API_BASE_URL}/auth/verify-login-otp`,
+                        {
+
+                            method:
+                                "POST",
+
+                            headers: {
+
+                                Authorization:
+                                    `Bearer ${session.access_token}`,
+
+                                "Content-Type":
+                                    "application/json",
+                            },
+
+                            body:
+                                JSON.stringify({
+                                    otp:
+                                        cleanOtp,
+                                }),
+                        }
+                    );
+
+                const result =
+                    await response
+                        .json()
+                        .catch(
+                            () => ({})
+                        );
+
+                console.log(
+                    "VERIFY OTP RESPONSE:",
+                    result
+                );
+
+                // =================================================
+                // OTP VERIFICATION FAILED
+                // =================================================
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        result.message ||
+                        "OTP verification failed."
+                    );
+                }
+
+                // =================================================
+                // RESPONSE MUST BE SUCCESSFUL
+                // =================================================
+
+                if (
+                    result.success !== true
+                ) {
+
+                    throw new Error(
+                        result.message ||
+                        "OTP verification failed."
+                    );
+                }
+
+                // =================================================
+                // BACKEND USER PROFILE
+                // =================================================
+
+                const authenticatedUser =
+                    result.user;
+
+                if (
+                    !authenticatedUser
+                ) {
+
+                    throw new Error(
+                        "Authenticated user profile was not returned by server."
+                    );
+                }
+
+                console.log(
+                    "AUTHENTICATED USER:",
+                    authenticatedUser
+                );
+
+                // =================================================
+                // ROLE FROM BACKEND
+                // =================================================
+
+                const role =
+                    String(
+                        authenticatedUser.role ||
+                        ""
+                    )
+                        .trim()
+                        .toLowerCase();
+
+                // =================================================
+                // ALLOWED ROLE CHECK
+                // =================================================
+
+                if (
+                    role !== "superadmin" &&
+                    role !== "admin" &&
+                    role !== "client" &&
+                    role !== "employee"
+                ) {
+
+                    await supabase.auth
+                        .signOut();
+
+                    clearLoginData();
+
+                    throw new Error(
+                        "Invalid account role."
+                    );
+                }
+
+                // =================================================
+                // SUPER ADMIN
+                // =================================================
+
+                if (
+                    role === "superadmin"
+                ) {
+
+                    const authenticatedEmail =
+                        String(
+                            authenticatedUser.email ||
+                            ""
+                        )
+                            .trim()
+                            .toLowerCase();
+
+                    if (
+                        authenticatedEmail !==
+                        SUPER_ADMIN_EMAIL
+                    ) {
+
+                        await supabase.auth
+                            .signOut();
+
+                        clearLoginData();
+
+                        throw new Error(
+                            "Access denied. Only the authorized Super Admin can login."
+                        );
+                    }
+
+                    // ---------------------------------------------
+                    // SAVE LOGIN
+                    // ---------------------------------------------
+
+                    clearLoginData();
+
+                   localStorage.setItem("access_token", session.access_token);
+
+                    localStorage.setItem(
+                        "user",
+                        JSON.stringify(
+                            authenticatedUser
+                        )
+                    );
+
+                    localStorage.setItem(
+                        "company_name",
+                        authenticatedUser.company_name ||
+                        "Talent Corner"
+                    );
+
+                    // ---------------------------------------------
+                    // ADMIN DASHBOARD
+                    // ---------------------------------------------
+
+                    navigate(
+                        "/admindashboard",
+                        {
+                            replace: true,
+                        }
+                    );
+
+                    return;
+                }
+
+                // =================================================
+                // NORMAL ADMIN
+                // =================================================
+
+                if (
+                    role === "admin"
+                ) {
+
+                    clearLoginData();
+
+                    localStorage.setItem(
+                        "access_token",
+                        session.access_token
+                    );
+
+                    localStorage.setItem(
+                        "user",
+                        JSON.stringify(
+                            authenticatedUser
+                        )
+                    );
+
+                    localStorage.setItem(
+                        "company_name",
+                        authenticatedUser.company_name ||
+                        "Talent Corner"
+                    );
+
+                    navigate(
+                        "/admindashboard",
+                        {
+                            replace: true,
+                        }
+                    );
+
+                    return;
+                }
+
+                // =================================================
+                // CLIENT
+                // =================================================
+
+                if (
+                    role === "client"
+                ) {
+
+                    clearLoginData();
+
+                    localStorage.setItem(
+                        "access_token",
+                        session.access_token
+                    );
+
+                    localStorage.setItem(
+                        "user",
+                        JSON.stringify(
+                            authenticatedUser
+                        )
+                    );
+
+                    if (
+                        authenticatedUser.client_id
+                    ) {
+
+                        localStorage.setItem(
+                            "client_id",
+                            String(
+                                authenticatedUser.client_id
+                            )
+                        );
+                    }
+
+                    if (
+                        authenticatedUser.company_name
+                    ) {
+
+                        localStorage.setItem(
+                            "company_name",
+                            authenticatedUser.company_name
+                        );
+                    }
+
+                    navigate(
+                        "/client-dashboard",
+                        {
+                            replace: true,
+                        }
+                    );
+
+                    return;
+                }
+
+                // =================================================
+                // EMPLOYEE
+                // =================================================
+
+                if (
+                    role === "employee"
+                ) {
+
+                    clearLoginData();
+
+                    localStorage.setItem(
+                        "access_token",
+                        session.access_token
+                    );
+
+                    localStorage.setItem(
+                        "user",
+                        JSON.stringify(
+                            authenticatedUser
+                        )
+                    );
+
+                    if (
+                        authenticatedUser.employee_id
+                    ) {
+
+                        localStorage.setItem(
+                            "employee_id",
+                            String(
+                                authenticatedUser.employee_id
+                            )
+                        );
+                    }
+
+                    navigate(
+                        "/employee-portal",
+                        {
+                            replace: true,
+                        }
+                    );
+
+                    return;
+                }
+
+                // =================================================
+                // SHOULD NEVER REACH HERE
+                // =================================================
+
+                await supabase.auth
+                    .signOut();
+
+                clearLoginData();
+
                 throw new Error(
-                    result?.message ||
-                    result?.error ||
-                    "Invalid OTP."
-                );
-            }
-
-            // ----------------------------------------------------
-            // FINAL AUTHENTICATED USER
-            // ----------------------------------------------------
-
-            const authenticatedUser =
-                result.user ||
-                result.authenticatedUser ||
-                JSON.parse(
-                    localStorage.getItem("pending_login_user") || "null"
+                    "Invalid account role."
                 );
 
-            if (!authenticatedUser) {
-                throw new Error(
-                    "Authenticated user information not found."
+            } catch (err) {
+
+                console.error(
+                    "OTP VERIFICATION ERROR:",
+                    err
                 );
-            }
 
-            console.log(
-                "FINAL AUTHENTICATED USER:",
-                authenticatedUser
-            );
-
-            const role = String(
-                authenticatedUser.role || ""
-            ).toLowerCase();
-
-            // ====================================================
-            // IMPORTANT
-            // ====================================================
-
-            clearLoginData();
-
-            // Save access token
-            localStorage.setItem(
-                "access_token",
-                session.access_token
-            );
-
-            // Save user
-            localStorage.setItem(
-                "user",
-                JSON.stringify(authenticatedUser)
-            );
-
-            // Save company
-            if (authenticatedUser.company_name) {
-                localStorage.setItem(
-                    "company_name",
-                    authenticatedUser.company_name
+                setError(
+                    err?.message ||
+                    "Unable to verify OTP."
                 );
+
+            } finally {
+
+                setOtpLoading(false);
             }
+        };
 
-            // Save client ID
-            if (authenticatedUser.client_id) {
-                localStorage.setItem(
-                    "client_id",
-                    String(authenticatedUser.client_id)
-                );
-            }
 
-            // Save employee ID
-            if (authenticatedUser.employee_id) {
-                localStorage.setItem(
-                    "employee_id",
-                    String(authenticatedUser.employee_id)
-                );
-            }
+        // =====================================================
+        // BACK TO LOGIN
+        // =====================================================
 
-            // ====================================================
-            // CRITICAL FIX
-            // ====================================================
-            // ProtectedRoute reads user from AuthProvider.
-            // Therefore update AuthProvider BEFORE navigate().
-            // ====================================================
+        const handleBackToLogin =
+            async () => {
 
-            login(authenticatedUser);
+                await supabase.auth
+                    .signOut();
 
-            console.log(
-                "AUTH PROVIDER USER UPDATED:",
-                authenticatedUser
-            );
+                clearLoginData();
 
-            // ====================================================
-            // REDIRECT BY ROLE
-            // ====================================================
+                setOtp("");
+                setOtpStep(false);
+                setError("");
+            };
 
-            if (role === "superadmin") {
-                navigate("/admindashboard", {
-                    replace: true,
-                });
+        // =====================================================
+        // UI
+        // =====================================================
 
-                return;
-            }
+        return (
 
-            if (role === "admin") {
-                navigate("/admindashboard", {
-                    replace: true,
-                });
+            <div className="
+                min-h-screen
+                flex
+                items-center
+                justify-center
+                bg-gray-100
+                px-4
+            ">
 
-                return;
-            }
+                <div className="
+                    w-full
+                    max-w-md
+                    bg-white
+                    rounded-2xl
+                    shadow-lg
+                    p-8
+                ">
 
-            if (role === "client") {
-                navigate("/client-dashboard", {
-                    replace: true,
-                });
+                    {/* =================================================
+                        HEADER
+                    ================================================= */}
 
-                return;
-            }
+                    <div className="
+                        text-center
+                        mb-8
+                    ">
 
-            if (role === "employee") {
-                navigate("/employee-portal", {
-                    replace: true,
-                });
+                        <h1 className="
+                            text-3xl
+                            font-bold
+                            text-gray-900
+                        ">
+                            Talent Corner
+                        </h1>
 
-                return;
-            }
+                        <p className="
+                            text-gray-500
+                            mt-2
+                        ">
+                            {otpStep
+                                ? "Verify your email"
+                                : "Login to your account"}
+                        </p>
 
-            throw new Error(
-                `Unsupported user role: ${authenticatedUser.role}`
-            );
-
-        } catch (err) {
-            console.error("OTP VERIFICATION ERROR:", err);
-
-            setError(
-                err?.message ||
-                "OTP verification failed."
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // ============================================================
-    // BACK TO PASSWORD LOGIN
-    // ============================================================
-
-    const handleBackToLogin = () => {
-        setShowOtp(false);
-        setOtp("");
-        setError("");
-    };
-
-    // ============================================================
-    // UI
-    // ============================================================
-
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-
-            <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
-
-                <h1 className="text-2xl font-bold text-center mb-2">
-                    Talent Corner
-                </h1>
-
-                <p className="text-center text-gray-500 mb-6">
-                    {showOtp
-                        ? "Verify your login"
-                        : "Login to your account"}
-                </p>
-
-                {error && (
-                    <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                        {error}
                     </div>
-                )}
 
-                {!showOtp ? (
-                    <form
-                        onSubmit={handlePasswordLogin}
-                        className="space-y-4"
-                    >
+                    {/* =================================================
+                        ERROR
+                    ================================================= */}
 
-                        <div>
-                            <label className="block text-sm font-medium mb-1">
-                                Email
-                            </label>
+                    {error && (
 
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) =>
-                                    setEmail(e.target.value)
-                                }
-                                placeholder="Enter email"
-                                className="w-full border rounded-lg px-4 py-3"
-                                required
-                            />
+                        <div className="
+                            mb-5
+                            rounded-lg
+                            border
+                            border-red-200
+                            bg-red-50
+                            px-4
+                            py-3
+                            text-sm
+                            text-red-700
+                        ">
+
+                            {error}
+
                         </div>
+                    )}
 
-                        <div>
-                            <label className="block text-sm font-medium mb-1">
-                                Password
-                            </label>
+                    {/* =================================================
+                        NORMAL LOGIN
+                    ================================================= */}
 
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) =>
-                                    setPassword(e.target.value)
-                                }
-                                placeholder="Enter password"
-                                className="w-full border rounded-lg px-4 py-3"
-                                required
-                            />
-                        </div>
+                    {!otpStep ? (
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-50"
+                        <form
+                            onSubmit={
+                                handleLogin
+                            }
+                            className="
+                                space-y-5
+                            "
                         >
-                            {loading
-                                ? "Please wait..."
-                                : "Login"}
-                        </button>
 
-                    </form>
-                ) : (
-                    <form
-                        onSubmit={handleVerifyOtp}
-                        className="space-y-4"
-                    >
+                            {/* EMAIL */}
 
-                        <div>
-                            <label className="block text-sm font-medium mb-1">
-                                Enter OTP
-                            </label>
+                            <div>
 
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                maxLength={6}
-                                value={otp}
-                                onChange={(e) =>
-                                    setOtp(
-                                        e.target.value.replace(
-                                            /\D/g,
-                                            ""
+                                <label className="
+                                    block
+                                    text-sm
+                                    font-medium
+                                    text-gray-700
+                                    mb-2
+                                ">
+                                    Email
+                                </label>
+
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) =>
+                                        setEmail(
+                                            e.target.value
                                         )
-                                    )
+                                    }
+                                    placeholder="Enter your email"
+                                    autoComplete="email"
+                                    disabled={
+                                        loading
+                                    }
+                                    className="
+                                        w-full
+                                        rounded-lg
+                                        border
+                                        border-gray-300
+                                        px-4
+                                        py-3
+                                        outline-none
+                                        focus:border-blue-500
+                                        focus:ring-2
+                                        focus:ring-blue-100
+                                        disabled:bg-gray-100
+                                    "
+                                />
+
+                            </div>
+
+                            {/* PASSWORD */}
+
+                            <div>
+
+                                <label className="
+                                    block
+                                    text-sm
+                                    font-medium
+                                    text-gray-700
+                                    mb-2
+                                ">
+                                    Password
+                                </label>
+
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) =>
+                                        setPassword(
+                                            e.target.value
+                                        )
+                                    }
+                                    placeholder="Enter your password"
+                                    autoComplete="current-password"
+                                    disabled={
+                                        loading
+                                    }
+                                    className="
+                                        w-full
+                                        rounded-lg
+                                        border
+                                        border-gray-300
+                                        px-4
+                                        py-3
+                                        outline-none
+                                        focus:border-blue-500
+                                        focus:ring-2
+                                        focus:ring-blue-100
+                                        disabled:bg-gray-100
+                                    "
+                                />
+
+                            </div>
+
+                            {/* LOGIN */}
+
+                            <button
+                                type="submit"
+                                disabled={
+                                    loading
                                 }
-                                placeholder="6-digit OTP"
-                                className="w-full border rounded-lg px-4 py-3 text-center tracking-widest text-lg"
-                                required
-                            />
+                                className="
+                                    w-full
+                                    rounded-lg
+                                    bg-blue-600
+                                    px-4
+                                    py-3
+                                    font-semibold
+                                    text-white
+                                    hover:bg-blue-700
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-60
+                                "
+                            >
+
+                                {loading
+                                    ? "Sending OTP..."
+                                    : "Login"}
+
+                            </button>
+
+                        </form>
+
+                    ) : (
+
+                        /* =================================================
+                        OTP
+                        ================================================= */
+
+                        <form
+                            onSubmit={
+                                handleVerifyOtp
+                            }
+                            className="
+                                space-y-5
+                            "
+                        >
+
+                            <div className="
+                                text-center
+                            ">
+
+                                <div className="
+                                    mx-auto
+                                    mb-4
+                                    flex
+                                    h-14
+                                    w-14
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    bg-blue-100
+                                    text-blue-600
+                                    text-xl
+                                    font-bold
+                                ">
+                                    OTP
+                                </div>
+
+                                <h2 className="
+                                    text-xl
+                                    font-semibold
+                                    text-gray-900
+                                ">
+                                    Verify Your Email
+                                </h2>
+
+                                <p className="
+                                    text-sm
+                                    text-gray-500
+                                    mt-2
+                                ">
+                                    A 6-digit OTP was sent to
+                                </p>
+
+                                <p className="
+                                    font-medium
+                                    text-gray-900
+                                    mt-1
+                                    break-all
+                                ">
+                                    {email}
+                                </p>
+
+                            </div>
+
+                            {/* OTP INPUT */}
+
+                            <div>
+
+                                <label className="
+                                    block
+                                    text-sm
+                                    font-medium
+                                    text-gray-700
+                                    mb-2
+                                ">
+                                    Enter OTP
+                                </label>
+
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    value={otp}
+                                    onChange={(e) =>
+                                        setOtp(
+                                            e.target.value
+                                                .replace(
+                                                    /\D/g,
+                                                    ""
+                                                )
+                                                .slice(
+                                                    0,
+                                                    6
+                                                )
+                                        )
+                                    }
+                                    placeholder="000000"
+                                    autoFocus
+                                    disabled={
+                                        otpLoading
+                                    }
+                                    className="
+                                        w-full
+                                        rounded-lg
+                                        border
+                                        border-gray-300
+                                        px-4
+                                        py-3
+                                        text-center
+                                        text-2xl
+                                        tracking-[0.5em]
+                                        outline-none
+                                        focus:border-blue-500
+                                        focus:ring-2
+                                        focus:ring-blue-100
+                                        disabled:bg-gray-100
+                                    "
+                                />
+
+                            </div>
+
+                            {/* VERIFY */}
+
+                            <button
+                                type="submit"
+                                disabled={
+                                    otpLoading ||
+                                    otp.length !== 6
+                                }
+                                className="
+                                    w-full
+                                    rounded-lg
+                                    bg-blue-600
+                                    px-4
+                                    py-3
+                                    font-semibold
+                                    text-white
+                                    hover:bg-blue-700
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-60
+                                "
+                            >
+
+                                {otpLoading
+                                    ? "Verifying..."
+                                    : "Verify OTP"}
+
+                            </button>
+
+                            {/* BACK */}
+
+                            <button
+                                type="button"
+                                onClick={
+                                    handleBackToLogin
+                                }
+                                disabled={
+                                    otpLoading
+                                }
+                                className="
+                                    w-full
+                                    text-sm
+                                    text-gray-500
+                                    hover:text-gray-700
+                                "
+                            >
+                                ← Back to Login
+                            </button>
+
+                        </form>
+                    )}
+
+                    {/* =================================================
+                        SIGNUP
+                    ================================================= */}
+
+                    {!otpStep && (
+
+                        <div className="
+                            mt-6
+                            text-center
+                        ">
+
+                            <p className="
+                                text-sm
+                                text-gray-500
+                            ">
+                                Don't have an account?
+                            </p>
+
+                            <div className="
+                                flex
+                                justify-center
+                                gap-4
+                                mt-3
+                            ">
+
+                                <Link
+                                    to="/signup/client"
+                                    className="
+                                        text-blue-600
+                                        font-medium
+                                        hover:underline
+                                    "
+                                >
+                                    Client Signup
+                                </Link>
+
+                                <span className="
+                                    text-gray-300
+                                ">
+                                    |
+                                </span>
+
+                                <Link
+                                    to="/signup/admin"
+                                    className="
+                                        text-blue-600
+                                        font-medium
+                                        hover:underline
+                                    "
+                                >
+                                    Admin Signup
+                                </Link>
+
+                            </div>
+
                         </div>
+                    )}
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-50"
-                        >
-                            {loading
-                                ? "Verifying..."
-                                : "Verify OTP"}
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={handleBackToLogin}
-                            className="w-full border rounded-lg py-3"
-                        >
-                            Back to Login
-                        </button>
-
-                    </form>
-                )}
+                </div>
 
             </div>
-        </div>
-    );
-};
+        );
+    }
 
-export default Login;
+    export default Login;
