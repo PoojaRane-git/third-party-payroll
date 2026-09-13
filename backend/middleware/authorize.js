@@ -1,7 +1,7 @@
 const supabaseAdmin = require("../config/supabaseAdmin");
 
-const SUPER_ADMIN_EMAIL = String(
-    process.env.SUPER_ADMIN_EMAIL || ""
+const ADMIN_EMAIL = String(
+    process.env.ADMIN_EMAIL || ""
 ).trim().toLowerCase();
 
 const authorize = (...allowedRoles) => {
@@ -91,15 +91,15 @@ const authorize = (...allowedRoles) => {
             if (role === "superadmin") {
                 const superAdminEmail = String(profile.email || "").trim().toLowerCase();
 
-                if (!SUPER_ADMIN_EMAIL) {
-                    console.error("SUPER_ADMIN_EMAIL env var is not set.");
+                if (!ADMIN_EMAIL) {
+                    console.error("ADMIN_EMAIL env var is not set.");
                     return res.status(500).json({
                         success: false,
                         message: "Server misconfiguration: super admin email not set.",
                     });
                 }
 
-                if (superAdminEmail !== SUPER_ADMIN_EMAIL) {
+                if (superAdminEmail !== ADMIN_EMAIL) {
                     return res.status(403).json({
                         success: false,
                         message: "Only the authorized Super Admin can access this resource.",
