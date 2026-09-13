@@ -21,9 +21,9 @@
     // =====================================================
 import { useAuth } from "../../../auth/AuthProvider"; // add this import
 
-// inside SUPER_ADMIN_EMAIL — remove hardcode, use env var instead
-const ADMIN_EMAIL = String(
-    import.meta.env.VITE_ADMIN_EMAIL || ""
+// inside SUPER_EMAIL_USER — remove hardcode, use env var instead
+const EMAIL_USER = String(
+    import.meta.env.VITE_EMAIL_USER || ""
 ).trim().toLowerCase();
 
 
@@ -336,7 +336,7 @@ const ADMIN_EMAIL = String(
                     if (
                         role === "superadmin" &&
                         profileEmail !==
-                            ADMIN_EMAIL
+                            EMAIL_USER
                     ) {
 
                         await supabase.auth
@@ -644,7 +644,7 @@ const ADMIN_EMAIL = String(
 
                     if (
                         authenticatedEmail !==
-                        ADMIN_EMAIL
+                        EMAIL_USER
                     ) {
 
                         await supabase.auth
