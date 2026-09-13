@@ -396,6 +396,7 @@ const ADMIN_EMAIL = String(
 
                         throw new Error(
                             otpResult.message ||
+                               otpResult.message ||
                             "Unable to send OTP."
                         );
                     }
