@@ -1,5 +1,5 @@
 import axios from "axios";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
 const API_BASE = String(
     import.meta.env.VITE_API_BASE_URL ||
