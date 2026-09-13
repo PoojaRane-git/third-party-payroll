@@ -21,9 +21,9 @@
     // =====================================================
 import { useAuth } from "../../../auth/AuthProvider"; // add this import
 
-// inside SUPER_EMAIL_USER — remove hardcode, use env var instead
-const EMAIL_USER = String(
-    import.meta.env.VITE_EMAIL_USER || ""
+// inside SUPER_ADMIN_EMAIL — remove hardcode, use env var instead
+const ADMIN_EMAIL = String(
+    import.meta.env.VITE_ADMIN_EMAIL || ""
 ).trim().toLowerCase();
 
 
@@ -31,7 +31,7 @@ const EMAIL_USER = String(
 
         const navigate =
             useNavigate();
-             const { login } = useAuth();
+                const { login } = useAuth();
 
         // =====================================================
         // LOGIN DATA
@@ -336,7 +336,7 @@ const EMAIL_USER = String(
                     if (
                         role === "superadmin" &&
                         profileEmail !==
-                            EMAIL_USER
+                            ADMIN_EMAIL
                     ) {
 
                         await supabase.auth
@@ -644,7 +644,7 @@ const EMAIL_USER = String(
 
                     if (
                         authenticatedEmail !==
-                        EMAIL_USER
+                        ADMIN_EMAIL
                     ) {
 
                         await supabase.auth
