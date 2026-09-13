@@ -22,7 +22,7 @@
 import { useAuth } from "../../../auth/AuthProvider"; // add this import
 
 // inside SUPER_ADMIN_EMAIL — remove hardcode, use env var instead
-const SUPER_ADMIN_EMAIL = String(
+const ADMIN_EMAIL = String(
     import.meta.env.VITE_SUPER_ADMIN_EMAIL || ""
 ).trim().toLowerCase();
 
