@@ -17,35 +17,44 @@ const api = axios.create({
 
 api.interceptors.request.use(
     async (config) => {
-        const {
-            data: { session },
-            error,
-        } = await supabase.auth.getSession();
+        try {
+            const {
+                data: { session },
+                error,
+            } = await supabase.auth.getSession();
 
-        if (error) {
+            if (error) {
+                console.error(
+                    "Supabase session error:",
+                    error
+                );
+            }
+
+            if (session?.access_token) {
+                config.headers = config.headers || {};
+
+                config.headers.Authorization =
+                    `Bearer ${session.access_token}`;
+            } else {
+                console.warn(
+                    "No Supabase access token available"
+                );
+            }
+
+            return config;
+
+        } catch (error) {
             console.error(
-                "Supabase session error:",
+                "Failed to get Supabase session:",
                 error
             );
+
+            return config;
         }
-
-        if (session?.access_token) {
-            config.headers = config.headers || {};
-
-            config.headers.Authorization =
-                `Bearer ${session.access_token}`;
-        } else {
-            console.warn(
-                "No Supabase access token available"
-            );
-        }
-
-        return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 export default api;
+
 export { API_BASE };
