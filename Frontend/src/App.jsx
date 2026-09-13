@@ -162,7 +162,7 @@ function App() {
                         ================================================= */}
 
                         <Route
-                            path="/job-requirements"
+                            path="/admin-job-requirements"
                             element={
                                 <JobRequirements />
                             }

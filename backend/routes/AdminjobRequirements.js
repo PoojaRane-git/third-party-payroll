@@ -14,7 +14,7 @@ const supabase = createClient(
 
 // =========================================================
 // GET ALL JOB REQUIREMENTS
-// GET /api/job-requirements
+// GET /api/admin-job-requirements
 // =========================================================
 
 router.get("/", async (req, res) => {
@@ -39,7 +39,7 @@ router.get("/", async (req, res) => {
       data: data || [],
     });
   } catch (error) {
-    console.error("GET /job-requirements error:", error);
+    console.error("GET /admin-job-requirements error:", error);
 
     return res.status(500).json({
       success: false,
@@ -51,7 +51,7 @@ router.get("/", async (req, res) => {
 
 // =========================================================
 // GET SINGLE JOB REQUIREMENT
-// GET /api/job-requirements/:id
+// GET /api/admin-job-requirements/:id
 // =========================================================
 
 router.get("/:id", async (req, res) => {
@@ -93,7 +93,7 @@ router.get("/:id", async (req, res) => {
       data,
     });
   } catch (error) {
-    console.error("GET /job-requirements/:id error:", error);
+    console.error("GET /admin-job-requirements/:id error:", error);
 
     return res.status(500).json({
       success: false,
@@ -105,7 +105,7 @@ router.get("/:id", async (req, res) => {
 
 // =========================================================
 // ASSIGN CANDIDATE
-// POST /api/job-requirements/:id/assign
+// POST /api/admin-job-requirements/:id/assign
 // =========================================================
 
 router.post("/:id/assign", async (req, res) => {
@@ -113,14 +113,28 @@ router.post("/:id/assign", async (req, res) => {
     const jobRequirementId = Number(req.params.id);
     const candidateId = Number(req.body?.candidate_id);
 
-    if (!Number.isInteger(jobRequirementId) || jobRequirementId <= 0) {
+    // -----------------------------------------------------
+    // VALIDATE JOB REQUIREMENT ID
+    // -----------------------------------------------------
+
+    if (
+      !Number.isInteger(jobRequirementId) ||
+      jobRequirementId <= 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "Invalid job requirement ID",
       });
     }
 
-    if (!Number.isInteger(candidateId) || candidateId <= 0) {
+    // -----------------------------------------------------
+    // VALIDATE CANDIDATE ID
+    // -----------------------------------------------------
+
+    if (
+      !Number.isInteger(candidateId) ||
+      candidateId <= 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "Valid candidate_id is required",
@@ -128,10 +142,13 @@ router.post("/:id/assign", async (req, res) => {
     }
 
     // -----------------------------------------------------
-    // Check job requirement exists
+    // CHECK JOB REQUIREMENT EXISTS
     // -----------------------------------------------------
 
-    const { data: job, error: jobError } = await supabase
+    const {
+      data: job,
+      error: jobError,
+    } = await supabase
       .from("job_requirements")
       .select("*")
       .eq("id", jobRequirementId)
@@ -155,17 +172,23 @@ router.post("/:id/assign", async (req, res) => {
     }
 
     // -----------------------------------------------------
-    // Check candidate exists
+    // CHECK CANDIDATE EXISTS
     // -----------------------------------------------------
 
-    const { data: candidate, error: candidateError } = await supabase
+    const {
+      data: candidate,
+      error: candidateError,
+    } = await supabase
       .from("candidates")
       .select("*")
       .eq("id", candidateId)
       .maybeSingle();
 
     if (candidateError) {
-      console.error("Candidate lookup error:", candidateError);
+      console.error(
+        "Candidate lookup error:",
+        candidateError
+      );
 
       return res.status(500).json({
         success: false,
@@ -182,23 +205,35 @@ router.post("/:id/assign", async (req, res) => {
     }
 
     // -----------------------------------------------------
-    // Check assignment table
+    // CHECK EXISTING ASSIGNMENT
     // -----------------------------------------------------
 
-    const { data: existingAssignment, error: existingError } =
-      await supabase
-        .from("candidate_job_assignments")
-        .select("*")
-        .eq("job_requirement_id", jobRequirementId)
-        .eq("candidate_id", candidateId)
-        .maybeSingle();
+    const {
+      data: existingAssignment,
+      error: existingError,
+    } = await supabase
+      .from("candidate_job_assignments")
+      .select("*")
+      .eq(
+        "job_requirement_id",
+        jobRequirementId
+      )
+      .eq(
+        "candidate_id",
+        candidateId
+      )
+      .maybeSingle();
 
     if (existingError) {
-      console.error("Assignment lookup error:", existingError);
+      console.error(
+        "Assignment lookup error:",
+        existingError
+      );
 
       return res.status(500).json({
         success: false,
-        message: "Failed to check existing assignment",
+        message:
+          "Failed to check existing assignment",
         error: existingError.message,
       });
     }
@@ -206,43 +241,66 @@ router.post("/:id/assign", async (req, res) => {
     if (existingAssignment) {
       return res.status(409).json({
         success: false,
-        message: "Candidate is already assigned to this job requirement",
+        message:
+          "Candidate is already assigned to this job requirement",
       });
     }
 
     // -----------------------------------------------------
-    // Create assignment
+    // CREATE ASSIGNMENT
     // -----------------------------------------------------
 
-    const { data: assignment, error: assignmentError } = await supabase
+    const {
+      data: assignment,
+      error: assignmentError,
+    } = await supabase
       .from("candidate_job_assignments")
       .insert({
-        job_requirement_id: jobRequirementId,
-        candidate_id: candidateId,
-        assigned_at: new Date().toISOString(),
-        assigned_by: "Admin",
-        status: "Assigned",
+        job_requirement_id:
+          jobRequirementId,
+
+        candidate_id:
+          candidateId,
+
+        assigned_at:
+          new Date().toISOString(),
+
+        assigned_by:
+          "Admin",
+
+        status:
+          "Assigned",
       })
       .select("*")
       .single();
 
     if (assignmentError) {
-      console.error("Assignment insert error:", assignmentError);
+      console.error(
+        "Assignment insert error:",
+        assignmentError
+      );
 
       return res.status(500).json({
         success: false,
-        message: "Failed to assign candidate",
-        error: assignmentError.message,
+        message:
+          "Failed to assign candidate",
+        error:
+          assignmentError.message,
       });
     }
 
     return res.status(201).json({
       success: true,
-      message: "Candidate successfully assigned",
+      message:
+        "Candidate successfully assigned",
       data: assignment,
     });
+
   } catch (error) {
-    console.error("POST /job-requirements/:id/assign error:", error);
+    console.error(
+      "POST /admin-job-requirements/:id/assign error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -251,5 +309,9 @@ router.post("/:id/assign", async (req, res) => {
     });
   }
 });
+
+// =========================================================
+// EXPORT ROUTER
+// =========================================================
 
 module.exports = router;

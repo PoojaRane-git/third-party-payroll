@@ -49,22 +49,6 @@ const ELIGIBLE_PAYSLIP_STATUSES = [
 // =====================================================
 // CLIENTS
 // =====================================================
-
-const CLIENTS = [
-  {
-    id: 1,
-    company_name: "Tata Consultancy Services (TCS)",
-  },
-  {
-    id: 2,
-    company_name: "Infosys Technologies",
-  },
-  {
-    id: 3,
-    company_name: "Wipro Limited",
-  },
-];
-
 // =====================================================
 // HELPERS
 // =====================================================
@@ -908,6 +892,32 @@ export default function PayrollModule({
       }
     };
 
+    const [clients, setClients] = useState([]);
+
+useEffect(() => {
+  const fetchClients = async () => {
+    try {
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("access_token");
+
+      const response = await fetch(`${API_BASE}/clients`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      const json = await response.json();
+      setClients(Array.isArray(json?.data) ? json.data : []);
+    } catch (err) {
+      console.error("GET /clients error:", err);
+      setClients([]);
+    }
+  };
+
+  fetchClients();
+}, []);
   // =====================================================
   // CREATE PAYSLIP PDF
   // =====================================================

@@ -42,6 +42,8 @@ const sendError = (res, status, message, details = null) => {
 // MONTH HELPERS
 // ============================================================
 
+
+
 function validateSalaryMonth(value) {
     if (!value) {
         throw new Error("salary_month is required");

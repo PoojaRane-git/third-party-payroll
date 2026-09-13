@@ -83,8 +83,9 @@ const payrollRoutes = require("./routes/payroll");
 const billingRoutes = require("./routes/billing");
 const paymentRoutes = require("./routes/payments");
 const invoiceDisputeRoutes = require("./routes/invoiceDisputes");
-const jobRequirementRoutes = require("./routes/jobRequirements");
+const AdminjobRequirementRoutes = require("./routes/AdminjobRequirements");
 const reportsRoutes = require("./routes/reports");
+const ClientjobRequirementRoutes = require("./routes/client/ClientjobRequirements")
 
 // =====================================================
 // EMPLOYEE USERS
@@ -92,6 +93,8 @@ const reportsRoutes = require("./routes/reports");
 
 const employeeUsersRouter =
   require("./routes/employeeUsers");
+
+
 
 // =====================================================
 // CLIENT PORTAL ROUTES
@@ -130,10 +133,7 @@ const clientPaymentActionsRouter =
 const candidatesRouter =
   require("./routes/newcandidates");
 
-app.use(
-  "/api",
-  candidatesRouter
-);
+
 
 // =====================================================
 // BASIC ROUTES
@@ -326,10 +326,17 @@ app.use(
 // JOB REQUIREMENTS
 // =====================================================
 
+app.use("/api/admin-job-requirements", AdminjobRequirementRoutes);
+
+
 app.use(
-  "/api/job-requirements",
-  jobRequirementRoutes
+  "/api",
+  candidatesRouter
 );
+app.use(
+  "/api/client-job-requirements",
+  ClientjobRequirementRoutes
+)
 
 // =====================================================
 // REPORTS
@@ -451,6 +458,127 @@ app.use(
     });
   }
 );
+
+console.log("==============================================");
+console.log("ROUTE TYPE CHECK");
+console.log("==============================================");
+
+console.log(
+  "clientRoutes:",
+  typeof clientRoutes
+);
+
+console.log(
+  "contractRoutes:",
+  typeof contractRoutes
+);
+
+console.log(
+  "candidateRoutes:",
+  typeof candidateRoutes
+);
+
+console.log(
+  "employee_attdanceRoutes:",
+  typeof employee_attdanceRoutes
+);
+
+console.log(
+  "deploymentRoutes:",
+  typeof deploymentRoutes
+);
+
+console.log(
+  "timesheetRoutes:",
+  typeof timesheetRoutes
+);
+
+console.log(
+  "thirdPartyAttendanceRoutes:",
+  typeof thirdPartyAttendanceRoutes
+);
+
+console.log(
+  "employeeAttendanceRoutes:",
+  typeof employeeAttendanceRoutes
+);
+
+console.log(
+  "payrollRoutes:",
+  typeof payrollRoutes
+);
+
+console.log(
+  "billingRoutes:",
+  typeof billingRoutes
+);
+
+console.log(
+  "paymentRoutes:",
+  typeof paymentRoutes
+);
+
+console.log(
+  "invoiceDisputeRoutes:",
+  typeof invoiceDisputeRoutes
+);
+
+console.log(
+  "AdminjobRequirementRoutes:",
+  typeof AdminjobRequirementRoutes
+);
+
+console.log(
+  "reportsRoutes:",
+  typeof reportsRoutes
+);
+
+console.log(
+  "ClientjobRequirementRoutes:",
+  typeof ClientjobRequirementRoutes
+);
+
+console.log(
+  "employeeUsersRouter:",
+  typeof employeeUsersRouter
+);
+
+console.log(
+  "clientPortalRoutes:",
+  typeof clientPortalRoutes
+);
+
+console.log(
+  "attendanceApprovalRouter:",
+  typeof attendanceApprovalRouter
+);
+
+console.log(
+  "clientEmployeesRouter:",
+  typeof clientEmployeesRouter
+);
+
+console.log(
+  "clientCandidatesRouter:",
+  typeof clientCandidatesRouter
+);
+
+console.log(
+  "clientManagementInvoicesRouter:",
+  typeof clientManagementInvoicesRouter
+);
+
+console.log(
+  "clientPaymentActionsRouter:",
+  typeof clientPaymentActionsRouter
+);
+
+console.log(
+  "candidatesRouter:",
+  typeof candidatesRouter
+);
+
+console.log("==============================================");
 
 // =====================================================
 // START SERVER

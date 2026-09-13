@@ -18,11 +18,12 @@ import {
     UserCheck,
 } from "lucide-react";
 
-import API_BASE from "../services/api";
+import api, { API_BASE } from "../services/api";
+
 console.log("API_BASE:", API_BASE);
 console.log(
-  "Attendance URL:",
-  `${API_BASE}/third-party-attendance`
+    "Attendance URL:",
+    `${API_BASE}/third-party-attendance`
 );
 
 export default function AdminDashboard() {
@@ -72,33 +73,6 @@ export default function AdminDashboard() {
         useState(false);
 
     // ============================================================
-    // GET ACCESS TOKEN
-    // ============================================================
-
-    const getAccessToken = () => {
-        return localStorage.getItem("access_token");
-    };
-
-    // ============================================================
-    // AUTH HEADER
-    // ============================================================
-
-    const getAuthHeaders = () => {
-        const token = getAccessToken();
-
-        if (!token) {
-            throw new Error(
-                "Authentication token not found. Please login again."
-            );
-        }
-
-        return {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-        };
-    };
-
-    // ============================================================
     // INITIAL LOAD
     // ============================================================
 
@@ -110,13 +84,7 @@ export default function AdminDashboard() {
 
     // ============================================================
     // FETCH CLIENT REGISTRY
-    //
-    // SOURCE:
-    // /api/clients
-    //
-    // This is for the CLIENT REGISTRY TABLE.
-    //
-    // DO NOT set tenants here.
+    // GET /clients
     // ============================================================
 
     const fetchInitialData = async () => {
@@ -124,16 +92,11 @@ export default function AdminDashboard() {
             setLoading(true);
             setError("");
 
-            const response = await fetch(
-                `${API_BASE}/clients`,
-                {
-                    method: "GET",
-                    headers: getAuthHeaders(),
-                }
-            );
+            const response =
+                await api.get("/clients");
 
             const result =
-                await response.json();
+                response.data;
 
             console.log(
                 "Client registry response:",
@@ -141,32 +104,35 @@ export default function AdminDashboard() {
             );
 
             if (
-                !response.ok ||
-                result.success === false
+                result?.success === false
             ) {
                 throw new Error(
                     result.message ||
-                        `Failed to load clients: ${response.status}`
+                        "Failed to load clients."
                 );
             }
 
             let clientsArray = [];
 
-            if (Array.isArray(result)) {
+            if (
+                Array.isArray(result)
+            ) {
                 clientsArray = result;
+
             } else if (
-                Array.isArray(result.data)
+                Array.isArray(result?.data)
             ) {
                 clientsArray = result.data;
+
             } else if (
-                Array.isArray(result.clients)
+                Array.isArray(result?.clients)
             ) {
                 clientsArray = result.clients;
             }
 
-            // IMPORTANT:
-            // Registry only.
-            setClientsList(clientsArray);
+            setClientsList(
+                clientsArray
+            );
 
         } catch (err) {
             console.error(
@@ -175,7 +141,8 @@ export default function AdminDashboard() {
             );
 
             setError(
-                err.message ||
+                err.response?.data?.message ||
+                    err.message ||
                     "Unable to load clients."
             );
 
@@ -188,571 +155,554 @@ export default function AdminDashboard() {
 
     // ============================================================
     // FETCH ACTIVE CLIENT TENANTS
-    //
-    // SOURCE:
-    // /api/admin/active-tenants
-    //
-    // ONLY:
-    // role = client
-    // status = active
-    // is_active = true
-    //
-    // This controls the dropdown.
+    // GET /admin/active-tenants
     // ============================================================
 
-    const fetchActiveClientTenants = async () => {
-        try {
-            const response = await fetch(
-                `${API_BASE}/admin/active-tenants`,
-                {
-                    method: "GET",
-                    headers: getAuthHeaders(),
+    const fetchActiveClientTenants =
+        async () => {
+            try {
+                const response =
+                    await api.get(
+                        "/admin/active-tenants"
+                    );
+
+                const result =
+                    response.data;
+
+                console.log(
+                    "Active client tenants response:",
+                    result
+                );
+
+                if (
+                    result?.success === false
+                ) {
+                    throw new Error(
+                        result.message ||
+                            "Unable to load active client tenants."
+                    );
                 }
-            );
 
-            const result =
-                await response.json();
+                let tenantArray = [];
 
-            console.log(
-                "Active client tenants response:",
-                result
-            );
+                if (
+                    Array.isArray(result)
+                ) {
+                    tenantArray = result;
 
-            if (
-                !response.ok ||
-                result.success === false
-            ) {
-                throw new Error(
-                    result.message ||
-                        "Unable to load active client tenants."
-                );
-            }
+                } else if (
+                    Array.isArray(
+                        result?.data
+                    )
+                ) {
+                    tenantArray =
+                        result.data;
 
-            let tenantArray = [];
+                } else if (
+                    Array.isArray(
+                        result?.clients
+                    )
+                ) {
+                    tenantArray =
+                        result.clients;
+                }
 
-            if (Array.isArray(result)) {
-                tenantArray = result;
-            } else if (
-                Array.isArray(result.data)
-            ) {
-                tenantArray = result.data;
-            } else if (
-                Array.isArray(result.clients)
-            ) {
-                tenantArray = result.clients;
-            }
-
-            setTenants(tenantArray);
-
-            // Keep selected tenant if it still exists
-            const selectedStillExists =
-                tenantArray.some(
-                    (tenant) =>
-                        tenant.company_name ===
-                        selectedTenant
+                setTenants(
+                    tenantArray
                 );
 
-            if (
-                selectedStillExists
-            ) {
-                return;
-            }
+                // Keep selected tenant if it still exists
+                const selectedStillExists =
+                    tenantArray.some(
+                        (tenant) =>
+                            tenant.company_name ===
+                            selectedTenant
+                    );
 
-            // Otherwise select first approved client
-            if (
-                tenantArray.length > 0 &&
-                tenantArray[0]?.company_name
-            ) {
-                setSelectedTenant(
-                    tenantArray[0].company_name
+                if (
+                    selectedStillExists
+                ) {
+                    return;
+                }
+
+                // Select first approved client
+                if (
+                    tenantArray.length >
+                        0 &&
+                    tenantArray[0]
+                        ?.company_name
+                ) {
+                    setSelectedTenant(
+                        tenantArray[0]
+                            .company_name
+                    );
+                } else {
+                    setSelectedTenant(
+                        ""
+                    );
+                }
+
+            } catch (err) {
+                console.error(
+                    "Error loading active client tenants:",
+                    err
                 );
-            } else {
+
+                setTenants([]);
                 setSelectedTenant("");
             }
-
-        } catch (err) {
-            console.error(
-                "Error loading active client tenants:",
-                err
-            );
-
-            setTenants([]);
-            setSelectedTenant("");
-        }
-    };
+        };
 
     // ============================================================
-    // FETCH APPROVAL REQUESTS
+    // FETCH ALL APPROVAL REQUESTS
     //
-    // ADMIN + CLIENT + EMPLOYEE
+    // ADMIN    -> /pending-admins
+    // CLIENT   -> /pending-clients
+    // EMPLOYEE -> /pending-employees
     // ============================================================
-// ============================================================
-// FETCH ALL APPROVAL REQUESTS
-//
-// EACH APPROVAL TYPE IS FETCHED SEPARATELY
-//
-// ADMIN    -> /pending-admins
-// CLIENT   -> /pending-clients
-// EMPLOYEE -> /pending-employees
-//
-// A failure in one type will NOT break the others.
-// ============================================================
 
-const fetchApprovalRequests = async () => {
-    try {
-        setApprovalLoading(true);
-        setApprovalError("");
+    const fetchApprovalRequests =
+        async () => {
+            try {
+                setApprovalLoading(
+                    true
+                );
 
-        const headers = getAuthHeaders();
+                setApprovalError("");
 
-        // ========================================================
-        // FETCH EACH APPROVAL TYPE SEPARATELY
-        // ========================================================
+                // =================================================
+                // FETCH SEPARATELY
+                // =================================================
 
-        const [
-            adminResponse,
-            clientResponse,
-            employeeResponse,
-        ] = await Promise.all([
-            fetch(
-                `${API_BASE}/admin/pending-admins`,
-                {
-                    method: "GET",
-                    headers,
+                const [
+                    adminResponse,
+                    clientResponse,
+                    employeeResponse,
+                ] = await Promise.all([
+                    api.get(
+                        "/admin/pending-admins"
+                    ),
+
+                    api.get(
+                        "/admin/pending-clients"
+                    ),
+
+                    api.get(
+                        "/admin/pending-employees"
+                    ),
+                ]);
+
+                // =================================================
+                // READ RESPONSES
+                // =================================================
+
+                const adminResult =
+                    adminResponse.data;
+
+                const clientResult =
+                    clientResponse.data;
+
+                const employeeResult =
+                    employeeResponse.data;
+
+                console.log(
+                    "Pending admins:",
+                    adminResult
+                );
+
+                console.log(
+                    "Pending clients:",
+                    clientResult
+                );
+
+                console.log(
+                    "Pending employees:",
+                    employeeResult
+                );
+
+                // =================================================
+                // ADMIN
+                // =================================================
+
+                const adminRequests =
+                    adminResult?.success &&
+                    Array.isArray(
+                        adminResult.admins
+                    )
+                        ? adminResult.admins
+                        : [];
+
+                // =================================================
+                // CLIENT
+                // =================================================
+
+                const clientRequests =
+                    clientResult?.success &&
+                    Array.isArray(
+                        clientResult.clients
+                    )
+                        ? clientResult.clients
+                        : [];
+
+                // =================================================
+                // EMPLOYEE
+                // =================================================
+
+                const employeeRequests =
+                    employeeResult?.success &&
+                    Array.isArray(
+                        employeeResult.employees
+                    )
+                        ? employeeResult.employees
+                        : [];
+
+                // =================================================
+                // COMBINE
+                // =================================================
+
+                const requests = [
+                    ...adminRequests,
+                    ...clientRequests,
+                    ...employeeRequests,
+                ].sort(
+                    (a, b) =>
+                        new Date(
+                            b.created_at || 0
+                        ) -
+                        new Date(
+                            a.created_at || 0
+                        )
+                );
+
+                setApprovalRequests(
+                    requests
+                );
+
+                // =================================================
+                // CLIENT ERROR
+                // =================================================
+
+                if (
+                    !clientResult?.success
+                ) {
+                    setApprovalError(
+                        clientResult?.message ||
+                            "Unable to fetch pending client requests."
+                    );
                 }
-            ),
 
-            fetch(
-                `${API_BASE}/admin/pending-clients`,
-                {
-                    method: "GET",
-                    headers,
+                // =================================================
+                // NON-BLOCKING WARNINGS
+                // =================================================
+
+                if (
+                    !adminResult?.success
+                ) {
+                    console.warn(
+                        "Admin approval endpoint failed:",
+                        adminResult?.message
+                    );
                 }
-            ),
 
-            fetch(
-                `${API_BASE}/admin/pending-employees`,
-                {
-                    method: "GET",
-                    headers,
+                if (
+                    !employeeResult?.success
+                ) {
+                    console.warn(
+                        "Employee approval endpoint failed:",
+                        employeeResult?.message
+                    );
                 }
-            ),
-        ]);
 
-        // ========================================================
-        // READ RESPONSES
-        // ========================================================
+            } catch (err) {
+                console.error(
+                    "Approval request error:",
+                    err
+                );
 
-        const adminResult =
-            await adminResponse.json();
+                setApprovalError(
+                    err.response?.data?.message ||
+                        err.message ||
+                        "Unable to load approval requests."
+                );
 
-        const clientResult =
-            await clientResponse.json();
+                setApprovalRequests([]);
 
-        const employeeResult =
-            await employeeResponse.json();
-
-        console.log(
-            "Pending admins:",
-            adminResult
-        );
-
-        console.log(
-            "Pending clients:",
-            clientResult
-        );
-
-        console.log(
-            "Pending employees:",
-            employeeResult
-        );
-
-        // ========================================================
-        // ADMIN
-        // ========================================================
-
-        const adminRequests =
-            adminResponse.ok &&
-            adminResult.success &&
-            Array.isArray(
-                adminResult.admins
-            )
-                ? adminResult.admins
-                : [];
-
-        // ========================================================
-        // CLIENT
-        // ========================================================
-
-        const clientRequests =
-            clientResponse.ok &&
-            clientResult.success &&
-            Array.isArray(
-                clientResult.clients
-            )
-                ? clientResult.clients
-                : [];
-
-        // ========================================================
-        // EMPLOYEE
-        //
-        // IMPORTANT:
-        // Employee failure should NOT break client approvals.
-        // ========================================================
-
-        const employeeRequests =
-            employeeResponse.ok &&
-            employeeResult.success &&
-            Array.isArray(
-                employeeResult.employees
-            )
-                ? employeeResult.employees
-                : [];
-
-        // ========================================================
-        // COMBINE ONLY AFTER SEPARATE FETCHES
-        // ========================================================
-
-        const requests = [
-            ...adminRequests,
-            ...clientRequests,
-            ...employeeRequests,
-        ].sort(
-            (a, b) =>
-                new Date(
-                    b.created_at || 0
-                ) -
-                new Date(
-                    a.created_at || 0
-                )
-        );
-
-        setApprovalRequests(
-            requests
-        );
-
-        // ========================================================
-        // SHOW ERROR ONLY IF CLIENT REQUEST FAILED
-        //
-        // Because you are currently working on CLIENT approval,
-        // client failure is the important error.
-        // ========================================================
-
-        if (
-            !clientResponse.ok ||
-            !clientResult.success
-        ) {
-            setApprovalError(
-                clientResult.message ||
-                    "Unable to fetch pending client requests."
-            );
-        }
-
-        // ========================================================
-        // EMPLOYEE ERROR IS LOGGED BUT DOES NOT BREAK CLIENT
-        // ========================================================
-
-        if (
-            !employeeResponse.ok ||
-            !employeeResult.success
-        ) {
-            console.warn(
-                "Employee approval endpoint failed:",
-                employeeResult.message
-            );
-        }
-
-        // ========================================================
-        // ADMIN ERROR IS ALSO NON-BLOCKING
-        // ========================================================
-
-        if (
-            !adminResponse.ok ||
-            !adminResult.success
-        ) {
-            console.warn(
-                "Admin approval endpoint failed:",
-                adminResult.message
-            );
-        }
-
-    } catch (err) {
-        console.error(
-            "Approval request error:",
-            err
-        );
-
-        setApprovalError(
-            err.message ||
-                "Unable to load approval requests."
-        );
-
-        setApprovalRequests([]);
-
-    } finally {
-        setApprovalLoading(false);
-    }
-};
+            } finally {
+                setApprovalLoading(
+                    false
+                );
+            }
+        };
 
     // ============================================================
     // APPROVE REQUEST
     // ============================================================
 
-    const handleApprove = async (
-        request
-    ) => {
-        try {
-            const requestId =
-                request.id;
+    const handleApprove =
+        async (request) => {
+            try {
+                const requestId =
+                    request.id;
 
-            const role =
-                String(
-                    request.role || ""
-                ).toLowerCase();
+                const role =
+                    String(
+                        request.role || ""
+                    ).toLowerCase();
 
-            const actionId =
-                `${role}-${requestId}`;
+                const actionId =
+                    `${role}-${requestId}`;
 
-            setApprovalActionId(
-                actionId
-            );
-
-            setApprovalError("");
-
-            let endpoint = "";
-
-            // ----------------------------------------------------
-            // ADMIN
-            // ----------------------------------------------------
-
-            if (role === "admin") {
-                endpoint =
-                    `${API_BASE}/admin/approve-admin/${requestId}`;
-            }
-
-            // ----------------------------------------------------
-            // CLIENT
-            // ----------------------------------------------------
-
-            else if (
-                role === "client"
-            ) {
-                endpoint =
-                    `${API_BASE}/admin/approve-client/${requestId}`;
-            }
-
-            // ----------------------------------------------------
-            // EMPLOYEE
-            // ----------------------------------------------------
-
-            else if (
-                role === "employee"
-            ) {
-                endpoint =
-                    `${API_BASE}/admin/approve-employee/${requestId}`;
-            }
-
-            else {
-                throw new Error(
-                    `Unsupported approval role: ${role}`
-                );
-            }
-
-            const response =
-                await fetch(
-                    endpoint,
-                    {
-                        method: "PATCH",
-                        headers:
-                            getAuthHeaders(),
-                    }
+                setApprovalActionId(
+                    actionId
                 );
 
-            const result =
-                await response.json();
+                setApprovalError("");
 
-            if (
-                !response.ok ||
-                !result.success
-            ) {
-                throw new Error(
-                    result.message ||
-                        `Unable to approve ${role}.`
-                );
-            }
+                let endpoint = "";
 
-            // Remove from notification list
-            setApprovalRequests(
-                (previous) =>
-                    previous.filter(
-                        (item) =>
-                            !(
-                                String(
-                                    item.id
-                                ) ===
+                // ------------------------------------------------
+                // ADMIN
+                // ------------------------------------------------
+
+                if (
+                    role === "admin"
+                ) {
+                    endpoint =
+                        `/admin/approve-admin/${requestId}`;
+                }
+
+                // ------------------------------------------------
+                // CLIENT
+                // ------------------------------------------------
+
+                else if (
+                    role === "client"
+                ) {
+                    endpoint =
+                        `/admin/approve-client/${requestId}`;
+                }
+
+                // ------------------------------------------------
+                // EMPLOYEE
+                // ------------------------------------------------
+
+                else if (
+                    role === "employee"
+                ) {
+                    endpoint =
+                        `/admin/approve-employee/${requestId}`;
+                }
+
+                else {
+                    throw new Error(
+                        `Unsupported approval role: ${role}`
+                    );
+                }
+
+                // =================================================
+                // API REQUEST
+                // api.js automatically adds Supabase token
+                // =================================================
+
+                const response =
+                    await api.patch(
+                        endpoint
+                    );
+
+                const result =
+                    response.data;
+
+                if (
+                    result?.success === false
+                ) {
+                    throw new Error(
+                        result.message ||
+                            `Unable to approve ${role}.`
+                    );
+                }
+
+                // =================================================
+                // REMOVE FROM NOTIFICATION LIST
+                // =================================================
+
+                setApprovalRequests(
+                    (previous) =>
+                        previous.filter(
+                            (item) =>
+                                !(
                                     String(
-                                        requestId
-                                    ) &&
-                                String(
-                                    item.role ||
-                                        ""
-                                ).toLowerCase() ===
-                                    role
-                            )
-                    )
-            );
+                                        item.id
+                                    ) ===
+                                        String(
+                                            requestId
+                                        ) &&
+                                    String(
+                                        item.role ||
+                                            ""
+                                    ).toLowerCase() ===
+                                        role
+                                )
+                        )
+                );
 
-            // If client was approved,
-            // refresh active tenant dropdown.
-            if (
-                role === "client"
-            ) {
-                await fetchActiveClientTenants();
-                await fetchInitialData();
+                // =================================================
+                // REFRESH CLIENT DATA
+                // =================================================
+
+                if (
+                    role === "client"
+                ) {
+                    await fetchActiveClientTenants();
+                    await fetchInitialData();
+                }
+
+            } catch (err) {
+                console.error(
+                    "Approve request error:",
+                    err
+                );
+
+                setApprovalError(
+                    err.response?.data?.message ||
+                        err.message ||
+                        "Unable to approve request."
+                );
+
+            } finally {
+                setApprovalActionId(
+                    null
+                );
             }
-
-        } catch (err) {
-            console.error(
-                "Approve request error:",
-                err
-            );
-
-            setApprovalError(
-                err.message ||
-                    "Unable to approve request."
-            );
-
-        } finally {
-            setApprovalActionId(
-                null
-            );
-        }
-    };
+        };
 
     // ============================================================
     // REJECT REQUEST
     // ============================================================
 
-    const handleReject = async (
-        request
-    ) => {
-        try {
-            const requestId =
-                request.id;
+    const handleReject =
+        async (request) => {
+            try {
+                const requestId =
+                    request.id;
 
-            const role =
-                String(
-                    request.role || ""
-                ).toLowerCase();
+                const role =
+                    String(
+                        request.role || ""
+                    ).toLowerCase();
 
-            const actionId =
-                `${role}-${requestId}`;
+                const actionId =
+                    `${role}-${requestId}`;
 
-            setApprovalActionId(
-                actionId
-            );
-
-            setApprovalError("");
-
-            let endpoint = "";
-
-            // ----------------------------------------------------
-            // ADMIN
-            // ----------------------------------------------------
-
-            if (role === "admin") {
-                endpoint =
-                    `${API_BASE}/admin/reject-admin/${requestId}`;
-            }
-
-            // ----------------------------------------------------
-            // CLIENT
-            // ----------------------------------------------------
-
-            else if (
-                role === "client"
-            ) {
-                endpoint =
-                    `${API_BASE}/admin/reject-client/${requestId}`;
-            }
-
-            // ----------------------------------------------------
-            // EMPLOYEE
-            // ----------------------------------------------------
-
-            else if (
-                role === "employee"
-            ) {
-                endpoint =
-                    `${API_BASE}/admin/reject-employee/${requestId}`;
-            }
-
-            else {
-                throw new Error(
-                    `Unsupported rejection role: ${role}`
-                );
-            }
-
-            const response =
-                await fetch(
-                    endpoint,
-                    {
-                        method: "PATCH",
-                        headers:
-                            getAuthHeaders(),
-                    }
+                setApprovalActionId(
+                    actionId
                 );
 
-            const result =
-                await response.json();
+                setApprovalError("");
 
-            if (
-                !response.ok ||
-                !result.success
-            ) {
-                throw new Error(
-                    result.message ||
-                        `Unable to reject ${role}.`
-                );
-            }
+                let endpoint = "";
 
-            setApprovalRequests(
-                (previous) =>
-                    previous.filter(
-                        (item) =>
-                            !(
-                                String(
-                                    item.id
-                                ) ===
+                // ------------------------------------------------
+                // ADMIN
+                // ------------------------------------------------
+
+                if (
+                    role === "admin"
+                ) {
+                    endpoint =
+                        `/admin/reject-admin/${requestId}`;
+                }
+
+                // ------------------------------------------------
+                // CLIENT
+                // ------------------------------------------------
+
+                else if (
+                    role === "client"
+                ) {
+                    endpoint =
+                        `/admin/reject-client/${requestId}`;
+                }
+
+                // ------------------------------------------------
+                // EMPLOYEE
+                // ------------------------------------------------
+
+                else if (
+                    role === "employee"
+                ) {
+                    endpoint =
+                        `/admin/reject-employee/${requestId}`;
+                }
+
+                else {
+                    throw new Error(
+                        `Unsupported rejection role: ${role}`
+                    );
+                }
+
+                // =================================================
+                // API REQUEST
+                // =================================================
+
+                const response =
+                    await api.patch(
+                        endpoint
+                    );
+
+                const result =
+                    response.data;
+
+                if (
+                    result?.success === false
+                ) {
+                    throw new Error(
+                        result.message ||
+                            `Unable to reject ${role}.`
+                    );
+                }
+
+                // =================================================
+                // REMOVE REQUEST
+                // =================================================
+
+                setApprovalRequests(
+                    (previous) =>
+                        previous.filter(
+                            (item) =>
+                                !(
                                     String(
-                                        requestId
-                                    ) &&
-                                String(
-                                    item.role ||
-                                        ""
-                                ).toLowerCase() ===
-                                    role
-                            )
-                    )
-            );
+                                        item.id
+                                    ) ===
+                                        String(
+                                            requestId
+                                        ) &&
+                                    String(
+                                        item.role ||
+                                            ""
+                                    ).toLowerCase() ===
+                                        role
+                                )
+                        )
+                );
 
-        } catch (err) {
-            console.error(
-                "Reject request error:",
-                err
-            );
+            } catch (err) {
+                console.error(
+                    "Reject request error:",
+                    err
+                );
 
-            setApprovalError(
-                err.message ||
-                    "Unable to reject request."
-            );
+                setApprovalError(
+                    err.response?.data?.message ||
+                        err.message ||
+                        "Unable to reject request."
+                );
 
-        } finally {
-            setApprovalActionId(
-                null
-            );
-        }
-    };
+            } finally {
+                setApprovalActionId(
+                    null
+                );
+            }
+        };
 
     // ============================================================
     // SEARCH
@@ -981,21 +931,13 @@ const fetchApprovalRequests = async () => {
     return (
         <div className="flex min-h-screen bg-[#0b0f19] text-slate-100 font-sans antialiased">
 
-            {/* ====================================================
-                SIDEBAR
-            ==================================================== */}
-
             <Sidebar />
-
-            {/* ====================================================
-                MAIN
-            ==================================================== */}
 
             <main className="flex-1 min-w-0 flex flex-col overflow-y-auto">
 
-                {/* =================================================
+                {/* ==================================================
                     HEADER
-                ================================================= */}
+                ================================================== */}
 
                 <header className="h-16 px-8 border-b border-slate-800/60 bg-[#0b0f19]/90 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between">
 
@@ -1014,9 +956,9 @@ const fetchApprovalRequests = async () => {
 
                     <div className="flex items-center gap-4">
 
-                        {/* =================================================
+                        {/* ==================================================
                             NOTIFICATIONS
-                        ================================================= */}
+                        ================================================== */}
 
                         <div className="relative">
 
@@ -1052,27 +994,22 @@ const fetchApprovalRequests = async () => {
                                 )}
                             </button>
 
-                            {/* =================================================
-                                NOTIFICATION DROPDOWN
-                            ================================================= */}
+                            {/* ==================================================
+                                DROPDOWN
+                            ================================================== */}
 
                             {showNotifications && (
                                 <div className="absolute right-0 top-12 w-[400px] bg-[#111627] border border-slate-700/70 rounded-2xl shadow-2xl overflow-hidden z-50">
-
-                                    {/* HEADER */}
 
                                     <div className="px-4 py-4 border-b border-slate-800 flex items-center justify-between">
 
                                         <div className="flex items-center gap-3">
 
                                             <div className="w-9 h-9 rounded-xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center">
-
                                                 <Bell className="h-4 w-4 text-indigo-400" />
-
                                             </div>
 
                                             <div>
-
                                                 <h3 className="text-sm font-bold text-slate-100">
                                                     Notifications
                                                 </h3>
@@ -1080,7 +1017,6 @@ const fetchApprovalRequests = async () => {
                                                 <p className="text-[10px] text-slate-500 mt-0.5">
                                                     Pending approval requests
                                                 </p>
-
                                             </div>
 
                                         </div>
@@ -1107,8 +1043,6 @@ const fetchApprovalRequests = async () => {
 
                                     </div>
 
-                                    {/* SUMMARY */}
-
                                     {!approvalLoading &&
                                         approvalRequests.length >
                                             0 && (
@@ -1117,7 +1051,6 @@ const fetchApprovalRequests = async () => {
                                                 <div className="grid grid-cols-3 gap-2">
 
                                                     <div className="rounded-lg bg-indigo-600/10 border border-indigo-500/20 px-2 py-2 text-center">
-
                                                         <p className="text-[9px] text-indigo-300">
                                                             Admin
                                                         </p>
@@ -1127,11 +1060,9 @@ const fetchApprovalRequests = async () => {
                                                                 pendingAdminCount
                                                             }
                                                         </p>
-
                                                     </div>
 
                                                     <div className="rounded-lg bg-emerald-600/10 border border-emerald-500/20 px-2 py-2 text-center">
-
                                                         <p className="text-[9px] text-emerald-300">
                                                             Client
                                                         </p>
@@ -1141,11 +1072,9 @@ const fetchApprovalRequests = async () => {
                                                                 pendingClientCount
                                                             }
                                                         </p>
-
                                                     </div>
 
                                                     <div className="rounded-lg bg-cyan-600/10 border border-cyan-500/20 px-2 py-2 text-center">
-
                                                         <p className="text-[9px] text-cyan-300">
                                                             Employee
                                                         </p>
@@ -1155,7 +1084,6 @@ const fetchApprovalRequests = async () => {
                                                                 pendingEmployeeCount
                                                             }
                                                         </p>
-
                                                     </div>
 
                                                 </div>
@@ -1163,15 +1091,11 @@ const fetchApprovalRequests = async () => {
                                             </div>
                                         )}
 
-                                    {/* ERROR */}
-
                                     {approvalError && (
                                         <div className="mx-3 mt-3 px-3 py-2 rounded-lg bg-red-950/40 border border-red-800/50 text-red-300 text-[10px]">
                                             {approvalError}
                                         </div>
                                     )}
-
-                                    {/* LOADING */}
 
                                     {approvalLoading ? (
                                         <div className="py-10 flex flex-col items-center justify-center">
@@ -1188,9 +1112,7 @@ const fetchApprovalRequests = async () => {
                                         <div className="py-10 flex flex-col items-center justify-center px-6 text-center">
 
                                             <div className="w-10 h-10 rounded-xl bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center">
-
                                                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-
                                             </div>
 
                                             <p className="text-xs font-bold text-slate-200 mt-3">
@@ -1241,8 +1163,6 @@ const fetchApprovalRequests = async () => {
                                                             key={`${role}-${requestId}`}
                                                             className="px-4 py-4 border-b border-slate-800/70 hover:bg-slate-800/30 transition"
                                                         >
-
-                                                            {/* USER */}
 
                                                             <div className="flex items-start gap-3">
 
@@ -1311,8 +1231,6 @@ const fetchApprovalRequests = async () => {
 
                                                             </div>
 
-                                                            {/* ACTIONS */}
-
                                                             <div className="flex gap-2 mt-3 ml-12">
 
                                                                 <button
@@ -1376,17 +1294,13 @@ const fetchApprovalRequests = async () => {
 
                         </div>
 
-                        {/* =================================================
-                            TENANT LABEL
-                        ================================================= */}
+                        {/* ==================================================
+                            TENANT
+                        ================================================== */}
 
                         <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
                             Active Client Tenant
                         </span>
-
-                        {/* =================================================
-                            TENANT DROPDOWN
-                        ================================================= */}
 
                         <div className="relative">
 
@@ -1438,13 +1352,11 @@ const fetchApprovalRequests = async () => {
 
                 </header>
 
-                {/* ====================================================
+                {/* ==================================================
                     CONTENT
-                ==================================================== */}
+                ================================================== */}
 
                 <div className="p-8 space-y-6 max-w-[1600px] mx-auto w-full">
-
-                    {/* ERROR */}
 
                     {error && (
                         <div className="bg-red-950/40 border border-red-800/50 text-red-300 px-4 py-3 rounded-xl text-xs">
@@ -1452,13 +1364,11 @@ const fetchApprovalRequests = async () => {
                         </div>
                     )}
 
-                    {/* =================================================
-                        SUMMARY CARDS
-                    ================================================= */}
+                    {/* ==================================================
+                        SUMMARY
+                    ================================================== */}
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-                        {/* TOTAL CLIENTS */}
 
                         <div className="bg-[#111627] border border-slate-800/80 rounded-2xl p-5 shadow-sm">
 
@@ -1488,8 +1398,6 @@ const fetchApprovalRequests = async () => {
 
                         </div>
 
-                        {/* ACTIVE CLIENTS */}
-
                         <div className="bg-[#111627] border border-slate-800/80 rounded-2xl p-5 shadow-sm">
 
                             <div className="flex items-center justify-between">
@@ -1517,8 +1425,6 @@ const fetchApprovalRequests = async () => {
                             </div>
 
                         </div>
-
-                        {/* RECORDS */}
 
                         <div className="bg-[#111627] border border-slate-800/80 rounded-2xl p-5 shadow-sm">
 
@@ -1550,9 +1456,9 @@ const fetchApprovalRequests = async () => {
 
                     </div>
 
-                    {/* =================================================
+                    {/* ==================================================
                         CLIENT REGISTRY
-                    ================================================= */}
+                    ================================================== */}
 
                     <div className="bg-[#111627] border border-slate-800/80 rounded-2xl p-6 space-y-6 shadow-sm">
 
@@ -1572,8 +1478,6 @@ const fetchApprovalRequests = async () => {
                                 </p>
 
                             </div>
-
-                            {/* SEARCH */}
 
                             <div className="relative w-full md:w-80">
 
@@ -1596,8 +1500,6 @@ const fetchApprovalRequests = async () => {
                             </div>
 
                         </div>
-
-                        {/* TABLE */}
 
                         <div className="overflow-x-auto">
 
@@ -1656,6 +1558,7 @@ const fetchApprovalRequests = async () => {
 
                                             </td>
                                         </tr>
+
                                     ) : filteredClients.length ===
                                       0 ? (
                                         <tr>
@@ -1680,6 +1583,7 @@ const fetchApprovalRequests = async () => {
 
                                             </td>
                                         </tr>
+
                                     ) : (
                                         filteredClients.map(
                                             (
@@ -1697,9 +1601,11 @@ const fetchApprovalRequests = async () => {
                                                         <div className="flex items-center gap-3">
 
                                                             <div className="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0">
+
                                                                 {getInitials(
                                                                     client.company_name
                                                                 )}
+
                                                             </div>
 
                                                             <div>
