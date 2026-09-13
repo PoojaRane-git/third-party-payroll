@@ -108,22 +108,21 @@ export default function Unassigned() {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError("");
+const fetchData = async () => {
+  try {
+    setLoading(true);
+    setError("");
 
-     // after
-const [candidatesResponse, deploymentsResponse, clientsResponse] =
-  await Promise.all([
-    api.get(`/candidates`),
-    api.get(`/deployments`),
-    api.get(`/clients`),
-  ]);
+    const [candidatesResponse, deploymentsResponse, clientsResponse] =
+      await Promise.all([
+        api.get(`/candidates`),
+        api.get(`/deployments`),
+        api.get(`/clients`),
+      ]);
 
-const candidatesData = candidatesResponse.data;
-const deploymentsData = deploymentsResponse.data;
-const clientsData = clientsResponse.data;
+    const candidatesData = candidatesResponse.data;
+    const deploymentsData = deploymentsResponse.data;
+    const clientsData = clientsResponse.data;
 
 if (!candidatesResponse.ok) {
   throw new Error(candidatesData?.error || candidatesData?.message || "Failed to fetch employees");
@@ -138,16 +137,13 @@ if (!clientsResponse.ok) {
       // CANDIDATES
       // =====================================================
 
-      const candidateList =
-        Array.isArray(candidatesData)
-          ? candidatesData
-          : Array.isArray(candidatesData?.data)
-          ? candidatesData.data
-          : Array.isArray(
-              candidatesData?.candidates
-            )
-          ? candidatesData.candidates
-          : [];
+       const candidateList = Array.isArray(candidatesData)
+      ? candidatesData
+      : Array.isArray(candidatesData?.data)
+      ? candidatesData.data
+      : Array.isArray(candidatesData?.candidates)
+      ? candidatesData.candidates
+      : [];
 
       // =====================================================
       // DEPLOYMENTS
@@ -183,23 +179,20 @@ if (!clientsResponse.ok) {
       setDeployments(deploymentList);
       setClients(clientList);
     } catch (err) {
-      console.error(
-        "UNASSIGNED EMPLOYEES ERROR:",
-        err
-      );
-
-      setError(
+    console.error("UNASSIGNED EMPLOYEES ERROR:", err);
+    setError(
+      err?.response?.data?.message ||
+        err?.response?.data?.error ||
         err?.message ||
-          "Failed to load employees"
-      );
-
-      setCandidates([]);
-      setDeployments([]);
-      setClients([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+        "Failed to load employees"
+    );
+    setCandidates([]);
+    setDeployments([]);
+    setClients([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // =========================================================
   // EMPLOYEE ID
