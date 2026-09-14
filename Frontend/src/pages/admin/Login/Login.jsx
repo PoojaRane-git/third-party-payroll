@@ -1,3 +1,4 @@
+
 import React, {
     useState,
 } from "react";
@@ -39,6 +40,7 @@ const ADMIN_EMAIL = String(
     .toLowerCase();
 
 function Login() {
+
     const navigate = useNavigate();
 
     const {
@@ -58,6 +60,24 @@ function Login() {
         password,
         setPassword,
     ] = useState("");
+
+    // =====================================================
+    // SHOW PASSWORD
+    // =====================================================
+
+    const [
+        showPassword,
+        setShowPassword,
+    ] = useState(false);
+
+    // =====================================================
+    // KEEP LOGIN
+    // =====================================================
+
+    const [
+        rememberMe,
+        setRememberMe,
+    ] = useState(true);
 
     // =====================================================
     // OTP
@@ -97,6 +117,7 @@ function Login() {
     // =====================================================
 
     const clearLoginData = () => {
+
         localStorage.removeItem(
             "access_token"
         );
@@ -124,16 +145,16 @@ function Login() {
 
     // =====================================================
     // RECORD SUCCESSFUL LOGIN
-    //
-    // IMPORTANT:
-    // This is called ONLY after OTP verification succeeds.
     // =====================================================
 
     const recordLoginLog = async (
         accessToken
     ) => {
+
         try {
+
             if (!accessToken) {
+
                 console.warn(
                     "LOGIN LOG SKIPPED: No access token."
                 );
@@ -168,6 +189,7 @@ function Login() {
                 !response.ok ||
                 result.success !== true
             ) {
+
                 console.error(
                     "LOGIN LOG FAILED:",
                     result
@@ -184,6 +206,7 @@ function Login() {
             return true;
 
         } catch (error) {
+
             console.error(
                 "LOGIN LOG ERROR:",
                 error
@@ -200,12 +223,14 @@ function Login() {
     const handleLogin = async (
         e
     ) => {
+
         e.preventDefault();
 
         setError("");
         setLoading(true);
 
         try {
+
             // =================================================
             // CLEAN INPUT
             // =================================================
@@ -216,12 +241,14 @@ function Login() {
                     .toLowerCase();
 
             if (!cleanEmail) {
+
                 throw new Error(
                     "Please enter your email."
                 );
             }
 
             if (!password) {
+
                 throw new Error(
                     "Please enter your password."
                 );
@@ -245,6 +272,7 @@ function Login() {
                     });
 
             if (authError) {
+
                 console.error(
                     "Supabase login error:",
                     authError
@@ -266,6 +294,7 @@ function Login() {
                 !session ||
                 !authUser
             ) {
+
                 throw new Error(
                     "Login failed. No session was created."
                 );
@@ -321,6 +350,7 @@ function Login() {
                 !response.ok ||
                 result.success !== true
             ) {
+
                 await supabase.auth
                     .signOut();
 
@@ -336,6 +366,7 @@ function Login() {
                 result.user;
 
             if (!user) {
+
                 await supabase.auth
                     .signOut();
 
@@ -357,6 +388,17 @@ function Login() {
                     .trim()
                     .toLowerCase();
 
+            // =================================================
+            // STATUS
+            // =================================================
+
+            const status =
+                String(
+                    user.status || ""
+                )
+                    .trim()
+                    .toLowerCase();
+
             const profileEmail =
                 String(
                     user.email ||
@@ -374,6 +416,11 @@ function Login() {
             console.log(
                 "LOGIN ROLE:",
                 role
+            );
+
+            console.log(
+                "LOGIN STATUS:",
+                status
             );
 
             // =================================================
@@ -400,6 +447,11 @@ function Login() {
             );
 
             console.log(
+                "Status:",
+                status
+            );
+
+            console.log(
                 "Email Match:",
                 profileEmail ===
                     ADMIN_EMAIL
@@ -419,6 +471,7 @@ function Login() {
                 role !== "client" &&
                 role !== "employee"
             ) {
+
                 await supabase.auth
                     .signOut();
 
@@ -435,9 +488,9 @@ function Login() {
 
             if (
                 role === "superadmin" &&
-                profileEmail !==
-                    ADMIN_EMAIL
+                profileEmail !== ADMIN_EMAIL
             ) {
+
                 await supabase.auth
                     .signOut();
 
@@ -484,6 +537,7 @@ function Login() {
                 !otpResponse.ok ||
                 otpResult.success !== true
             ) {
+
                 await supabase.auth
                     .signOut();
 
@@ -513,6 +567,7 @@ function Login() {
             setOtpStep(true);
 
         } catch (err) {
+
             console.error(
                 "LOGIN ERROR:",
                 err
@@ -524,6 +579,7 @@ function Login() {
             );
 
         } finally {
+
             setLoading(false);
         }
     };
@@ -541,6 +597,7 @@ function Login() {
             setOtpLoading(true);
 
             try {
+
                 // =================================================
                 // CLEAN OTP
                 // =================================================
@@ -553,6 +610,7 @@ function Login() {
                         cleanOtp
                     )
                 ) {
+
                     throw new Error(
                         "Please enter the 6-digit OTP."
                     );
@@ -570,6 +628,7 @@ function Login() {
                         .getSession();
 
                 if (sessionError) {
+
                     throw new Error(
                         sessionError.message ||
                             "Unable to get login session."
@@ -580,6 +639,7 @@ function Login() {
                     sessionData?.session;
 
                 if (!session) {
+
                     throw new Error(
                         "Your login session has expired. Please login again."
                     );
@@ -631,6 +691,7 @@ function Login() {
                     !response.ok ||
                     result.success !== true
                 ) {
+
                     throw new Error(
                         result.message ||
                             "OTP verification failed."
@@ -647,6 +708,7 @@ function Login() {
                 if (
                     !authenticatedUser
                 ) {
+
                     throw new Error(
                         "Authenticated user profile was not returned by server."
                     );
@@ -670,6 +732,28 @@ function Login() {
                         .toLowerCase();
 
                 // =================================================
+                // STATUS
+                // =================================================
+
+                const status =
+                    String(
+                        authenticatedUser.status ||
+                            ""
+                    )
+                        .trim()
+                        .toLowerCase();
+
+                console.log(
+                    "AUTHENTICATED ROLE:",
+                    role
+                );
+
+                console.log(
+                    "AUTHENTICATED STATUS:",
+                    status
+                );
+
+                // =================================================
                 // ALLOWED ROLE CHECK
                 // =================================================
 
@@ -679,6 +763,7 @@ function Login() {
                     role !== "client" &&
                     role !== "employee"
                 ) {
+
                     await supabase.auth
                         .signOut();
 
@@ -696,6 +781,7 @@ function Login() {
                 if (
                     role === "superadmin"
                 ) {
+
                     const authenticatedEmail =
                         String(
                             authenticatedUser.email ||
@@ -708,6 +794,7 @@ function Login() {
                         authenticatedEmail !==
                         ADMIN_EMAIL
                     ) {
+
                         await supabase.auth
                             .signOut();
 
@@ -720,10 +807,156 @@ function Login() {
                 }
 
                 // =================================================
+                // ⭐ APPROVAL CHECK
+                //
+                // CLIENT / EMPLOYEE / ADMIN
+                // MUST BE APPROVED BY SUPER ADMIN
+                //
+                // Pending users can complete:
+                //
+                // Password → OTP
+                //
+                // But they CANNOT enter dashboard.
+                // =================================================
+
+                if (
+                    (
+                        role === "client" ||
+                        role === "employee" ||
+                        role === "admin"
+                    ) &&
+                    status === "pending"
+                ) {
+
+                    console.log(
+                        "⏳ ACCOUNT PENDING SUPER ADMIN APPROVAL"
+                    );
+
+                    // Save user so Unauthorized page /
+                    // AuthProvider knows the authenticated user.
+                    login(
+                        authenticatedUser
+                    );
+
+                    localStorage.setItem(
+                        "user",
+                        JSON.stringify(
+                            authenticatedUser
+                        )
+                    );
+
+                    localStorage.setItem(
+                        "access_token",
+                        session.access_token
+                    );
+
+                    localStorage.setItem(
+                        "pending_approval",
+                        "true"
+                    );
+
+                    // -------------------------------------------------
+                    // Record login if possible.
+                    // Failure should NOT block the message.
+                    // -------------------------------------------------
+
+                    const loginLogged =
+                        await recordLoginLog(
+                            session.access_token
+                        );
+
+                    if (!loginLogged) {
+
+                        console.warn(
+                            "Pending account login could not be recorded."
+                        );
+                    }
+
+                    // -------------------------------------------------
+                    // GO TO APPROVAL PAGE
+                    // -------------------------------------------------
+
+                    navigate(
+                        "/unauthorized",
+                        {
+                            replace: true,
+
+                            state: {
+                                reason:
+                                    "PENDING_APPROVAL",
+
+                                message:
+                                    `Your ${role} account is waiting for Super Admin approval.`,
+                            },
+                        }
+                    );
+
+                    return;
+                }
+
+                // =================================================
+                // REJECTED / DISABLED
+                // =================================================
+
+                if (
+                    (
+                        role === "client" ||
+                        role === "employee" ||
+                        role === "admin"
+                    ) &&
+                    (
+                        status === "rejected" ||
+                        status === "disabled"
+                    )
+                ) {
+
+                    console.log(
+                        "❌ ACCOUNT REJECTED / DISABLED"
+                    );
+
+                    login(
+                        authenticatedUser
+                    );
+
+                    localStorage.setItem(
+                        "user",
+                        JSON.stringify(
+                            authenticatedUser
+                        )
+                    );
+
+                    localStorage.setItem(
+                        "access_token",
+                        session.access_token
+                    );
+
+                    navigate(
+                        "/unauthorized",
+                        {
+                            replace: true,
+
+                            state: {
+                                reason:
+                                    "ACCOUNT_INACTIVE",
+
+                                message:
+                                    `Your ${role} account is ${status}. Please contact the administrator.`,
+                            },
+                        }
+                    );
+
+                    return;
+                }
+
+                // =================================================
                 // CLEAR OLD APPLICATION DATA
                 // =================================================
 
                 clearLoginData();
+
+                localStorage.removeItem(
+                    "pending_approval"
+                );
 
                 // =================================================
                 // SAVE CURRENT SESSION
@@ -758,6 +991,7 @@ function Login() {
                 if (
                     authenticatedUser.client_id
                 ) {
+
                     localStorage.setItem(
                         "client_id",
                         String(
@@ -773,6 +1007,7 @@ function Login() {
                 if (
                     authenticatedUser.employee_id
                 ) {
+
                     localStorage.setItem(
                         "employee_id",
                         String(
@@ -790,18 +1025,7 @@ function Login() {
                 );
 
                 // =================================================
-                // ⭐ RECORD SUCCESSFUL LOGIN
-                //
-                // This happens AFTER:
-                //
-                // 1. Password authentication
-                // 2. Profile verification
-                // 3. OTP verification
-                //
-                // Therefore this represents a successful login.
-                //
-                // If logging fails, the user is STILL allowed
-                // to continue into the application.
+                // RECORD SUCCESSFUL LOGIN
                 // =================================================
 
                 const loginLogged =
@@ -810,6 +1034,7 @@ function Login() {
                     );
 
                 if (!loginLogged) {
+
                     console.warn(
                         "Login succeeded, but login activity could not be recorded."
                     );
@@ -823,6 +1048,7 @@ function Login() {
                     role === "superadmin" ||
                     role === "admin"
                 ) {
+
                     navigate(
                         "/admindashboard",
                         {
@@ -836,6 +1062,7 @@ function Login() {
                 if (
                     role === "client"
                 ) {
+
                     navigate(
                         "/client-dashboard",
                         {
@@ -849,6 +1076,7 @@ function Login() {
                 if (
                     role === "employee"
                 ) {
+
                     navigate(
                         "/employee-portal",
                         {
@@ -873,6 +1101,7 @@ function Login() {
                 );
 
             } catch (err) {
+
                 console.error(
                     "OTP VERIFICATION ERROR:",
                     err
@@ -884,6 +1113,7 @@ function Login() {
                 );
 
             } finally {
+
                 setOtpLoading(false);
             }
         };
@@ -900,6 +1130,10 @@ function Login() {
 
             clearLoginData();
 
+            localStorage.removeItem(
+                "pending_approval"
+            );
+
             setOtp("");
 
             setOtpStep(false);
@@ -912,6 +1146,7 @@ function Login() {
     // =====================================================
 
     return (
+
         <div
             className="
                 min-h-screen
@@ -922,6 +1157,7 @@ function Login() {
                 px-4
             "
         >
+
             <div
                 className="
                     w-full
@@ -943,6 +1179,7 @@ function Login() {
                         mb-8
                     "
                 >
+
                     <h1
                         className="
                             text-3xl
@@ -963,6 +1200,7 @@ function Login() {
                             ? "Verify your email"
                             : "Login to your account"}
                     </p>
+
                 </div>
 
                 {/* =================================================
@@ -970,6 +1208,7 @@ function Login() {
                 ================================================= */}
 
                 {error && (
+
                     <div
                         className="
                             mb-5
@@ -985,6 +1224,7 @@ function Login() {
                     >
                         {error}
                     </div>
+
                 )}
 
                 {/* =================================================
@@ -1005,6 +1245,7 @@ function Login() {
                         {/* EMAIL */}
 
                         <div>
+
                             <label
                                 className="
                                     block
@@ -1044,11 +1285,13 @@ function Login() {
                                     disabled:bg-gray-100
                                 "
                             />
+
                         </div>
 
                         {/* PASSWORD */}
 
                         <div>
+
                             <label
                                 className="
                                     block
@@ -1061,33 +1304,108 @@ function Login() {
                                 Password
                             </label>
 
+                            <div className="relative">
+
+                                <input
+                                    type={
+                                        showPassword
+                                            ? "text"
+                                            : "password"
+                                    }
+                                    value={password}
+                                    onChange={(e) =>
+                                        setPassword(
+                                            e.target.value
+                                        )
+                                    }
+                                    placeholder="Enter your password"
+                                    autoComplete="current-password"
+                                    disabled={
+                                        loading
+                                    }
+                                    className="
+                                        w-full
+                                        rounded-lg
+                                        border
+                                        border-gray-300
+                                        px-4
+                                        py-3
+                                        pr-20
+                                        outline-none
+                                        focus:border-blue-500
+                                        focus:ring-2
+                                        focus:ring-blue-100
+                                        disabled:bg-gray-100
+                                    "
+                                />
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowPassword(
+                                            (prev) =>
+                                                !prev
+                                        )
+                                    }
+                                    disabled={
+                                        loading
+                                    }
+                                    className="
+                                        absolute
+                                        right-3
+                                        top-1/2
+                                        -translate-y-1/2
+                                        text-sm
+                                        font-medium
+                                        text-blue-600
+                                        hover:text-blue-700
+                                    "
+                                >
+                                    {showPassword
+                                        ? "Hide"
+                                        : "Show"}
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                        {/* KEEP ME LOGGED IN */}
+
+                        <div className="flex items-center">
+
                             <input
-                                type="password"
-                                value={password}
+                                id="rememberMe"
+                                type="checkbox"
+                                checked={
+                                    rememberMe
+                                }
                                 onChange={(e) =>
-                                    setPassword(
-                                        e.target.value
+                                    setRememberMe(
+                                        e.target.checked
                                     )
                                 }
-                                placeholder="Enter your password"
-                                autoComplete="current-password"
-                                disabled={
-                                    loading
-                                }
                                 className="
-                                    w-full
-                                    rounded-lg
-                                    border
+                                    h-4
+                                    w-4
+                                    rounded
                                     border-gray-300
-                                    px-4
-                                    py-3
-                                    outline-none
-                                    focus:border-blue-500
-                                    focus:ring-2
-                                    focus:ring-blue-100
-                                    disabled:bg-gray-100
+                                    text-blue-600
+                                    focus:ring-blue-500
                                 "
                             />
+
+                            <label
+                                htmlFor="rememberMe"
+                                className="
+                                    ml-2
+                                    text-sm
+                                    text-gray-600
+                                "
+                            >
+                                Keep me logged in
+                            </label>
+
                         </div>
 
                         {/* LOGIN */}
@@ -1193,6 +1511,7 @@ function Login() {
                         {/* OTP INPUT */}
 
                         <div>
+
                             <label
                                 className="
                                     block
@@ -1245,6 +1564,7 @@ function Login() {
                                     disabled:bg-gray-100
                                 "
                             />
+
                         </div>
 
                         {/* VERIFY */}
@@ -1294,6 +1614,7 @@ function Login() {
                         </button>
 
                     </form>
+
                 )}
 
                 {/* =================================================
@@ -1360,11 +1681,14 @@ function Login() {
                         </div>
 
                     </div>
+
                 )}
 
             </div>
+
         </div>
     );
 }
 
 export default Login;
+
