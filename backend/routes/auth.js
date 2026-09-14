@@ -283,6 +283,13 @@ router.get(
                     authUserId
                 );
 
+            console.log("========== /api/auth/me ==========");
+            console.log("Auth User ID:", authUserId);
+            console.log("Auth Email:", authEmail);
+            console.log("Profile Result:", result);
+            console.log("Detected Role:", result?.role);
+            console.log("==================================");
+
             if (!result) {
 
                 return res.status(403).json({
@@ -320,6 +327,15 @@ router.get(
             // ==================================================
 
             if (role === "superadmin") {
+
+                console.log("========== SUPERADMIN CHECK ==========");
+                console.log("Profile Email:", profileEmail);
+                console.log("Configured ADMIN_EMAIL:", SUPER_ADMIN_EMAIL);
+                console.log(
+                    "Email Match:",
+                    profileEmail === SUPER_ADMIN_EMAIL
+                );
+                console.log("======================================");
 
                 if (
                     !isAuthorizedSuperAdmin(
@@ -1161,7 +1177,7 @@ router.post(
                 .from("login_otps")
                 .update({ verified: true })
                 .eq("id", otpRecord.id);
- 
+
 
             if (verifyError) {
 
@@ -1190,12 +1206,12 @@ router.post(
             // EVERY login, not just once at signup.
             // superadmin is exempt.
             // ==================================================
- 
+
             const { createLoginRequestIfNeeded } =
                 require("./loginRequests");
- 
+
             let loginRequest = null;
- 
+
             try {
                 loginRequest = await createLoginRequestIfNeeded({
                     userId: authUserId,
@@ -1208,7 +1224,7 @@ router.post(
                     message: "Unable to create login approval request.",
                 });
             }
- 
+
             if (loginRequest) {
                 // Approval required — do NOT return responseUser yet.
                 return res.status(200).json({
@@ -1571,8 +1587,8 @@ router.post(
 
                         service_fee:
                             service_fee === "" ||
-                            service_fee === null ||
-                            service_fee === undefined
+                                service_fee === null ||
+                                service_fee === undefined
                                 ? null
                                 : Number(
                                     service_fee
@@ -3384,7 +3400,7 @@ router.post(
 
             const forwardedFor =
                 req.headers[
-                    "x-forwarded-for"
+                "x-forwarded-for"
                 ];
 
             const ipAddress =
@@ -3402,7 +3418,7 @@ router.post(
 
             const userAgent =
                 req.headers[
-                    "user-agent"
+                "user-agent"
                 ] || null;
 
             // ==================================================
