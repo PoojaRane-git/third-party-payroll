@@ -22,10 +22,10 @@ export default function Unauthorized() {
                 </p>
 
                 <button
-                    onClick={() => navigate(-1)}
+                    onClick={() => navigate("/login")}
                     className="mt-6 rounded-lg bg-slate-900 px-6 py-3 text-white hover:bg-slate-800 transition"
                 >
-                    Go Back
+                    Go to Login
                 </button>
 
             </div>
