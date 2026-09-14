@@ -324,7 +324,7 @@ router.get(
 router.get(
     "/pending",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const {
@@ -393,7 +393,7 @@ router.get(
 router.patch(
     "/:id/approve",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const id = Number(req.params.id);
@@ -550,7 +550,7 @@ router.patch(
 router.patch(
     "/:id/reject",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const id = Number(req.params.id);
