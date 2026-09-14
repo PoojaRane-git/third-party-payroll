@@ -22,8 +22,7 @@ import Sidebar from "../Layout/Sidebar";
 
 import EmployeeCreateAccountModal
   from "./EmployeeCreateAccountModal";
-
-const API_BASE = "http://localhost:5000/api";
+import api from "../../services/api";
 
 // ============================================================
 // ACTIVE DEPLOYMENT STATUSES
@@ -389,287 +388,254 @@ function EmployeeDeployment() {
   // ==========================================================
 
   const fetchAll = async () => {
-    setLoading(true);
-    setError("");
+  setLoading(true);
+  setError("");
 
-    try {
-      const [
-        depRes,
-        clientRes,
-        candRes,
-        accountRes,
-      ] = await Promise.all([
-        fetch(`${API_BASE}/deployments`),
-        fetch(`${API_BASE}/clients`),
-        fetch(`${API_BASE}/candidates`),
-        fetch(`${API_BASE}/employee-users`),
-      ]);
-
-      const depData = await depRes
-        .json()
-        .catch(() => ({}));
-
-      const clientData = await clientRes
-        .json()
-        .catch(() => ({}));
-
-      const candData = await candRes
-        .json()
-        .catch(() => ({}));
-
-      const accountData = await accountRes
-        .json()
-        .catch(() => ({}));
-
-      if (!depRes.ok) {
-        throw new Error(
-          depData?.message ||
-          "Failed to fetch deployments"
-        );
-      }
-
-      if (!clientRes.ok) {
-        throw new Error(
-          clientData?.message ||
-          "Failed to fetch clients"
-        );
-      }
-
-      if (!candRes.ok) {
-        throw new Error(
-          candData?.message ||
-          "Failed to fetch candidates"
-        );
-      }
-
-      if (!accountRes.ok) {
+  try {
+    const [
+      depRes,
+      clientRes,
+      candRes,
+      accountRes,
+    ] = await Promise.all([
+      api.get("/deployments"),
+      api.get("/clients"),
+      api.get("/candidates"),
+      api.get("/employee-users").catch((err) => {
         console.warn(
           "Employee accounts could not be loaded:",
-          accountData?.message
+          err?.response?.data?.message || err?.message
         );
-      }
 
-      const rawDepList = getResponseList(
-        depData,
-        ["deployments", "deployment"]
-      );
+        return {
+          data: [],
+          ok: false,
+        };
+      }),
+    ]);
 
-      const clientList = getResponseList(
-        clientData,
-        ["clients", "client"]
-      );
+    const depData = depRes.data;
+    const clientData = clientRes.data;
+    const candData = candRes.data;
+    const accountData = accountRes.data;
 
-      const candList = getResponseList(
-        candData,
-        ["candidates", "candidate"]
-      );
+    const rawDepList = getResponseList(
+      depData,
+      ["deployments", "deployment"]
+    );
 
-      const accountList = accountRes.ok
-        ? getResponseList(
-            accountData,
-            [
-              "employee_users",
-              "employeeUsers",
-              "accounts",
-            ]
-          )
-        : [];
+    const clientList = getResponseList(
+      clientData,
+      ["clients", "client"]
+    );
 
-      // ======================================================
-      // NORMALIZE DEPLOYMENTS
-      // ======================================================
+    const candList = getResponseList(
+      candData,
+      ["candidates", "candidate"]
+    );
 
-      const normalizedDeployments =
-        rawDepList.map((deployment) => {
-          const nestedCandidate =
-            deployment.candidate ||
-            deployment.candidates ||
-            deployment.employee ||
-            {};
+    const accountList = getResponseList(
+      accountData,
+      [
+        "employee_users",
+        "employeeUsers",
+        "accounts",
+      ]
+    );
 
-          const candidateId =
-            deployment.candidate_id ??
-            deployment.employee_id ??
-            deployment.candidateId ??
-            nestedCandidate.id ??
-            null;
+    // ======================================================
+    // NORMALIZE DEPLOYMENTS
+    // ======================================================
 
-          const candidateFromList =
-            candList.find(
-              (candidate) =>
-                Number(candidate.id) ===
-                Number(candidateId)
-            ) || {};
+    const normalizedDeployments =
+      rawDepList.map((deployment) => {
+        const nestedCandidate =
+          deployment.candidate ||
+          deployment.candidates ||
+          deployment.employee ||
+          {};
 
-          const nestedClient =
-            deployment.client ||
-            deployment.clients ||
-            {};
+        const candidateId =
+          deployment.candidate_id ??
+          deployment.employee_id ??
+          deployment.candidateId ??
+          nestedCandidate.id ??
+          null;
 
-          const clientId =
-            deployment.client_id ??
-            deployment.clientId ??
-            nestedClient.id ??
-            null;
+        const candidateFromList =
+          candList.find(
+            (candidate) =>
+              Number(candidate.id) ===
+              Number(candidateId)
+          ) || {};
 
-          const clientFromList =
-            clientList.find(
-              (client) =>
-                Number(client.id) ===
-                Number(clientId)
-            ) || {};
+        const nestedClient =
+          deployment.client ||
+          deployment.clients ||
+          {};
 
-          const nestedContract =
-            deployment.contract ||
-            deployment.client_contract ||
-            deployment.client_contracts ||
-            {};
+        const clientId =
+          deployment.client_id ??
+          deployment.clientId ??
+          nestedClient.id ??
+          null;
 
-          return {
-            ...deployment,
+        const clientFromList =
+          clientList.find(
+            (client) =>
+              Number(client.id) ===
+              Number(clientId)
+          ) || {};
 
-            // Candidate
-            candidate_id: candidateId,
+        const nestedContract =
+          deployment.contract ||
+          deployment.client_contract ||
+          deployment.client_contracts ||
+          {};
 
-            employee_name:
-              deployment.employee_name ||
-              deployment.full_name ||
-              nestedCandidate.full_name ||
-              candidateFromList.full_name ||
-              "Unknown Employee",
+        return {
+          ...deployment,
 
-            email:
-              deployment.email ||
-              nestedCandidate.email ||
-              candidateFromList.email ||
-              null,
+          candidate_id: candidateId,
 
-            phone:
-              deployment.phone ||
-              nestedCandidate.phone ||
-              candidateFromList.phone ||
-              null,
+          employee_name:
+            deployment.employee_name ||
+            deployment.full_name ||
+            nestedCandidate.full_name ||
+            candidateFromList.full_name ||
+            "Unknown Employee",
 
-            designation:
-              deployment.designation ||
-              nestedCandidate.designation ||
-              candidateFromList.designation ||
-              null,
+          email:
+            deployment.email ||
+            nestedCandidate.email ||
+            candidateFromList.email ||
+            null,
 
-            // Client
-            client_id: clientId,
+          phone:
+            deployment.phone ||
+            nestedCandidate.phone ||
+            candidateFromList.phone ||
+            null,
 
-            company_name:
-              deployment.company_name ||
-              nestedClient.company_name ||
-              clientFromList.company_name ||
-              "Unknown Client",
+          designation:
+            deployment.designation ||
+            nestedCandidate.designation ||
+            candidateFromList.designation ||
+            null,
 
-            // Contract
-            contract_id:
-              deployment.contract_id ??
-              deployment.contractId ??
-              nestedContract.id ??
-              null,
+          client_id: clientId,
 
-            contract_number:
-              deployment.contract_number ||
-              nestedContract.contract_number ||
-              null,
+          company_name:
+            deployment.company_name ||
+            nestedClient.company_name ||
+            clientFromList.company_name ||
+            "Unknown Client",
 
-            contract_title:
-              deployment.contract_title ||
-              nestedContract.contract_title ||
-              null,
+          contract_id:
+            deployment.contract_id ??
+            deployment.contractId ??
+            nestedContract.id ??
+            null,
 
-            billing_model:
-              deployment.billing_model ||
-              nestedContract.billing_model ||
-              null,
+          contract_number:
+            deployment.contract_number ||
+            nestedContract.contract_number ||
+            null,
 
-            markup_percentage:
-              deployment.markup_percentage ??
-              nestedContract.markup_percentage ??
-              null,
+          contract_title:
+            deployment.contract_title ||
+            nestedContract.contract_title ||
+            null,
 
-            per_head_fee:
-              deployment.per_head_fee ??
-              nestedContract.per_head_fee ??
-              null,
+          billing_model:
+            deployment.billing_model ||
+            nestedContract.billing_model ||
+            null,
 
-            credit_terms:
-              deployment.credit_terms ||
-              nestedContract.credit_terms ||
-              null,
+          markup_percentage:
+            deployment.markup_percentage ??
+            nestedContract.markup_percentage ??
+            null,
 
-            gst_type:
-              deployment.gst_type ||
-              nestedContract.gst_type ||
-              null,
+          per_head_fee:
+            deployment.per_head_fee ??
+            nestedContract.per_head_fee ??
+            null,
 
-            contract_status:
-              deployment.contract_status ||
-              nestedContract.contract_status ||
-              null,
+          credit_terms:
+            deployment.credit_terms ||
+            nestedContract.credit_terms ||
+            null,
 
-            contract_start_date:
-              deployment.contract_start_date ||
-              nestedContract.contract_start_date ||
-              nestedContract.start_date ||
-              nestedContract.valid_from ||
-              nestedContract.startDate ||
-              null,
+          gst_type:
+            deployment.gst_type ||
+            nestedContract.gst_type ||
+            null,
 
-            contract_end_date:
-              deployment.contract_end_date ||
-              nestedContract.contract_end_date ||
-              nestedContract.end_date ||
-              nestedContract.valid_until ||
-              nestedContract.endDate ||
-              null,
-          };
-        });
+          contract_status:
+            deployment.contract_status ||
+            nestedContract.contract_status ||
+            null,
 
-      setDeployments(normalizedDeployments);
-      setClients(clientList);
-      setCandidates(candList);
-      setEmployeeAccounts(accountList);
+          contract_start_date:
+            deployment.contract_start_date ||
+            nestedContract.contract_start_date ||
+            nestedContract.start_date ||
+            nestedContract.valid_from ||
+            nestedContract.startDate ||
+            null,
 
-      console.log(
-        "NORMALIZED DEPLOYMENTS:",
-        normalizedDeployments
-      );
+          contract_end_date:
+            deployment.contract_end_date ||
+            nestedContract.contract_end_date ||
+            nestedContract.end_date ||
+            nestedContract.valid_until ||
+            nestedContract.endDate ||
+            null,
+        };
+      });
 
-      console.log(
-        "CANDIDATES:",
-        candList
-      );
+    setDeployments(normalizedDeployments);
+    setClients(clientList);
+    setCandidates(candList);
+    setEmployeeAccounts(accountList);
 
-      console.log(
-        "EMPLOYEE ACCOUNTS:",
-        accountList
-      );
-    } catch (err) {
-      console.error(
-        "Error fetching deployment data:",
-        err
-      );
+    console.log(
+      "NORMALIZED DEPLOYMENTS:",
+      normalizedDeployments
+    );
 
-      setError(
-        `Failed to load deployment records: ${
-          err?.message || "Unknown error"
-        }`
-      );
+    console.log(
+      "CANDIDATES:",
+      candList
+    );
 
-      setDeployments([]);
-      setClients([]);
-      setCandidates([]);
-      setEmployeeAccounts([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    console.log(
+      "EMPLOYEE ACCOUNTS:",
+      accountList
+    );
+  } catch (err) {
+    console.error(
+      "Error fetching deployment data:",
+      err
+    );
 
+    setError(
+      `Failed to load deployment records: ${
+        err?.response?.data?.message ||
+        err?.message ||
+        "Unknown error"
+      }`
+    );
+
+    setDeployments([]);
+    setClients([]);
+    setCandidates([]);
+    setEmployeeAccounts([]);
+  } finally {
+    setLoading(false);
+  }
+};
   // ==========================================================
   // CANDIDATE LOOKUP
   // ==========================================================
@@ -741,110 +707,96 @@ function EmployeeDeployment() {
   // ==========================================================
   // FETCH CONTRACTS FOR ASSIGN CLIENT
   // ==========================================================
+// ==========================================================
+// FETCH CONTRACTS FOR ASSIGN CLIENT
+// ==========================================================
 
-  const fetchContractsForAssignClient = async (
-    clientId
-  ) => {
-    if (!clientId) {
-      setAssignContracts([]);
-      return;
-    }
+const fetchContractsForAssignClient = async (clientId) => {
+  if (!clientId) {
+    setAssignContracts([]);
+    return;
+  }
 
-    try {
-      setLoadingAssignContracts(true);
+  try {
+    setLoadingAssignContracts(true);
 
-      const response = await fetch(
-        `${API_BASE}/deployments/contracts/client/${clientId}`
-      );
+    const response = await api.get(
+      `/deployments/contracts/client/${clientId}`
+    );
 
-      const data = await response
-        .json()
-        .catch(() => ({}));
+    const data = response.data;
 
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-          "Failed to load contracts"
-        );
-      }
+    const list = getResponseList(
+      data,
+      ["contracts", "contract"]
+    );
 
-      const list = getResponseList(
-        data,
-        ["contracts", "contract"]
-      );
+    setAssignContracts(list);
+  } catch (err) {
+    console.error(
+      "Error fetching assign contracts:",
+      err
+    );
 
-      setAssignContracts(list);
-    } catch (err) {
-      console.error(
-        "Error fetching assign contracts:",
-        err
-      );
+    setAssignContracts([]);
 
-      setAssignContracts([]);
+    const errorMessage =
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      err.message ||
+      "Failed to load contracts for selected client.";
 
-      alert(
-        err?.message ||
-        "Failed to load contracts for selected client."
-      );
-    } finally {
-      setLoadingAssignContracts(false);
-    }
-  };
+    alert(errorMessage);
+  } finally {
+    setLoadingAssignContracts(false);
+  }
+};
 
-  // ==========================================================
-  // FETCH CONTRACTS FOR TRANSFER CLIENT
-  // ==========================================================
+// ==========================================================
+// FETCH CONTRACTS FOR TRANSFER CLIENT
+// ==========================================================
 
-  const fetchContractsForTransferClient = async (
-    clientId
-  ) => {
-    if (!clientId) {
-      setTransferContracts([]);
-      return;
-    }
+const fetchContractsForTransferClient = async (clientId) => {
+  if (!clientId) {
+    setTransferContracts([]);
+    return;
+  }
 
-    try {
-      setLoadingTransferContracts(true);
+  try {
+    setLoadingTransferContracts(true);
 
-      const response = await fetch(
-        `${API_BASE}/deployments/contracts/client/${clientId}`
-      );
+    const response = await api.get(
+      `/deployments/contracts/client/${clientId}`
+    );
 
-      const data = await response
-        .json()
-        .catch(() => ({}));
+    const data = response.data;
 
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-          "Failed to load contracts"
-        );
-      }
+    const list = getResponseList(
+      data,
+      ["contracts", "contract"]
+    );
 
-      const list = getResponseList(
-        data,
-        ["contracts", "contract"]
-      );
+    setTransferContracts(list);
+  } catch (err) {
+    console.error(
+      "Error fetching transfer contracts:",
+      err
+    );
 
-      setTransferContracts(list);
-    } catch (err) {
-      console.error(
-        "Error fetching transfer contracts:",
-        err
-      );
+    setTransferContracts([]);
 
-      setTransferContracts([]);
+    const errorMessage =
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      err.message ||
+      "Failed to load contracts for selected client.";
 
-      alert(
-        err?.message ||
-        "Failed to load contracts for selected client."
-      );
-    } finally {
-      setLoadingTransferContracts(false);
-    }
-  };
-
-  // ==========================================================
+    alert(errorMessage);
+  } finally {
+    setLoadingTransferContracts(false);
+  }
+};
+  //====================================================
   // GROUP DEPLOYMENTS BY EMPLOYEE
   // ==========================================================
 
@@ -1042,129 +994,133 @@ function EmployeeDeployment() {
   // ==========================================================
   // ASSIGN EMPLOYEE
   // ==========================================================
+const handleAssignSubmit = async (e) => {
+  e.preventDefault();
 
-  const handleAssignSubmit = async (e) => {
-    e.preventDefault();
-
-    try {
-      if (
-        !formData.candidateId ||
-        !formData.clientId ||
-        !formData.contractId ||
-        !formData.startDate
-      ) {
-        alert(
-          "Please select employee, client, contract and start date."
-        );
-        return;
-      }
-
-      const selectedCandidate =
-        getCandidate(
-          formData.candidateId
-        );
-
-      if (!selectedCandidate) {
-        alert(
-          "Selected employee was not found."
-        );
-        return;
-      }
-
-      const selectedContract =
-        getAssignContract();
-
-      if (!selectedContract) {
-        alert(
-          "Selected contract was not found."
-        );
-        return;
-      }
-
-      if (
-        String(
-          selectedContract.contract_status ||
-          ""
-        ).toLowerCase() !== "active"
-      ) {
-        alert(
-          "Only an active contract can be used."
-        );
-        return;
-      }
-
-      setAssigning(true);
-
-      const response = await fetch(
-        `${API_BASE}/deployments`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            candidate_id: Number(
-              formData.candidateId
-            ),
-
-            client_id: Number(
-              formData.clientId
-            ),
-
-            contract_id: Number(
-              formData.contractId
-            ),
-
-            project_name:
-              formData.project.trim() ||
-              null,
-
-            start_date:
-              formData.startDate,
-
-            status: "Active",
-          }),
-        }
-      );
-
-      const data = await response
-        .json()
-        .catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-          "Failed to create deployment"
-        );
-      }
-
-      await fetchAll();
-
-      setShowAssignModal(false);
-      resetAssignForm();
-
+  try {
+    if (
+      !formData.candidateId ||
+      !formData.clientId ||
+      !formData.contractId ||
+      !formData.startDate
+    ) {
       alert(
-        `${
-          selectedCandidate.full_name ||
-          "Employee"
-        } assigned successfully.`
+        "Please select employee, client, contract and start date."
       );
-    } catch (err) {
-      console.error(
-        "Error saving assignment:",
-        err
-      );
-
-      alert(
-        `Failed to save assignment: ${
-          err?.message || "Unknown error"
-        }`
-      );
-    } finally {
-      setAssigning(false);
+      return;
     }
-  };
+
+    const selectedCandidate = getCandidate(
+      formData.candidateId
+    );
+
+    if (!selectedCandidate) {
+      alert(
+        "Selected employee was not found."
+      );
+      return;
+    }
+
+    const selectedContract = getAssignContract();
+
+    if (!selectedContract) {
+      alert(
+        "Selected contract was not found."
+      );
+      return;
+    }
+
+    if (
+      String(
+        selectedContract.contract_status || ""
+      ).toLowerCase() !== "active"
+    ) {
+      alert(
+        "Only an active contract can be used."
+      );
+      return;
+    }
+
+    setAssigning(true);
+
+    // ==========================================================
+    // CREATE DEPLOYMENT
+    // ==========================================================
+
+    const response = await api.post(
+      "/deployments",
+      {
+        candidate_id: Number(
+          formData.candidateId
+        ),
+
+        client_id: Number(
+          formData.clientId
+        ),
+
+        contract_id: Number(
+          formData.contractId
+        ),
+
+        project_name:
+          formData.project?.trim() || null,
+
+        start_date:
+          formData.startDate,
+
+        status: "Active",
+      }
+    );
+
+    const data = response.data;
+
+    console.log(
+      "Deployment created successfully:",
+      data
+    );
+
+    // ==========================================================
+    // REFRESH EMPLOYEE / DEPLOYMENT DATA
+    // ==========================================================
+
+    await fetchAll();
+
+    // ==========================================================
+    // CLOSE MODAL + RESET FORM
+    // ==========================================================
+
+    setShowAssignModal(false);
+    resetAssignForm();
+
+    // ==========================================================
+    // SUCCESS MESSAGE
+    // ==========================================================
+
+    alert(
+      `${
+        selectedCandidate.full_name ||
+        "Employee"
+      } assigned successfully.`
+    );
+  } catch (err) {
+    console.error(
+      "Error saving assignment:",
+      err
+    );
+
+    const errorMessage =
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      err.message ||
+      "Unknown error";
+
+    alert(
+      `Failed to save assignment: ${errorMessage}`
+    );
+  } finally {
+    setAssigning(false);
+  }
+};
 
   // ==========================================================
   // OPEN TRANSFER
@@ -1279,35 +1235,21 @@ function EmployeeDeployment() {
       // ======================================================
       // CLOSE OLD DEPLOYMENT
       // ======================================================
+const createResponse = await api.post(
+  "/deployments",
+  {
+    candidate_id: Number(current.candidate_id),
+    client_id: Number(transferData.newClientId),
+    contract_id: Number(transferData.newContractId),
+    project_name: transferData.newProject.trim(),
+    start_date: transferData.effectiveDate,
+    status: "Active",
+  }
+);
 
-      const closeResponse =
-        await fetch(
-          `${API_BASE}/deployments/${current.id}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              end_date:
-                transferData.effectiveDate,
-              status: "Transferred",
-            }),
-          }
-        );
+const createData = createResponse.data;
 
-      const closeData =
-        await closeResponse
-          .json()
-          .catch(() => ({}));
-
-      if (!closeResponse.ok) {
-        throw new Error(
-          closeData?.message ||
-          "Failed to close previous deployment"
-        );
-      }
+    
 
       oldDeploymentClosed = true;
 
@@ -1315,45 +1257,18 @@ function EmployeeDeployment() {
       // CREATE NEW DEPLOYMENT
       // ======================================================
 
-      const createResponse =
-        await fetch(
-          `${API_BASE}/deployments`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              candidate_id: Number(
-                current.candidate_id
-              ),
+     const response = await api.post("/deployments", {
+  candidate_id: Number(formData.candidateId),
+  client_id: Number(formData.clientId),
+  contract_id: Number(formData.contractId),
+  project_name: formData.project.trim() || null,
+  start_date: formData.startDate,
+  status: "Active",
+});
 
-              client_id: Number(
-                transferData.newClientId
-              ),
+      const data = response.data;
 
-              contract_id: Number(
-                transferData.newContractId
-              ),
-
-              project_name:
-                transferData.newProject.trim(),
-
-              start_date:
-                transferData.effectiveDate,
-
-              status: "Active",
-            }),
-          }
-        );
-
-      const createData =
-        await createResponse
-          .json()
-          .catch(() => ({}));
-
-      if (!createResponse.ok) {
+      if (!response.ok) {
         throw new Error(
           createData?.message ||
           "Failed to create new deployment"
@@ -1394,20 +1309,13 @@ function EmployeeDeployment() {
         selectedGroup?.current?.id
       ) {
         try {
-          await fetch(
-            `${API_BASE}/deployments/${selectedGroup.current.id}`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify({
-                end_date: null,
-                status: "Active",
-              }),
-            }
-          );
+         await api.patch(
+  `/deployments/${selectedGroup.current.id}`,
+  {
+    end_date: null,
+    status: "Active",
+  }
+);
         } catch (rollbackError) {
           console.error(
             "CRITICAL: Failed to rollback old deployment:",
@@ -1489,32 +1397,15 @@ function EmployeeDeployment() {
 
       setTerminating(true);
 
-      const response = await fetch(
-        `${API_BASE}/deployments/${current.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            end_date:
-              terminateData.effectiveDate,
-            status: "Terminated",
-          }),
-        }
-      );
+    const response = await api.patch(
+  `/deployments/${current.id}`,
+  {
+    end_date: terminateData.effectiveDate,
+    status: "Terminated",
+  }
+);
 
-      const data = await response
-        .json()
-        .catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-          "Failed to terminate deployment"
-        );
-      }
+const data = response.data;
 
       await fetchAll();
 
@@ -3852,17 +3743,16 @@ function EmployeeDeployment() {
       ====================================================== */}
 
       {accountEmployee && (
-        <EmployeeCreateAccountModal
-          employee={accountEmployee}
-          API_BASE={API_BASE}
-          onClose={() => {
-            setAccountEmployee(null);
-          }}
-          onCreated={async () => {
-            setAccountEmployee(null);
-            await fetchAll();
-          }}
-        />
+       <EmployeeCreateAccountModal
+  employee={accountEmployee}
+  onClose={() => {
+    setAccountEmployee(null);
+  }}
+  onCreated={async () => {
+    setAccountEmployee(null);
+    await fetchAll();
+  }}
+/>
       )}
 
     </div>

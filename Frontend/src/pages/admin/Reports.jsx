@@ -119,10 +119,10 @@ function Reports({
         month
       );
 
-      console.log(
-        "URL:",
-        `${API_BASE}/reports/summary`
-      );
+      // console.log(
+      //   "URL:",
+      //   `${API_BASE}/reports/summary`
+      // );
 
       console.log(
         "========================================="
