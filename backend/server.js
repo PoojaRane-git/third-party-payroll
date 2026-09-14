@@ -46,43 +46,34 @@ console.log(
 
 const allowedOrigins = [
     "https://third-party-payroll.vercel.app",
-
-    // Current Vercel frontend deployment
-    "https://third-party-payroll-406h6apz3-poojarane514-1612s-projects.vercel.app",
-
-    // Local development
     "http://localhost:5173",
 ];
 
+// Matches ANY preview deployment of this specific project,
+// e.g. https://third-party-payroll-<anything>-poojarane514-1612s-projects.vercel.app
+const previewOriginPattern =
+    /^https:\/\/third-party-payroll-[a-z0-9]+-poojarane514-1612s-projects\.vercel\.app$/;
+
 const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no Origin header
-        // (Postman, server-to-server requests, etc.)
         if (!origin) {
             return callback(null, true);
         }
 
-        if (allowedOrigins.includes(origin)) {
+        if (
+            allowedOrigins.includes(origin) ||
+            previewOriginPattern.test(origin)
+        ) {
             return callback(null, true);
         }
 
         console.error("❌ CORS blocked origin:", origin);
-
-        return callback(
-            new Error("Not allowed by CORS")
-        );
+        return callback(new Error("Not allowed by CORS"));
     },
 
     credentials: true,
 
-    methods: [
-        "GET",
-        "POST",
-        "PUT",
-        "PATCH",
-        "DELETE",
-        "OPTIONS",
-    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 
     allowedHeaders: [
         "Content-Type",
@@ -96,14 +87,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Explicitly handle browser preflight requests
-app.use((req, res, next) => {
-    if (req.method === "OPTIONS") {
-        return res.sendStatus(204);
-    }
-
-    next();
-});
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
