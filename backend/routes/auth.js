@@ -13,7 +13,7 @@ const nodemailer = require("nodemailer");
 // CONSTANTS
 // ============================================================
 
-const SUPER_ADMIN_EMAIL = "talentcorner103@gmail.com";
+const SUPER_ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 // ============================================================
 // EMAIL CONFIGURATION
@@ -3174,6 +3174,191 @@ router.patch(
     }
 );
 
+// ============================================================
+// LOGIN LOG
+// ============================================================
+
+router.post(
+    "/login-log",
+    authenticate,
+    authorize(
+        "admin",
+        "superadmin",
+        "client",
+        "employee"
+    ),
+    async (req, res) => {
+        try {
+            const userId = req.user.id;
+
+            const profile = req.profile;
+            const role = req.userRole;
+
+            const email = String(
+                profile?.email ||
+                req.user?.email ||
+                ""
+            )
+                .trim()
+                .toLowerCase();
+
+            const displayName =
+                profile?.name ||
+                profile?.full_name ||
+                profile?.display_name ||
+                email.split("@")[0];
+
+            // ----------------------------------------------------
+            // IP ADDRESS
+            // ----------------------------------------------------
+
+            const forwardedFor =
+                req.headers["x-forwarded-for"];
+
+            const ipAddress =
+                forwardedFor
+                    ? String(forwardedFor)
+                          .split(",")[0]
+                          .trim()
+                    : req.ip || null;
+
+            // ----------------------------------------------------
+            // USER AGENT
+            // ----------------------------------------------------
+
+            const userAgent =
+                req.headers["user-agent"] ||
+                null;
+
+            // ----------------------------------------------------
+            // INSERT LOGIN LOG
+            // ----------------------------------------------------
+
+            const {
+                data,
+                error,
+            } = await supabaseAdmin
+                .from("login_logs")
+                .insert({
+                    user_id: userId,
+                    role,
+                    email,
+                    display_name: displayName,
+                    login_at: new Date().toISOString(),
+                    ip_address: ipAddress,
+                    user_agent: userAgent,
+                    success: true,
+                })
+                .select()
+                .single();
+
+            if (error) {
+                console.error(
+                    "Login log insert error:",
+                    error
+                );
+
+                return res.status(500).json({
+                    success: false,
+                    message:
+                        "Unable to record login activity.",
+                });
+            }
+
+            return res.status(201).json({
+                success: true,
+                message:
+                    "Login activity recorded.",
+                log: data,
+            });
+        } catch (error) {
+            console.error(
+                "Login log error:",
+                error
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "Unable to record login activity.",
+                error: error.message,
+            });
+        }
+    }
+);
+
+
+// ============================================================
+// GET LOGIN LOGS
+// ADMIN / SUPERADMIN ONLY
+// ============================================================
+
+router.get(
+    "/admin/login-logs",
+    authenticate,
+    authorize(
+        "admin",
+        "superadmin"
+    ),
+    async (req, res) => {
+        try {
+            const {
+                data,
+                error,
+            } = await supabaseAdmin
+                .from("login_logs")
+                .select(`
+                    id,
+                    user_id,
+                    role,
+                    email,
+                    display_name,
+                    login_at,
+                    ip_address,
+                    user_agent,
+                    success
+                `)
+                .eq("success", true)
+                .order(
+                    "login_at",
+                    {
+                        ascending: false,
+                    }
+                )
+                .limit(100);
+
+            if (error) {
+                console.error(
+                    "Login logs fetch error:",
+                    error
+                );
+
+                return res.status(500).json({
+                    success: false,
+                    message:
+                        "Unable to fetch login logs.",
+                });
+            }
+
+            return res.json({
+                success: true,
+                logs: data || [],
+            });
+        } catch (error) {
+            console.error(
+                "Login logs route error:",
+                error
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "Unable to fetch login logs.",
+                error: error.message,
+            });
+        }
+    }
+);
 // ============================================================
 // EXPORT
 // ============================================================
