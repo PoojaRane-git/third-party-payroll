@@ -126,12 +126,7 @@ const invoiceDisputeRoutes = require("./routes/invoiceDisputes");
 const reportsRoutes = require("./routes/reports");
 const ClientjobRequirementRoutes = require("./routes/client/ClientjobRequirements")
 
-const adminRoutes = require("./routes/admin");
 
-app.use(
-    "/api/admin",
-    adminRoutes
-);
 
 const AdminjobRequirementRoutes =
   require("./routes/AdminjobRequirements");
