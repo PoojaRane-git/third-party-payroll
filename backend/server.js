@@ -142,7 +142,8 @@ app.use(
 const employeeUsersRouter =
   require("./routes/employeeUsers");
 
-
+const loginRequestsRoutes = require("./routes/loginRequests");
+app.use("/api/login-requests", loginRequestsRoutes);
 
 // =====================================================
 // CLIENT PORTAL ROUTES

@@ -1,12 +1,17 @@
 
 import React, {
     useState,
+    useEffect,
 } from "react";
 
 import {
     useNavigate,
     Link,
 } from "react-router-dom";
+
+import {
+    Loader2,
+} from "lucide-react";
 
 import {
     supabase,
@@ -40,7 +45,6 @@ const ADMIN_EMAIL = String(
     .toLowerCase();
 
 function Login() {
-
     const navigate = useNavigate();
 
     const {
@@ -113,11 +117,24 @@ function Login() {
     ] = useState(false);
 
     // =====================================================
+    // LOGIN APPROVAL STATE
+    // =====================================================
+
+    const [
+        waitingForApproval,
+        setWaitingForApproval,
+    ] = useState(false);
+
+    const [
+        pendingLoginRequestId,
+        setPendingLoginRequestId,
+    ] = useState(null);
+
+    // =====================================================
     // CLEAR APPLICATION LOGIN DATA
     // =====================================================
 
     const clearLoginData = () => {
-
         localStorage.removeItem(
             "access_token"
         );
@@ -141,6 +158,159 @@ function Login() {
         localStorage.removeItem(
             "pending_login_user"
         );
+
+        localStorage.removeItem(
+            "pending_approval"
+        );
+    };
+
+    // =====================================================
+    // SAVE AUTHENTICATED USER
+    // =====================================================
+
+    const saveAuthenticatedUser = (
+        authenticatedUser,
+        accessToken
+    ) => {
+        if (!authenticatedUser) {
+            return;
+        }
+
+        // -------------------------------------------------
+        // ACCESS TOKEN
+        // -------------------------------------------------
+
+        if (accessToken) {
+            localStorage.setItem(
+                "access_token",
+                accessToken
+            );
+        }
+
+        // -------------------------------------------------
+        // USER
+        // -------------------------------------------------
+
+        localStorage.setItem(
+            "user",
+            JSON.stringify(
+                authenticatedUser
+            )
+        );
+
+        // -------------------------------------------------
+        // COMPANY
+        // -------------------------------------------------
+
+        localStorage.setItem(
+            "company_name",
+            authenticatedUser.company_name ||
+                "Talent Corner"
+        );
+
+        // -------------------------------------------------
+        // CLIENT ID
+        // -------------------------------------------------
+
+        if (
+            authenticatedUser.client_id
+        ) {
+            localStorage.setItem(
+                "client_id",
+                String(
+                    authenticatedUser.client_id
+                )
+            );
+        } else {
+            localStorage.removeItem(
+                "client_id"
+            );
+        }
+
+        // -------------------------------------------------
+        // EMPLOYEE ID
+        // -------------------------------------------------
+
+        if (
+            authenticatedUser.employee_id
+        ) {
+            localStorage.setItem(
+                "employee_id",
+                String(
+                    authenticatedUser.employee_id
+                )
+            );
+        } else {
+            localStorage.removeItem(
+                "employee_id"
+            );
+        }
+
+        // -------------------------------------------------
+        // AUTH PROVIDER
+        // -------------------------------------------------
+
+        login(
+            authenticatedUser
+        );
+    };
+
+    // =====================================================
+    // REDIRECT USER BASED ON ROLE
+    // =====================================================
+
+    const redirectBasedOnRole = (
+        authenticatedUser
+    ) => {
+        const role = String(
+            authenticatedUser?.role || ""
+        )
+            .trim()
+            .toLowerCase();
+
+        if (
+            role === "superadmin" ||
+            role === "admin"
+        ) {
+            navigate(
+                "/admindashboard",
+                {
+                    replace: true,
+                }
+            );
+
+            return;
+        }
+
+        if (
+            role === "client"
+        ) {
+            navigate(
+                "/client-dashboard",
+                {
+                    replace: true,
+                }
+            );
+
+            return;
+        }
+
+        if (
+            role === "employee"
+        ) {
+            navigate(
+                "/employee-portal",
+                {
+                    replace: true,
+                }
+            );
+
+            return;
+        }
+
+        throw new Error(
+            "Invalid account role."
+        );
     };
 
     // =====================================================
@@ -150,11 +320,8 @@ function Login() {
     const recordLoginLog = async (
         accessToken
     ) => {
-
         try {
-
             if (!accessToken) {
-
                 console.warn(
                     "LOGIN LOG SKIPPED: No access token."
                 );
@@ -189,7 +356,6 @@ function Login() {
                 !response.ok ||
                 result.success !== true
             ) {
-
                 console.error(
                     "LOGIN LOG FAILED:",
                     result
@@ -206,7 +372,6 @@ function Login() {
             return true;
 
         } catch (error) {
-
             console.error(
                 "LOGIN LOG ERROR:",
                 error
@@ -223,14 +388,12 @@ function Login() {
     const handleLogin = async (
         e
     ) => {
-
         e.preventDefault();
 
         setError("");
         setLoading(true);
 
         try {
-
             // =================================================
             // CLEAN INPUT
             // =================================================
@@ -241,14 +404,12 @@ function Login() {
                     .toLowerCase();
 
             if (!cleanEmail) {
-
                 throw new Error(
                     "Please enter your email."
                 );
             }
 
             if (!password) {
-
                 throw new Error(
                     "Please enter your password."
                 );
@@ -272,7 +433,6 @@ function Login() {
                     });
 
             if (authError) {
-
                 console.error(
                     "Supabase login error:",
                     authError
@@ -294,7 +454,6 @@ function Login() {
                 !session ||
                 !authUser
             ) {
-
                 throw new Error(
                     "Login failed. No session was created."
                 );
@@ -350,7 +509,6 @@ function Login() {
                 !response.ok ||
                 result.success !== true
             ) {
-
                 await supabase.auth
                     .signOut();
 
@@ -365,8 +523,35 @@ function Login() {
             const user =
                 result.user;
 
-            if (!user) {
+            // =================================================
+            // LOGIN REQUEST PENDING APPROVAL
+            // =================================================
 
+            if (
+                result.login_pending_approval
+            ) {
+                console.log(
+                    "LOGIN REQUEST IS WAITING FOR ADMIN APPROVAL"
+                );
+
+                setOtpStep(false);
+
+                setPendingLoginRequestId(
+                    result.login_request_id
+                );
+
+                setWaitingForApproval(
+                    true
+                );
+
+                return;
+            }
+
+            // =================================================
+            // PROFILE CHECK
+            // =================================================
+
+            if (!user) {
                 await supabase.auth
                     .signOut();
 
@@ -471,7 +656,6 @@ function Login() {
                 role !== "client" &&
                 role !== "employee"
             ) {
-
                 await supabase.auth
                     .signOut();
 
@@ -490,7 +674,6 @@ function Login() {
                 role === "superadmin" &&
                 profileEmail !== ADMIN_EMAIL
             ) {
-
                 await supabase.auth
                     .signOut();
 
@@ -537,7 +720,6 @@ function Login() {
                 !otpResponse.ok ||
                 otpResult.success !== true
             ) {
-
                 await supabase.auth
                     .signOut();
 
@@ -555,7 +737,9 @@ function Login() {
 
             localStorage.setItem(
                 "pending_login_user",
-                JSON.stringify(user)
+                JSON.stringify(
+                    user
+                )
             );
 
             // =================================================
@@ -567,7 +751,6 @@ function Login() {
             setOtpStep(true);
 
         } catch (err) {
-
             console.error(
                 "LOGIN ERROR:",
                 err
@@ -579,7 +762,6 @@ function Login() {
             );
 
         } finally {
-
             setLoading(false);
         }
     };
@@ -589,15 +771,15 @@ function Login() {
     // =====================================================
 
     const handleVerifyOtp =
-        async (e) => {
-
+        async (
+            e
+        ) => {
             e.preventDefault();
 
             setError("");
             setOtpLoading(true);
 
             try {
-
                 // =================================================
                 // CLEAN OTP
                 // =================================================
@@ -610,7 +792,6 @@ function Login() {
                         cleanOtp
                     )
                 ) {
-
                     throw new Error(
                         "Please enter the 6-digit OTP."
                     );
@@ -628,7 +809,6 @@ function Login() {
                         .getSession();
 
                 if (sessionError) {
-
                     throw new Error(
                         sessionError.message ||
                             "Unable to get login session."
@@ -639,7 +819,6 @@ function Login() {
                     sessionData?.session;
 
                 if (!session) {
-
                     throw new Error(
                         "Your login session has expired. Please login again."
                     );
@@ -691,7 +870,6 @@ function Login() {
                     !response.ok ||
                     result.success !== true
                 ) {
-
                     throw new Error(
                         result.message ||
                             "OTP verification failed."
@@ -708,7 +886,6 @@ function Login() {
                 if (
                     !authenticatedUser
                 ) {
-
                     throw new Error(
                         "Authenticated user profile was not returned by server."
                     );
@@ -763,7 +940,6 @@ function Login() {
                     role !== "client" &&
                     role !== "employee"
                 ) {
-
                     await supabase.auth
                         .signOut();
 
@@ -781,7 +957,6 @@ function Login() {
                 if (
                     role === "superadmin"
                 ) {
-
                     const authenticatedEmail =
                         String(
                             authenticatedUser.email ||
@@ -794,7 +969,6 @@ function Login() {
                         authenticatedEmail !==
                         ADMIN_EMAIL
                     ) {
-
                         await supabase.auth
                             .signOut();
 
@@ -807,7 +981,7 @@ function Login() {
                 }
 
                 // =================================================
-                // ⭐ APPROVAL CHECK
+                // APPROVAL CHECK
                 //
                 // CLIENT / EMPLOYEE / ADMIN
                 // MUST BE APPROVED BY SUPER ADMIN
@@ -827,13 +1001,14 @@ function Login() {
                     ) &&
                     status === "pending"
                 ) {
-
                     console.log(
                         "⏳ ACCOUNT PENDING SUPER ADMIN APPROVAL"
                     );
 
-                    // Save user so Unauthorized page /
-                    // AuthProvider knows the authenticated user.
+                    // -------------------------------------------------
+                    // Save user
+                    // -------------------------------------------------
+
                     login(
                         authenticatedUser
                     );
@@ -856,8 +1031,7 @@ function Login() {
                     );
 
                     // -------------------------------------------------
-                    // Record login if possible.
-                    // Failure should NOT block the message.
+                    // Record login
                     // -------------------------------------------------
 
                     const loginLogged =
@@ -866,7 +1040,6 @@ function Login() {
                         );
 
                     if (!loginLogged) {
-
                         console.warn(
                             "Pending account login could not be recorded."
                         );
@@ -909,7 +1082,6 @@ function Login() {
                         status === "disabled"
                     )
                 ) {
-
                     console.log(
                         "❌ ACCOUNT REJECTED / DISABLED"
                     );
@@ -954,6 +1126,10 @@ function Login() {
 
                 clearLoginData();
 
+                // =================================================
+                // REMOVE PENDING FLAG
+                // =================================================
+
                 localStorage.removeItem(
                     "pending_approval"
                 );
@@ -962,66 +1138,9 @@ function Login() {
                 // SAVE CURRENT SESSION
                 // =================================================
 
-                localStorage.setItem(
-                    "access_token",
+                saveAuthenticatedUser(
+                    authenticatedUser,
                     session.access_token
-                );
-
-                localStorage.setItem(
-                    "user",
-                    JSON.stringify(
-                        authenticatedUser
-                    )
-                );
-
-                // =================================================
-                // COMPANY
-                // =================================================
-
-                localStorage.setItem(
-                    "company_name",
-                    authenticatedUser.company_name ||
-                        "Talent Corner"
-                );
-
-                // =================================================
-                // CLIENT ID
-                // =================================================
-
-                if (
-                    authenticatedUser.client_id
-                ) {
-
-                    localStorage.setItem(
-                        "client_id",
-                        String(
-                            authenticatedUser.client_id
-                        )
-                    );
-                }
-
-                // =================================================
-                // EMPLOYEE ID
-                // =================================================
-
-                if (
-                    authenticatedUser.employee_id
-                ) {
-
-                    localStorage.setItem(
-                        "employee_id",
-                        String(
-                            authenticatedUser.employee_id
-                        )
-                    );
-                }
-
-                // =================================================
-                // UPDATE AUTH PROVIDER
-                // =================================================
-
-                login(
-                    authenticatedUser
                 );
 
                 // =================================================
@@ -1034,7 +1153,6 @@ function Login() {
                     );
 
                 if (!loginLogged) {
-
                     console.warn(
                         "Login succeeded, but login activity could not be recorded."
                     );
@@ -1044,64 +1162,11 @@ function Login() {
                 // REDIRECT
                 // =================================================
 
-                if (
-                    role === "superadmin" ||
-                    role === "admin"
-                ) {
-
-                    navigate(
-                        "/admindashboard",
-                        {
-                            replace: true,
-                        }
-                    );
-
-                    return;
-                }
-
-                if (
-                    role === "client"
-                ) {
-
-                    navigate(
-                        "/client-dashboard",
-                        {
-                            replace: true,
-                        }
-                    );
-
-                    return;
-                }
-
-                if (
-                    role === "employee"
-                ) {
-
-                    navigate(
-                        "/employee-portal",
-                        {
-                            replace: true,
-                        }
-                    );
-
-                    return;
-                }
-
-                // =================================================
-                // SHOULD NEVER REACH HERE
-                // =================================================
-
-                await supabase.auth
-                    .signOut();
-
-                clearLoginData();
-
-                throw new Error(
-                    "Invalid account role."
+                redirectBasedOnRole(
+                    authenticatedUser
                 );
 
             } catch (err) {
-
                 console.error(
                     "OTP VERIFICATION ERROR:",
                     err
@@ -1113,10 +1178,338 @@ function Login() {
                 );
 
             } finally {
-
                 setOtpLoading(false);
             }
         };
+
+    // =====================================================
+    // POLL LOGIN REQUEST APPROVAL
+    // =====================================================
+
+    useEffect(() => {
+        if (
+            !waitingForApproval ||
+            !pendingLoginRequestId
+        ) {
+            return;
+        }
+
+        console.log(
+            "STARTING LOGIN APPROVAL POLLING:",
+            pendingLoginRequestId
+        );
+
+        const checkApprovalStatus =
+            async () => {
+                try {
+                    // -------------------------------------------------
+                    // CURRENT SUPABASE SESSION
+                    // -------------------------------------------------
+
+                    const {
+                        data: sessionData,
+                    } =
+                        await supabase.auth
+                            .getSession();
+
+                    const session =
+                        sessionData?.session;
+
+                    if (!session) {
+                        console.warn(
+                            "No Supabase session while checking approval."
+                        );
+
+                        return;
+                    }
+
+                    // -------------------------------------------------
+                    // CHECK LOGIN REQUEST
+                    // -------------------------------------------------
+
+                    const res =
+                        await fetch(
+                            `${API_BASE_URL}/auth/login-requests/${pendingLoginRequestId}/status`,
+                            {
+                                method: "GET",
+
+                                headers: {
+                                    Authorization:
+                                        `Bearer ${session.access_token}`,
+
+                                    "Content-Type":
+                                        "application/json",
+                                },
+                            }
+                        );
+
+                    const result =
+                        await res
+                            .json()
+                            .catch(
+                                () => ({})
+                            );
+
+                    console.log(
+                        "LOGIN REQUEST STATUS:",
+                        result
+                    );
+
+                    // -------------------------------------------------
+                    // API ERROR
+                    // -------------------------------------------------
+
+                    if (!res.ok) {
+                        console.error(
+                            "LOGIN REQUEST STATUS API ERROR:",
+                            result
+                        );
+
+                        return;
+                    }
+
+                    // -------------------------------------------------
+                    // APPROVED
+                    // -------------------------------------------------
+
+                    if (
+                        result.status ===
+                        "approved"
+                    ) {
+                        console.log(
+                            "✅ LOGIN REQUEST APPROVED"
+                        );
+
+                        setWaitingForApproval(
+                            false
+                        );
+
+                        setPendingLoginRequestId(
+                            null
+                        );
+
+                        // -------------------------------------------------
+                        // Get latest profile
+                        // -------------------------------------------------
+
+                        const meRes =
+                            await fetch(
+                                `${API_BASE_URL}/auth/me`,
+                                {
+                                    method: "GET",
+
+                                    headers: {
+                                        Authorization:
+                                            `Bearer ${session.access_token}`,
+
+                                        "Content-Type":
+                                            "application/json",
+                                    },
+                                }
+                            );
+
+                        const meResult =
+                            await meRes
+                                .json()
+                                .catch(
+                                    () => ({})
+                                );
+
+                        console.log(
+                            "APPROVED USER PROFILE:",
+                            meResult
+                        );
+
+                        if (
+                            !meRes.ok ||
+                            meResult.success !== true ||
+                            !meResult.user
+                        ) {
+                            throw new Error(
+                                meResult.message ||
+                                    "Unable to retrieve approved user profile."
+                            );
+                        }
+
+                        const approvedUser =
+                            meResult.user;
+
+                        // -------------------------------------------------
+                        // Check role
+                        // -------------------------------------------------
+
+                        const approvedRole =
+                            String(
+                                approvedUser.role ||
+                                    ""
+                            )
+                                .trim()
+                                .toLowerCase();
+
+                        // -------------------------------------------------
+                        // Super Admin check
+                        // -------------------------------------------------
+
+                        if (
+                            approvedRole ===
+                            "superadmin"
+                        ) {
+                            const approvedEmail =
+                                String(
+                                    approvedUser.email ||
+                                        ""
+                                )
+                                    .trim()
+                                    .toLowerCase();
+
+                            if (
+                                approvedEmail !==
+                                ADMIN_EMAIL
+                            ) {
+                                await supabase.auth
+                                    .signOut();
+
+                                clearLoginData();
+
+                                throw new Error(
+                                    "Access denied. Only the authorized Super Admin can login."
+                                );
+                            }
+                        }
+
+                        // -------------------------------------------------
+                        // Save authenticated user
+                        // -------------------------------------------------
+
+                        clearLoginData();
+
+                        localStorage.removeItem(
+                            "pending_approval"
+                        );
+
+                        saveAuthenticatedUser(
+                            approvedUser,
+                            session.access_token
+                        );
+
+                        // -------------------------------------------------
+                        // Record login
+                        // -------------------------------------------------
+
+                        const loginLogged =
+                            await recordLoginLog(
+                                session.access_token
+                            );
+
+                        if (!loginLogged) {
+                            console.warn(
+                                "Approved login succeeded, but login activity could not be recorded."
+                            );
+                        }
+
+                        // -------------------------------------------------
+                        // Redirect
+                        // -------------------------------------------------
+
+                        redirectBasedOnRole(
+                            approvedUser
+                        );
+
+                        return;
+                    }
+
+                    // -------------------------------------------------
+                    // REJECTED
+                    // -------------------------------------------------
+
+                    if (
+                        result.status ===
+                        "rejected"
+                    ) {
+                        console.log(
+                            "❌ LOGIN REQUEST REJECTED"
+                        );
+
+                        setWaitingForApproval(
+                            false
+                        );
+
+                        setPendingLoginRequestId(
+                            null
+                        );
+
+                        setError(
+                            "Your login request was rejected by the administrator."
+                        );
+
+                        await supabase.auth
+                            .signOut();
+
+                        clearLoginData();
+
+                        return;
+                    }
+
+                    // -------------------------------------------------
+                    // EXPIRED
+                    // -------------------------------------------------
+
+                    if (
+                        result.status ===
+                        "expired"
+                    ) {
+                        console.log(
+                            "⌛ LOGIN REQUEST EXPIRED"
+                        );
+
+                        setWaitingForApproval(
+                            false
+                        );
+
+                        setPendingLoginRequestId(
+                            null
+                        );
+
+                        setError(
+                            "Login request expired. Please try again."
+                        );
+
+                        await supabase.auth
+                            .signOut();
+
+                        clearLoginData();
+
+                        return;
+                    }
+
+                } catch (pollError) {
+                    console.error(
+                        "LOGIN APPROVAL POLLING ERROR:",
+                        pollError
+                    );
+                }
+            };
+
+        // Check immediately
+        checkApprovalStatus();
+
+        // Then every 4 seconds
+        const interval =
+            setInterval(
+                checkApprovalStatus,
+                4000
+            );
+
+        return () => {
+            clearInterval(
+                interval
+            );
+        };
+
+    }, [
+        waitingForApproval,
+        pendingLoginRequestId,
+    ]);
 
     // =====================================================
     // BACK TO LOGIN
@@ -1124,19 +1517,22 @@ function Login() {
 
     const handleBackToLogin =
         async () => {
-
             await supabase.auth
                 .signOut();
 
             clearLoginData();
 
-            localStorage.removeItem(
-                "pending_approval"
-            );
-
             setOtp("");
 
             setOtpStep(false);
+
+            setWaitingForApproval(
+                false
+            );
+
+            setPendingLoginRequestId(
+                null
+            );
 
             setError("");
         };
@@ -1146,7 +1542,6 @@ function Login() {
     // =====================================================
 
     return (
-
         <div
             className="
                 min-h-screen
@@ -1157,7 +1552,6 @@ function Login() {
                 px-4
             "
         >
-
             <div
                 className="
                     w-full
@@ -1179,7 +1573,6 @@ function Login() {
                         mb-8
                     "
                 >
-
                     <h1
                         className="
                             text-3xl
@@ -1196,11 +1589,12 @@ function Login() {
                             mt-2
                         "
                     >
-                        {otpStep
-                            ? "Verify your email"
-                            : "Login to your account"}
+                        {waitingForApproval
+                            ? "Login request pending"
+                            : otpStep
+                                ? "Verify your email"
+                                : "Login to your account"}
                     </p>
-
                 </div>
 
                 {/* =================================================
@@ -1208,7 +1602,6 @@ function Login() {
                 ================================================= */}
 
                 {error && (
-
                     <div
                         className="
                             mb-5
@@ -1224,14 +1617,111 @@ function Login() {
                     >
                         {error}
                     </div>
-
                 )}
 
                 {/* =================================================
-                    NORMAL LOGIN
+                    WAITING FOR APPROVAL
                 ================================================= */}
 
-                {!otpStep ? (
+                {waitingForApproval ? (
+                    <div
+                        className="
+                            text-center
+                            space-y-5
+                            py-6
+                        "
+                    >
+                        <div
+                            className="
+                                flex
+                                justify-center
+                            "
+                        >
+                            <Loader2
+                                className="
+                                    h-12
+                                    w-12
+                                    text-blue-600
+                                    animate-spin
+                                "
+                            />
+                        </div>
+
+                        <div>
+                            <h2
+                                className="
+                                    text-xl
+                                    font-semibold
+                                    text-gray-900
+                                "
+                            >
+                                Waiting for Approval
+                            </h2>
+
+                            <p
+                                className="
+                                    text-sm
+                                    text-gray-500
+                                    mt-2
+                                "
+                            >
+                                Your login request has been
+                                sent to the administrator.
+                            </p>
+
+                            <p
+                                className="
+                                    text-sm
+                                    text-gray-500
+                                    mt-1
+                                "
+                            >
+                                This page will automatically
+                                continue when your request
+                                is approved.
+                            </p>
+                        </div>
+
+                        <div
+                            className="
+                                rounded-lg
+                                bg-blue-50
+                                px-4
+                                py-3
+                                text-sm
+                                text-blue-700
+                            "
+                        >
+                            Checking approval status...
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={
+                                handleBackToLogin
+                            }
+                            className="
+                                w-full
+                                rounded-lg
+                                border
+                                border-gray-300
+                                px-4
+                                py-3
+                                text-sm
+                                font-medium
+                                text-gray-700
+                                hover:bg-gray-50
+                            "
+                        >
+                            ← Cancel & Back to Login
+                        </button>
+                    </div>
+
+                ) : !otpStep ? (
+
+                    /* =================================================
+                       NORMAL LOGIN
+                    ================================================= */
 
                     <form
                         onSubmit={
@@ -1245,7 +1735,6 @@ function Login() {
                         {/* EMAIL */}
 
                         <div>
-
                             <label
                                 className="
                                     block
@@ -1285,13 +1774,11 @@ function Login() {
                                     disabled:bg-gray-100
                                 "
                             />
-
                         </div>
 
                         {/* PASSWORD */}
 
                         <div>
-
                             <label
                                 className="
                                     block
@@ -1312,7 +1799,9 @@ function Login() {
                                             ? "text"
                                             : "password"
                                     }
-                                    value={password}
+                                    value={
+                                        password
+                                    }
                                     onChange={(e) =>
                                         setPassword(
                                             e.target.value
@@ -1365,15 +1854,17 @@ function Login() {
                                         ? "Hide"
                                         : "Show"}
                                 </button>
-
                             </div>
-
                         </div>
 
                         {/* KEEP ME LOGGED IN */}
 
-                        <div className="flex items-center">
-
+                        <div
+                            className="
+                                flex
+                                items-center
+                            "
+                        >
                             <input
                                 id="rememberMe"
                                 type="checkbox"
@@ -1405,7 +1896,6 @@ function Login() {
                             >
                                 Keep me logged in
                             </label>
-
                         </div>
 
                         {/* LOGIN */}
@@ -1455,7 +1945,6 @@ function Login() {
                                 text-center
                             "
                         >
-
                             <div
                                 className="
                                     mx-auto
@@ -1505,13 +1994,11 @@ function Login() {
                             >
                                 {email}
                             </p>
-
                         </div>
 
                         {/* OTP INPUT */}
 
                         <div>
-
                             <label
                                 className="
                                     block
@@ -1564,7 +2051,6 @@ function Login() {
                                     disabled:bg-gray-100
                                 "
                             />
-
                         </div>
 
                         {/* VERIFY */}
@@ -1614,81 +2100,73 @@ function Login() {
                         </button>
 
                     </form>
-
                 )}
 
                 {/* =================================================
                     SIGNUP
                 ================================================= */}
 
-                {!otpStep && (
-
-                    <div
-                        className="
-                            mt-6
-                            text-center
-                        "
-                    >
-
-                        <p
-                            className="
-                                text-sm
-                                text-gray-500
-                            "
-                        >
-                            Don't have an account?
-                        </p>
-
+                {!otpStep &&
+                    !waitingForApproval && (
                         <div
                             className="
-                                flex
-                                justify-center
-                                gap-4
-                                mt-3
+                                mt-6
+                                text-center
                             "
                         >
-
-                            <Link
-                                to="/signup/client"
+                            <p
                                 className="
-                                    text-blue-600
-                                    font-medium
-                                    hover:underline
+                                    text-sm
+                                    text-gray-500
                                 "
                             >
-                                Client Signup
-                            </Link>
+                                Don't have an account?
+                            </p>
 
-                            <span
+                            <div
                                 className="
-                                    text-gray-300
+                                    flex
+                                    justify-center
+                                    gap-4
+                                    mt-3
                                 "
                             >
-                                |
-                            </span>
+                                <Link
+                                    to="/signup/client"
+                                    className="
+                                        text-blue-600
+                                        font-medium
+                                        hover:underline
+                                    "
+                                >
+                                    Client Signup
+                                </Link>
 
-                            <Link
-                                to="/signup/admin"
-                                className="
-                                    text-blue-600
-                                    font-medium
-                                    hover:underline
-                                "
-                            >
-                                Admin Signup
-                            </Link>
+                                <span
+                                    className="
+                                        text-gray-300
+                                    "
+                                >
+                                    |
+                                </span>
 
+                                <Link
+                                    to="/signup/admin"
+                                    className="
+                                        text-blue-600
+                                        font-medium
+                                        hover:underline
+                                    "
+                                >
+                                    Admin Signup
+                                </Link>
+                            </div>
                         </div>
-
-                    </div>
-
-                )}
+                    )}
 
             </div>
-
         </div>
     );
 }
 
 export default Login;
-

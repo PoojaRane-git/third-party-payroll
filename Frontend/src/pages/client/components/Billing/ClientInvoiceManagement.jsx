@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import Sidebar from "../Layout/Sidebar";
+import api from "../../../services/api";
 
 const API_BASE = "http://localhost:5000/api";
 

@@ -1157,17 +1157,11 @@ router.post(
             // MARK OTP VERIFIED
             // ==================================================
 
-            const {
-                error: verifyError,
-            } = await supabaseAdmin
+            const { error: verifyError } = await supabaseAdmin
                 .from("login_otps")
-                .update({
-                    verified: true,
-                })
-                .eq(
-                    "id",
-                    otpRecord.id
-                );
+                .update({ verified: true })
+                .eq("id", otpRecord.id);
+ 
 
             if (verifyError) {
 
@@ -1185,6 +1179,44 @@ router.post(
 
                     error:
                         verifyError.message,
+                });
+            }
+
+
+            // ==================================================
+            // PER-LOGIN APPROVAL
+            //
+            // admin / client / employee must be approved for
+            // EVERY login, not just once at signup.
+            // superadmin is exempt.
+            // ==================================================
+ 
+            const { createLoginRequestIfNeeded } =
+                require("./loginRequests");
+ 
+            let loginRequest = null;
+ 
+            try {
+                loginRequest = await createLoginRequestIfNeeded({
+                    userId: authUserId,
+                    role,
+                    email: profile.email || email,
+                });
+            } catch (lrError) {
+                return res.status(500).json({
+                    success: false,
+                    message: "Unable to create login approval request.",
+                });
+            }
+ 
+            if (loginRequest) {
+                // Approval required — do NOT return responseUser yet.
+                return res.status(200).json({
+                    success: true,
+                    otp_verified: true,
+                    login_pending_approval: true,
+                    login_request_id: loginRequest.id,
+                    message: "Waiting for admin to approve this login.",
                 });
             }
 
