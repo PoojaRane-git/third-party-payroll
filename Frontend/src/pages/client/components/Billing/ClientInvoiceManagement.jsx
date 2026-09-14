@@ -21,7 +21,6 @@ import {
 import Sidebar from "../Layout/Sidebar";
 import api from "../../../services/api";
 
-const API_BASE = "http://localhost:5000/api";
 
 // =============================================================
 // PAYMENT MODES
@@ -183,987 +182,1150 @@ function ClientInvoiceManagement({
         );
     };
 
-    // =========================================================
-    // FORMAT BILLING MONTH
-    // =========================================================
 
-    const formatBillingMonth = (date) => {
-        if (!date) return "-";
+// =========================================================
+// FORMAT BILLING MONTH
+// =========================================================
 
-        const parsed = new Date(date);
+const formatBillingMonth = (date) => {
+    if (!date) return "-";
 
-        if (Number.isNaN(parsed.getTime())) {
-            return String(date);
+    const parsed = new Date(date);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return String(date);
+    }
+
+    return parsed.toLocaleDateString(
+        "en-IN",
+        {
+            month: "short",
+            year: "numeric",
         }
+    );
+};
 
-        return parsed.toLocaleDateString(
-            "en-IN",
-            {
-                month: "short",
-                year: "numeric",
-            }
-        );
-    };
 
-    
-    // =========================================================
-    // NORMALIZE INVOICE
-    // =========================================================
+// =========================================================
+// FETCH CLIENT INVOICES
+// =========================================================
 
-    const normalizeInvoice = (invoice) => {
-        const totalAmount = Number(
-            invoice.total_amount ??
-            invoice.total_invoice_amount ??
-            invoice.total_bill_amount ??
-            0
+const fetchInvoices = async (forceRefresh = false) => {
+    try {
+        setLoadingInvoices(true);
+
+        const response = await api.get(
+            "/client-management/invoices"
         );
 
-        const amountPaid = Number(
-            invoice.amount_paid ??
-            invoice.paid_amount ??
-            invoice.total_paid ??
-            0
+        const data = response.data || {};
+
+        setInvoices(
+            data.invoices ||
+            data.data ||
+            []
         );
 
-        const tdsDeducted = Number(
-            invoice.tds_deducted ?? 0
+        return data;
+    } catch (error) {
+        console.error(
+            "Fetch invoices error:",
+            error
         );
 
-        const amountSettled = Number(
-            invoice.amount_settled ??
-            amountPaid + tdsDeducted
+        alert(
+            error.response?.data?.error ||
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to load invoices."
         );
 
-        const outstanding = Math.max(
-            0,
-            totalAmount - amountSettled
-        );
+        return null;
+    } finally {
+        setLoadingInvoices(false);
+    }
+};
 
-        const paymentStatus = String(
-            invoice.payment_status ??
-            invoice.status ??
-            "Pending"
-        ).trim();
 
-        const confirmationStatus =
-            invoice.confirmation_status ||
+// =========================================================
+// NORMALIZE INVOICE
+// =========================================================
+
+const normalizeInvoice = (invoice) => {
+    const totalAmount = Number(
+        invoice.total_amount ??
+        invoice.total_invoice_amount ??
+        invoice.total_bill_amount ??
+        0
+    );
+
+    const amountPaid = Number(
+        invoice.amount_paid ??
+        invoice.paid_amount ??
+        invoice.total_paid ??
+        0
+    );
+
+    const tdsDeducted = Number(
+        invoice.tds_deducted ?? 0
+    );
+
+    const amountSettled = Number(
+        invoice.amount_settled ??
+        amountPaid + tdsDeducted
+    );
+
+    const outstanding = Math.max(
+        0,
+        totalAmount - amountSettled
+    );
+
+    const paymentStatus = String(
+        invoice.payment_status ??
+        invoice.status ??
+        "Pending"
+    ).trim();
+
+    const confirmationStatus =
+        invoice.confirmation_status ||
+            invoice.confirmationStatus
+            ? String(
+                invoice.confirmation_status ||
                 invoice.confirmationStatus
-                ? String(
-                    invoice.confirmation_status ||
-                    invoice.confirmationStatus
-                ).trim()
-                : null;
+            ).trim()
+            : null;
 
-        return {
-            ...invoice,
+    return {
+        ...invoice,
 
-            // =================================================
-            // BASIC
-            // =================================================
+        // =================================================
+        // BASIC
+        // =================================================
 
-            invoiceNumber:
-                invoice.invoice_number ||
-                invoice.invoiceNumber ||
-                `INV-${invoice.id}`,
+        invoiceNumber:
+            invoice.invoice_number ||
+            invoice.invoiceNumber ||
+            `INV-${invoice.id}`,
 
-            clientName:
-                invoice.client_name ||
-                invoice.company_name ||
-                "Client",
+        clientName:
+            invoice.client_name ||
+            invoice.company_name ||
+            "Client",
 
-            billingMonth:
-                invoice.billing_month ||
-                invoice.billingMonth ||
-                "-",
+        billingMonth:
+            invoice.billing_month ||
+            invoice.billingMonth ||
+            "-",
 
-            invoiceDate:
-                invoice.invoice_date ||
-                invoice.created_at ||
-                null,
+        invoiceDate:
+            invoice.invoice_date ||
+            invoice.created_at ||
+            null,
 
-            dueDate:
-                invoice.due_date || null,
+        dueDate:
+            invoice.due_date ||
+            null,
 
-            lifecycleState:
-                invoice.lifecycle_state ||
-                "Draft",
+        lifecycleState:
+            invoice.lifecycle_state ||
+            "Draft",
 
-            // =================================================
-            // BILLING CALCULATION
-            // =================================================
+        // =================================================
+        // BILLING CALCULATION
+        // =================================================
 
-            employeeCount: Number(
-                invoice.employee_count ?? 0
-            ),
+        employeeCount: Number(
+            invoice.employee_count ?? 0
+        ),
 
-            totalPayRate: Number(
-                invoice.total_pay_rate ??
-                invoice.totalPayRate ??
-                0
-            ),
+        totalPayRate: Number(
+            invoice.total_pay_rate ??
+            invoice.totalPayRate ??
+            0
+        ),
 
-            employerStatutory: Number(
-                invoice.employer_statutory ??
-                invoice.employerStatutory ??
-                0
-            ),
+        employerStatutory: Number(
+            invoice.employer_statutory ??
+            invoice.employerStatutory ??
+            0
+        ),
 
-            serviceCharge: Number(
-                invoice.service_charge ??
-                invoice.serviceCharge ??
-                0
-            ),
+        serviceCharge: Number(
+            invoice.service_charge ??
+            invoice.serviceCharge ??
+            0
+        ),
 
-            grossMargin: Number(
-                invoice.gross_margin ??
-                invoice.grossMargin ??
-                0
-            ),
+        grossMargin: Number(
+            invoice.gross_margin ??
+            invoice.grossMargin ??
+            0
+        ),
 
-            subtotal: Number(
-                invoice.subtotal ?? 0
-            ),
+        subtotal: Number(
+            invoice.subtotal ?? 0
+        ),
 
-            gstType:
-                invoice.gst_type ||
-                invoice.gstType ||
-                null,
+        gstType:
+            invoice.gst_type ||
+            invoice.gstType ||
+            null,
 
-            cgst: Number(
-                invoice.cgst ?? 0
-            ),
+        cgst: Number(
+            invoice.cgst ?? 0
+        ),
 
-            sgst: Number(
-                invoice.sgst ?? 0
-            ),
+        sgst: Number(
+            invoice.sgst ?? 0
+        ),
 
-            igst: Number(
-                invoice.igst ?? 0
-            ),
+        igst: Number(
+            invoice.igst ?? 0
+        ),
 
-            totalGst: Number(
-                invoice.total_gst ??
-                (
-                    Number(invoice.cgst ?? 0) +
-                    Number(invoice.sgst ?? 0) +
-                    Number(invoice.igst ?? 0)
+        totalGst: Number(
+            invoice.total_gst ??
+            (
+                Number(invoice.cgst ?? 0) +
+                Number(invoice.sgst ?? 0) +
+                Number(invoice.igst ?? 0)
+            )
+        ),
+
+        // =================================================
+        // FINANCIAL
+        // =================================================
+
+        totalAmount,
+
+        amountPaid,
+
+        tdsDeducted,
+
+        amountSettled,
+
+        outstanding,
+
+        // =================================================
+        // PAYMENT
+        // =================================================
+
+        paymentStatus,
+
+        // =================================================
+        // PAYMENT CONFIRMATION
+        // =================================================
+
+        confirmationStatus,
+
+        confirmationId:
+            invoice.confirmation_id ||
+            invoice.confirmationId ||
+            null,
+
+        confirmationAmount:
+            invoice.confirmation_amount != null
+                ? Number(
+                    invoice.confirmation_amount
                 )
-            ),
+                : null,
 
-            // =================================================
-            // FINANCIAL
-            // =================================================
+        confirmationDate:
+            invoice.confirmation_date ||
+            null,
 
-            totalAmount,
+        confirmationPaymentMode:
+            invoice.confirmation_payment_mode ||
+            null,
 
-            amountPaid,
+        confirmationReference:
+            invoice.confirmation_reference ||
+            null,
 
-            tdsDeducted,
+        confirmationSubmittedAt:
+            invoice.confirmation_submitted_at ||
+            null,
 
-            amountSettled,
+        rejectionReason:
+            invoice.rejection_reason ||
+            invoice.rejectionReason ||
+            null,
 
-            outstanding,
+        // =================================================
+        // DISPUTE
+        // =================================================
 
-            // =================================================
-            // PAYMENT
-            // =================================================
+        disputeId:
+            invoice.dispute_id ||
+            invoice.disputeId ||
+            null,
 
-            paymentStatus,
+        disputeStatus:
+            invoice.dispute_status ||
+            invoice.disputeStatus ||
+            null,
 
-            // =================================================
-            // PAYMENT CONFIRMATION
-            // =================================================
+        disputeType:
+            invoice.dispute_type ||
+            invoice.disputeType ||
+            null,
 
-            confirmationStatus,
+        disputeReason:
+            invoice.dispute_reason ||
+            invoice.disputeReason ||
+            null,
 
-            confirmationId:
-                invoice.confirmation_id ||
-                invoice.confirmationId ||
-                null,
+        disputeSubmittedAt:
+            invoice.dispute_submitted_at ||
+            invoice.disputeSubmittedAt ||
+            null,
 
-            confirmationAmount:
-                invoice.confirmation_amount != null
-                    ? Number(
-                        invoice.confirmation_amount
-                    )
-                    : null,
+        disputeReviewedBy:
+            invoice.dispute_reviewed_by ||
+            invoice.disputeReviewedBy ||
+            null,
 
-            confirmationDate:
-                invoice.confirmation_date ||
-                null,
+        disputeReviewedAt:
+            invoice.dispute_reviewed_at ||
+            invoice.disputeReviewedAt ||
+            null,
 
-            confirmationPaymentMode:
-                invoice.confirmation_payment_mode ||
-                null,
-
-            confirmationReference:
-                invoice.confirmation_reference ||
-                null,
-
-            confirmationSubmittedAt:
-                invoice.confirmation_submitted_at ||
-                null,
-
-            rejectionReason:
-                invoice.rejection_reason ||
-                invoice.rejectionReason ||
-                null,
-
-            // =================================================
-            // DISPUTE
-            // =================================================
-
-            disputeId:
-                invoice.dispute_id ||
-                invoice.disputeId ||
-                null,
-
-            disputeStatus:
-                invoice.dispute_status ||
-                invoice.disputeStatus ||
-                null,
-
-            disputeType:
-                invoice.dispute_type ||
-                invoice.disputeType ||
-                null,
-
-            disputeReason:
-                invoice.dispute_reason ||
-                invoice.disputeReason ||
-                null,
-
-            disputeSubmittedAt:
-                invoice.dispute_submitted_at ||
-                invoice.disputeSubmittedAt ||
-                null,
-
-            disputeReviewedBy:
-                invoice.dispute_reviewed_by ||
-                invoice.disputeReviewedBy ||
-                null,
-
-            disputeReviewedAt:
-                invoice.dispute_reviewed_at ||
-                invoice.disputeReviewedAt ||
-                null,
-
-            adminResponse:
-                invoice.admin_response ||
-                invoice.adminResponse ||
-                null,
-        };
+        adminResponse:
+            invoice.admin_response ||
+            invoice.adminResponse ||
+            null,
     };
+};
 
-    // =========================================================
-    // NORMALIZED INVOICES
-    // =========================================================
 
-    const normalizedInvoices = useMemo(() => {
-        return invoices.map(normalizeInvoice);
-    }, [invoices]);
+// =========================================================
+// NORMALIZED INVOICES
+// =========================================================
 
-    // =========================================================
-    // SEARCH
-    // =========================================================
+const normalizedInvoices = useMemo(() => {
+    return invoices.map(
+        normalizeInvoice
+    );
+}, [invoices]);
 
-    const filteredInvoices = useMemo(() => {
-        const query = searchQuery
-            .toLowerCase()
-            .trim();
 
-        return normalizedInvoices.filter(
-            (invoice) => {
-                if (!query) return true;
+// =========================================================
+// SEARCH
+// =========================================================
 
-                return (
-                    invoice.invoiceNumber
-                        .toLowerCase()
-                        .includes(query) ||
+const filteredInvoices = useMemo(() => {
+    const query = searchQuery
+        .toLowerCase()
+        .trim();
 
-                    String(
-                        invoice.billingMonth
-                    )
-                        .toLowerCase()
-                        .includes(query) ||
+    return normalizedInvoices.filter(
+        (invoice) => {
+            if (!query) return true;
 
-                    String(
-                        invoice.paymentStatus
-                    )
-                        .toLowerCase()
-                        .includes(query) ||
+            return (
+                invoice.invoiceNumber
+                    .toLowerCase()
+                    .includes(query) ||
 
-                    String(
-                        invoice.confirmationStatus ||
-                        ""
-                    )
-                        .toLowerCase()
-                        .includes(query) ||
+                String(
+                    invoice.billingMonth
+                )
+                    .toLowerCase()
+                    .includes(query) ||
 
-                    String(
-                        invoice.disputeStatus ||
-                        ""
-                    )
-                        .toLowerCase()
-                        .includes(query)
-                );
-            }
-        );
-    }, [
-        normalizedInvoices,
-        searchQuery,
-    ]);
+                String(
+                    invoice.paymentStatus
+                )
+                    .toLowerCase()
+                    .includes(query) ||
 
-    // =========================================================
-    // PAYMENT STATUS
-    // =========================================================
+                String(
+                    invoice.confirmationStatus ||
+                    ""
+                )
+                    .toLowerCase()
+                    .includes(query) ||
 
-    const getPaymentStatus = (invoice) => {
-        const status = String(
-            invoice.paymentStatus ||
-            "Pending"
-        )
-            .trim()
-            .toLowerCase();
-
-        if (status === "paid") {
-            return {
-                label: "Paid",
-                className:
-                    "bg-emerald-50 text-emerald-700 border-emerald-200",
-                icon: CheckCircle2,
-            };
+                String(
+                    invoice.disputeStatus ||
+                    ""
+                )
+                    .toLowerCase()
+                    .includes(query)
+            );
         }
+    );
+}, [
+    normalizedInvoices,
+    searchQuery,
+]);
 
-        if (
-            status === "partially paid"
-        ) {
-            return {
-                label: "Partially Paid",
-                className:
-                    "bg-blue-50 text-blue-700 border-blue-200",
-                icon: CreditCard,
-            };
-        }
 
-        if (status === "overdue") {
-            return {
-                label: "Overdue",
-                className:
-                    "bg-red-50 text-red-700 border-red-200",
-                icon: AlertCircle,
-            };
-        }
+// =========================================================
+// PAYMENT STATUS
+// =========================================================
 
+const getPaymentStatus = (invoice) => {
+    const status = String(
+        invoice.paymentStatus ||
+        "Pending"
+    )
+        .trim()
+        .toLowerCase();
+
+    if (status === "paid") {
         return {
-            label: "Pending",
+            label: "Paid",
+            className:
+                "bg-emerald-50 text-emerald-700 border-emerald-200",
+            icon: CheckCircle2,
+        };
+    }
+
+    if (
+        status === "partially paid"
+    ) {
+        return {
+            label: "Partially Paid",
+            className:
+                "bg-blue-50 text-blue-700 border-blue-200",
+            icon: CreditCard,
+        };
+    }
+
+    if (status === "overdue") {
+        return {
+            label: "Overdue",
+            className:
+                "bg-red-50 text-red-700 border-red-200",
+            icon: AlertCircle,
+        };
+    }
+
+    return {
+        label: "Pending",
+        className:
+            "bg-amber-50 text-amber-700 border-amber-200",
+        icon: Clock,
+    };
+};
+
+
+// =========================================================
+// PAYMENT CONFIRMATION STATUS
+// =========================================================
+
+const getConfirmationStatus = (
+    invoice
+) => {
+    const status = String(
+        invoice.confirmationStatus || ""
+    )
+        .trim()
+        .toLowerCase();
+
+    if (
+        status ===
+        "pending verification"
+    ) {
+        return {
+            label:
+                "Payment Verification Pending",
             className:
                 "bg-amber-50 text-amber-700 border-amber-200",
             icon: Clock,
         };
-    };
+    }
 
-    // =========================================================
-    // PAYMENT CONFIRMATION STATUS
-    // =========================================================
+    if (status === "rejected") {
+        return {
+            label: "Payment Rejected",
+            className:
+                "bg-red-50 text-red-700 border-red-200",
+            icon: AlertCircle,
+        };
+    }
 
-    const getConfirmationStatus = (
-        invoice
-    ) => {
-        const status = String(
+    if (status === "verified") {
+        return {
+            label: "Payment Verified",
+            className:
+                "bg-emerald-50 text-emerald-700 border-emerald-200",
+            icon: CheckCircle2,
+        };
+    }
+
+    return null;
+};
+
+
+// =========================================================
+// DISPUTE STATUS
+// =========================================================
+
+const getDisputeStatus = (
+    invoice
+) => {
+    const status = String(
+        invoice.disputeStatus || ""
+    )
+        .trim()
+        .toLowerCase();
+
+    if (
+        status === "pending review"
+    ) {
+        return {
+            label: "Dispute Pending",
+            className:
+                "bg-amber-50 text-amber-700 border-amber-200",
+            icon: Clock,
+        };
+    }
+
+    if (status === "accepted") {
+        return {
+            label: "Dispute Accepted",
+            className:
+                "bg-red-50 text-red-700 border-red-200",
+            icon: AlertCircle,
+        };
+    }
+
+    if (status === "rejected") {
+        return {
+            label: "Dispute Rejected",
+            className:
+                "bg-slate-100 text-slate-700 border-slate-200",
+            icon: X,
+        };
+    }
+
+    if (status === "resolved") {
+        return {
+            label: "Dispute Resolved",
+            className:
+                "bg-emerald-50 text-emerald-700 border-emerald-200",
+            icon: CheckCircle2,
+        };
+    }
+
+    return null;
+};
+
+
+// =========================================================
+// ACTIVE DISPUTE
+// =========================================================
+
+const hasActiveDispute = (
+    invoice
+) => {
+    const status = String(
+        invoice.disputeStatus || ""
+    )
+        .trim()
+        .toLowerCase();
+
+    return [
+        "pending review",
+        "accepted",
+    ].includes(status);
+};
+
+
+// =========================================================
+// DISPUTE PENDING ADMIN REVIEW
+// =========================================================
+
+const isDisputePendingReview = (
+    invoice
+) => {
+    const status = String(
+        invoice.disputeStatus || ""
+    )
+        .trim()
+        .toLowerCase();
+
+    return status === "pending review";
+};
+
+
+// =========================================================
+// CAN RAISE DISPUTE
+// =========================================================
+
+const canRaiseDispute = (
+    invoice
+) => {
+    // Already has an active dispute
+    if (hasActiveDispute(invoice)) {
+        return false;
+    }
+
+    // Payment already verified by admin
+    if (
+        String(
             invoice.confirmationStatus || ""
         )
             .trim()
-            .toLowerCase();
+            .toLowerCase() === "verified"
+    ) {
+        return false;
+    }
 
-        if (
-            status ===
-            "pending verification"
-        ) {
-            return {
-                label:
-                    "Payment Verification Pending",
-                className:
-                    "bg-amber-50 text-amber-700 border-amber-200",
-                icon: Clock,
-            };
-        }
-
-        if (status === "rejected") {
-            return {
-                label: "Payment Rejected",
-                className:
-                    "bg-red-50 text-red-700 border-red-200",
-                icon: AlertCircle,
-            };
-        }
-
-        if (status === "verified") {
-            return {
-                label: "Payment Verified",
-                className:
-                    "bg-emerald-50 text-emerald-700 border-emerald-200",
-                icon: CheckCircle2,
-            };
-        }
-
-        return null;
-    };
-
-    // =========================================================
-    // DISPUTE STATUS
-    // =========================================================
-
-    const getDisputeStatus = (
-        invoice
-    ) => {
-        const status = String(
-            invoice.disputeStatus || ""
+    // Invoice fully paid
+    if (
+        String(
+            invoice.paymentStatus || ""
         )
             .trim()
-            .toLowerCase();
+            .toLowerCase() === "paid"
+    ) {
+        return false;
+    }
 
-        if (
-            status === "pending review"
-        ) {
-            return {
-                label: "Dispute Pending",
-                className:
-                    "bg-amber-50 text-amber-700 border-amber-200",
-                icon: Clock,
-            };
-        }
+    return true;
+};
 
-        if (status === "accepted") {
-            return {
-                label: "Dispute Accepted",
-                className:
-                    "bg-red-50 text-red-700 border-red-200",
-                icon: AlertCircle,
-            };
-        }
 
-        if (status === "rejected") {
-            return {
-                label: "Dispute Rejected",
-                className:
-                    "bg-slate-100 text-slate-700 border-slate-200",
-                icon: X,
-            };
-        }
+// =========================================================
+// PAYMENT HELPERS
+// =========================================================
 
-        if (status === "resolved") {
-            return {
-                label: "Dispute Resolved",
-                className:
-                    "bg-emerald-50 text-emerald-700 border-emerald-200",
-                icon: CheckCircle2,
-            };
-        }
-
-        return null;
-    };
-
-    // =========================================================
-    // ACTIVE DISPUTE
-    // =========================================================
-
-    const hasActiveDispute = (
-        invoice
-    ) => {
-        const status = String(
-            invoice.disputeStatus || ""
+const isPaymentPendingVerification = (
+    invoice
+) => {
+    return (
+        String(
+            invoice.confirmationStatus ||
+            ""
         )
             .trim()
-            .toLowerCase();
+            .toLowerCase() ===
+        "pending verification"
+    );
+};
 
-        return [
-            "pending review",
-            "accepted",
-        ].includes(status);
-    };
 
-    // =========================================================
-    // DISPUTE PENDING ADMIN REVIEW
-    // =========================================================
-
-    const isDisputePendingReview = (invoice) => {
-        const status = String(invoice.disputeStatus || "")
+const isPaymentRejected = (
+    invoice
+) => {
+    return (
+        String(
+            invoice.confirmationStatus ||
+            ""
+        )
             .trim()
-            .toLowerCase();
+            .toLowerCase() ===
+        "rejected"
+    );
+};
 
-        return status === "pending review";
-    };
 
-    // =========================================================
-    // CAN RAISE DISPUTE
-    // =========================================================
+// =========================================================
+// IS PAYMENT VERIFIED
+// =========================================================
 
-    const canRaiseDispute = (invoice) => {
-        // Already has an active dispute
-        if (hasActiveDispute(invoice)) {
-            return false;
-        }
-
-        // Payment already verified by admin — nothing left to dispute
-        const confirmationStatus = String(invoice.confirmationStatus || "")
+const isPaymentVerified = (
+    invoice
+) => {
+    return (
+        String(
+            invoice.confirmationStatus ||
+            ""
+        )
             .trim()
-            .toLowerCase();
+            .toLowerCase() ===
+        "verified"
+    );
+};
 
-        if (confirmationStatus === "verified") {
-            return false;
-        }
 
-        // Invoice fully paid and settled
-        const paymentStatus = String(invoice.paymentStatus || "")
-            .trim()
-            .toLowerCase();
+// =========================================================
+// CAN REPORT PAYMENT
+// =========================================================
 
-        if (paymentStatus === "paid") {
-            return false;
-        }
+const canReportPayment = (
+    invoice
+) => {
+    const paymentStatus = String(
+        invoice.paymentStatus || ""
+    )
+        .trim()
+        .toLowerCase();
 
-        return true;
-    };
+    if (paymentStatus === "paid") {
+        return false;
+    }
 
-    // =========================================================
-    // PAYMENT HELPERS
-    // =========================================================
+    if (
+        isPaymentPendingVerification(
+            invoice
+        )
+    ) {
+        return false;
+    }
 
-    const isPaymentPendingVerification = (
+    // Block payment while dispute is pending
+    if (
+        isDisputePendingReview(
+            invoice
+        )
+    ) {
+        return false;
+    }
+
+    return true;
+};
+
+
+// =========================================================
+// OPEN BILLING INFO
+// =========================================================
+
+const openBillingInfo = (
+    invoice
+) => {
+    setSelectedInvoice(
         invoice
-    ) => {
-        return (
-            String(
-                invoice.confirmationStatus ||
-                ""
-            )
-                .trim()
-                .toLowerCase() ===
-            "pending verification"
-        );
-    };
+    );
 
-    const isPaymentRejected = (
-        invoice
-    ) => {
-        return (
-            String(
-                invoice.confirmationStatus ||
-                ""
-            )
-                .trim()
-                .toLowerCase() ===
-            "rejected"
-        );
-    };
+    setShowBillingInfo(
+        true
+    );
+};
 
-    // NEW: is payment confirmation verified?
-    const isPaymentVerified = (invoice) => {
-        return (
-            String(invoice.confirmationStatus || "")
-                .trim()
-                .toLowerCase() === "verified"
-        );
-    };
 
-    // =========================================================
-    // CAN REPORT PAYMENT
-    // =========================================================
+// =========================================================
+// OPEN DISPUTE MODAL
+// =========================================================
 
-    const canReportPayment = (invoice) => {
-        const paymentStatus = String(invoice.paymentStatus || "")
-            .trim()
-            .toLowerCase();
-
-        if (paymentStatus === "paid") {
-            return false;
-        }
-
-        if (isPaymentPendingVerification(invoice)) {
-            return false;
-        }
-
-        // 🔒 Block payment until admin reviews & responds to the dispute
-        if (isDisputePendingReview(invoice)) {
-            return false;
-        }
-
-        return true;
-    };
-
-    // =========================================================
-    // OPEN BILLING INFO
-    // =========================================================
-
-    const openBillingInfo = (
-        invoice
-    ) => {
-        setSelectedInvoice(invoice);
-
-        setShowBillingInfo(true);
-    };
-
-    // =========================================================
-    // OPEN DISPUTE MODAL
-    // =========================================================
-
-    const openDisputeModal = (invoice) => {
-        if (!canRaiseDispute(invoice)) {
-            if (hasActiveDispute(invoice)) {
-                alert("A dispute for this invoice is already under review.");
-            } else {
-                alert("This invoice has already been paid and verified. Disputes can only be raised before payment is confirmed.");
-            }
-            return;
-        }
-
-        setSelectedInvoice(invoice);
-        setDisputeForm({ dispute_type: "Calculation Error", reason: "" });
-        setShowDisputeModal(true);
-    };
-
-    // =========================================================
-    // OPEN PAYMENT MODAL
-    // =========================================================
-
-    const openPaymentModal = (invoice) => {
-        if (!canReportPayment(invoice)) {
-            if (isDisputePendingReview(invoice)) {
-                alert(
-                    "You have an active dispute on this invoice. Please wait for Talent Corner to review and respond before making a payment."
-                );
-            } else if (isPaymentPendingVerification(invoice)) {
-                alert(
-                    "A payment confirmation for this invoice is already awaiting verification."
-                );
-            } else {
-                alert("This invoice has already been fully paid.");
-            }
-            return;
-        }
-
-        setSelectedInvoice(invoice);
-        setPaymentForm({
-            amount_reported: invoice.outstanding > 0 ? invoice.outstanding.toFixed(2) : "",
-            payment_date: TODAY,
-            payment_mode: "NEFT/RTGS",
-            reference_number: "",
-            notes: "",
-            payment_proof_url: "",
-        });
-        setShowPaymentModal(true);
-    };
-
-    // =========================================================
-    // SUBMIT PAYMENT
-    // =========================================================
-
-    const handleSubmitPayment = async (
-        e
-    ) => {
-        e.preventDefault();
-
-        if (!selectedInvoice) {
-            return;
-        }
-
-        const amount = Number(
-            paymentForm.amount_reported
-        );
-
+const openDisputeModal = (
+    invoice
+) => {
+    if (
+        !canRaiseDispute(
+            invoice
+        )
+    ) {
         if (
-            !Number.isFinite(amount) ||
-            amount <= 0
+            hasActiveDispute(
+                invoice
+            )
         ) {
             alert(
-                "Please enter a valid payment amount."
+                "A dispute for this invoice is already under review."
             );
-
-            return;
+        } else {
+            alert(
+                "This invoice has already been paid and verified. Disputes can only be raised before payment is confirmed."
+            );
         }
 
+        return;
+    }
+
+    setSelectedInvoice(
+        invoice
+    );
+
+    setDisputeForm({
+        dispute_type:
+            "Calculation Error",
+        reason: "",
+    });
+
+    setShowDisputeModal(
+        true
+    );
+};
+
+
+// =========================================================
+// OPEN PAYMENT MODAL
+// =========================================================
+
+const openPaymentModal = (
+    invoice
+) => {
+    if (
+        !canReportPayment(
+            invoice
+        )
+    ) {
         if (
-            amount >
-            Number(
+            isDisputePendingReview(
+                invoice
+            )
+        ) {
+            alert(
+                "You have an active dispute on this invoice. Please wait for Talent Corner to review and respond before making a payment."
+            );
+        } else if (
+            isPaymentPendingVerification(
+                invoice
+            )
+        ) {
+            alert(
+                "A payment confirmation for this invoice is already awaiting verification."
+            );
+        } else {
+            alert(
+                "This invoice has already been fully paid."
+            );
+        }
+
+        return;
+    }
+
+    setSelectedInvoice(
+        invoice
+    );
+
+    setPaymentForm({
+        amount_reported:
+            invoice.outstanding > 0
+                ? invoice.outstanding.toFixed(2)
+                : "",
+
+        payment_date:
+            TODAY,
+
+        payment_mode:
+            "NEFT/RTGS",
+
+        reference_number:
+            "",
+
+        notes:
+            "",
+
+        payment_proof_url:
+            "",
+    });
+
+    setShowPaymentModal(
+        true
+    );
+};
+
+
+// =========================================================
+// SUBMIT PAYMENT
+// =========================================================
+
+const handleSubmitPayment = async (
+    e
+) => {
+    e.preventDefault();
+
+    if (!selectedInvoice) {
+        return;
+    }
+
+    const amount = Number(
+        paymentForm.amount_reported
+    );
+
+    if (
+        !Number.isFinite(amount) ||
+        amount <= 0
+    ) {
+        alert(
+            "Please enter a valid payment amount."
+        );
+
+        return;
+    }
+
+    if (
+        amount >
+        Number(
+            selectedInvoice.outstanding
+        )
+    ) {
+        alert(
+            `Payment cannot exceed the outstanding amount of ₹${formatCurrency(
                 selectedInvoice.outstanding
-            )
-        ) {
-            alert(
-                `Payment cannot exceed the outstanding amount of ₹${formatCurrency(
-                    selectedInvoice.outstanding
-                )}.`
+            )}.`
+        );
+
+        return;
+    }
+
+    if (
+        !paymentForm.reference_number ||
+        !paymentForm.reference_number.trim()
+    ) {
+        alert(
+            "Please enter the UTR / transaction reference number."
+        );
+
+        return;
+    }
+
+    if (
+        !paymentForm.payment_date
+    ) {
+        alert(
+            "Please select the payment date."
+        );
+
+        return;
+    }
+
+    // Payment date cannot be future date
+    if (
+        paymentForm.payment_date >
+        TODAY
+    ) {
+        alert(
+            "Payment date cannot be in the future."
+        );
+
+        return;
+    }
+
+    try {
+        setSubmittingPayment(
+            true
+        );
+
+        // =====================================================
+        // USE CENTRAL API INSTANCE
+        // No API_BASE
+        // No local fetch()
+        // =====================================================
+
+        const response =
+            await api.post(
+                `/client/invoices/${selectedInvoice.id}/payment-confirmation`,
+                {
+                    client_id:
+                        Number(
+                            clientId
+                        ),
+
+                    amount_reported:
+                        amount,
+
+                    payment_date:
+                        paymentForm.payment_date,
+
+                    payment_mode:
+                        paymentForm.payment_mode,
+
+                    reference_number:
+                        paymentForm.reference_number.trim(),
+
+                    notes:
+                        paymentForm.notes &&
+                        paymentForm.notes.trim()
+                            ? paymentForm.notes.trim()
+                            : null,
+
+                    payment_proof_url:
+                        paymentForm.payment_proof_url &&
+                        paymentForm.payment_proof_url.trim()
+                            ? paymentForm.payment_proof_url.trim()
+                            : null,
+                }
             );
 
-            return;
-        }
+        const data =
+            response.data || {};
 
-        if (
-            !paymentForm.reference_number.trim()
-        ) {
-            alert(
-                "Please enter the UTR / transaction reference number."
+        alert(
+            "Payment confirmation submitted successfully. It is now awaiting admin verification."
+        );
+
+        setShowPaymentModal(
+            false
+        );
+
+        setSelectedInvoice(
+            null
+        );
+
+        await fetchInvoices(
+            true
+        );
+    } catch (error) {
+        console.error(
+            "Payment confirmation error:",
+            error
+        );
+
+        alert(
+            error.response?.data?.error ||
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to submit payment confirmation."
+        );
+    } finally {
+        setSubmittingPayment(
+            false
+        );
+    }
+};
+
+
+// =========================================================
+// SUBMIT DISPUTE
+// =========================================================
+
+const handleSubmitDispute = async (
+    e
+) => {
+    e.preventDefault();
+
+    if (!selectedInvoice) {
+        return;
+    }
+
+    const reason =
+        disputeForm.reason.trim();
+
+    if (!reason) {
+        alert(
+            "Please explain the issue with this invoice."
+        );
+
+        return;
+    }
+
+    if (
+        reason.length < 10
+    ) {
+        alert(
+            "Please provide a little more detail about the issue."
+        );
+
+        return;
+    }
+
+    if (
+        reason.length > 1000
+    ) {
+        alert(
+            "Dispute reason cannot exceed 1000 characters."
+        );
+
+        return;
+    }
+
+    try {
+        setSubmittingDispute(
+            true
+        );
+
+        // =====================================================
+        // USE CENTRAL API INSTANCE
+        // No API_BASE
+        // No local fetch()
+        // =====================================================
+
+        const response =
+            await api.post(
+                `/client/invoices/${selectedInvoice.id}/dispute`,
+                {
+                    client_id:
+                        Number(
+                            clientId
+                        ),
+
+                    dispute_type:
+                        disputeForm.dispute_type,
+
+                    reason,
+                }
             );
 
-            return;
-        }
+        const data =
+            response.data || {};
 
-        if (
-            !paymentForm.payment_date
-        ) {
-            alert(
-                "Please select the payment date."
-            );
+        alert(
+            "Invoice dispute submitted successfully. Talent Corner will review it."
+        );
 
-            return;
-        }
+        setShowDisputeModal(
+            false
+        );
 
-        // Payment date cannot be future date
-        if (
-            paymentForm.payment_date >
-            TODAY
-        ) {
-            alert(
-                "Payment date cannot be in the future."
-            );
+        setSelectedInvoice(
+            null
+        );
 
-            return;
-        }
+        await fetchInvoices(
+            true
+        );
+    } catch (error) {
+        console.error(
+            "Invoice dispute error:",
+            error
+        );
 
-        try {
-            setSubmittingPayment(true);
+        alert(
+            error.response?.data?.error ||
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to submit invoice dispute."
+        );
+    } finally {
+        setSubmittingDispute(
+            false
+        );
+    }
+};
 
-            const response =
-                await fetch(
-                    `${API_BASE}/client/invoices/${selectedInvoice.id}/payment-confirmation`,
-                    {
-                        method: "POST",
 
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
+// =========================================================
+// SUMMARY
+// =========================================================
 
-                        body: JSON.stringify({
-                            client_id:
-                                Number(
-                                    clientId
-                                ),
+const summary = useMemo(() => {
+    return {
+        totalInvoices:
+            normalizedInvoices.length,
 
-                            amount_reported:
-                                amount,
+        totalBilled:
+            normalizedInvoices.reduce(
+                (
+                    sum,
+                    invoice
+                ) =>
+                    sum +
+                    invoice.totalAmount,
+                0
+            ),
 
-                            payment_date:
-                                paymentForm.payment_date,
+        totalPaid:
+            normalizedInvoices.reduce(
+                (
+                    sum,
+                    invoice
+                ) =>
+                    sum +
+                    invoice.amountSettled,
+                0
+            ),
 
-                            payment_mode:
-                                paymentForm.payment_mode,
-
-                            reference_number:
-                                paymentForm.reference_number.trim(),
-
-                            notes:
-                                paymentForm.notes.trim() ||
-                                null,
-
-                            payment_proof_url:
-                                paymentForm.payment_proof_url.trim() ||
-                                null,
-                        }),
-                    }
-                );
-
-            const data =
-                await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data.error ||
-                    data.message ||
-                    "Failed to submit payment confirmation"
-                );
-            }
-
-            alert(
-                "Payment confirmation submitted successfully. It is now awaiting admin verification."
-            );
-
-            setShowPaymentModal(
-                false
-            );
-
-            setSelectedInvoice(null);
-
-            await fetchInvoices(true);
-        } catch (error) {
-            console.error(
-                "Payment confirmation error:",
-                error
-            );
-
-            alert(
-                error.message ||
-                "Failed to submit payment confirmation."
-            );
-        } finally {
-            setSubmittingPayment(
-                false
-            );
-        }
+        outstanding:
+            normalizedInvoices.reduce(
+                (
+                    sum,
+                    invoice
+                ) =>
+                    sum +
+                    invoice.outstanding,
+                0
+            ),
     };
+}, [
+    normalizedInvoices,
+]);
 
-    // =========================================================
-    // SUBMIT DISPUTE
-    // =========================================================
-
-    const handleSubmitDispute = async (
-        e
-    ) => {
-        e.preventDefault();
-
-        if (!selectedInvoice) {
-            return;
-        }
-
-        const reason =
-            disputeForm.reason.trim();
-
-        if (!reason) {
-            alert(
-                "Please explain the issue with this invoice."
-            );
-
-            return;
-        }
-
-        if (reason.length < 10) {
-            alert(
-                "Please provide a little more detail about the issue."
-            );
-
-            return;
-        }
-
-        if (reason.length > 1000) {
-            alert(
-                "Dispute reason cannot exceed 1000 characters."
-            );
-
-            return;
-        }
-
-        try {
-            setSubmittingDispute(
-                true
-            );
-
-            const response =
-                await fetch(
-                    `${API_BASE}/client/invoices/${selectedInvoice.id}/dispute`,
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-
-                        body: JSON.stringify({
-                            client_id:
-                                Number(
-                                    clientId
-                                ),
-
-                            dispute_type:
-                                disputeForm.dispute_type,
-
-                            reason,
-                        }),
-                    }
-                );
-
-            const data =
-                await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data.error ||
-                    data.message ||
-                    "Failed to submit invoice dispute"
-                );
-            }
-
-            alert(
-                "Invoice dispute submitted successfully. Talent Corner will review it."
-            );
-
-            setShowDisputeModal(
-                false
-            );
-
-            setSelectedInvoice(null);
-
-            await fetchInvoices(true);
-        } catch (error) {
-            console.error(
-                "Invoice dispute error:",
-                error
-            );
-
-            alert(
-                error.message ||
-                "Failed to submit invoice dispute."
-            );
-        } finally {
-            setSubmittingDispute(
-                false
-            );
-        }
-    };
-
-    // =========================================================
-    // SUMMARY
-    // =========================================================
-
-    const summary = useMemo(() => {
-        return {
-            totalInvoices:
-                normalizedInvoices.length,
-
-            totalBilled:
-                normalizedInvoices.reduce(
-                    (
-                        sum,
-                        invoice
-                    ) =>
-                        sum +
-                        invoice.totalAmount,
-                    0
-                ),
-
-            totalPaid:
-                normalizedInvoices.reduce(
-                    (
-                        sum,
-                        invoice
-                    ) =>
-                        sum +
-                        invoice.amountSettled,
-                    0
-                ),
-
-            outstanding:
-                normalizedInvoices.reduce(
-                    (
-                        sum,
-                        invoice
-                    ) =>
-                        sum +
-                        invoice.outstanding,
-                    0
-                ),
-        };
-    }, [normalizedInvoices]);
 
     // =========================================================
     // LOADING

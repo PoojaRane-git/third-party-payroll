@@ -1,11 +1,10 @@
 
 import React, {
-    useState,
+    useState,useEffect
 } from "react";
 
 import {
     useNavigate,
-    useEffect,
     Link,
 } from "react-router-dom";
 
