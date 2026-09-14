@@ -283,12 +283,12 @@ router.get(
                     authUserId
                 );
 
-            console.log("========== /api/auth/me ==========");
-            console.log("Auth User ID:", authUserId);
-            console.log("Auth Email:", authEmail);
-            console.log("Profile Result:", result);
-            console.log("Detected Role:", result?.role);
-            console.log("==================================");
+                console.log("========== /api/auth/me ==========");
+console.log("Auth User ID:", authUserId);
+console.log("Auth Email:", authEmail);
+console.log("Profile Result:", result);
+console.log("Detected Role:", result?.role);
+console.log("==================================");
 
             if (!result) {
 
@@ -328,14 +328,14 @@ router.get(
 
             if (role === "superadmin") {
 
-                console.log("========== SUPERADMIN CHECK ==========");
-                console.log("Profile Email:", profileEmail);
-                console.log("Configured ADMIN_EMAIL:", SUPER_ADMIN_EMAIL);
-                console.log(
-                    "Email Match:",
-                    profileEmail === SUPER_ADMIN_EMAIL
-                );
-                console.log("======================================");
+                  console.log("========== SUPERADMIN CHECK ==========");
+    console.log("Profile Email:", profileEmail);
+    console.log("Configured ADMIN_EMAIL:", SUPER_ADMIN_EMAIL);
+    console.log(
+        "Email Match:",
+        profileEmail === SUPER_ADMIN_EMAIL
+    );
+    console.log("======================================");
 
                 if (
                     !isAuthorizedSuperAdmin(
@@ -1177,7 +1177,7 @@ router.post(
                 .from("login_otps")
                 .update({ verified: true })
                 .eq("id", otpRecord.id);
-
+ 
 
             if (verifyError) {
 
@@ -1206,12 +1206,12 @@ router.post(
             // EVERY login, not just once at signup.
             // superadmin is exempt.
             // ==================================================
-
+ 
             const { createLoginRequestIfNeeded } =
                 require("./loginRequests");
-
+ 
             let loginRequest = null;
-
+ 
             try {
                 loginRequest = await createLoginRequestIfNeeded({
                     userId: authUserId,
@@ -1224,7 +1224,7 @@ router.post(
                     message: "Unable to create login approval request.",
                 });
             }
-
+ 
             if (loginRequest) {
                 // Approval required — do NOT return responseUser yet.
                 return res.status(200).json({
@@ -1587,8 +1587,8 @@ router.post(
 
                         service_fee:
                             service_fee === "" ||
-                                service_fee === null ||
-                                service_fee === undefined
+                            service_fee === null ||
+                            service_fee === undefined
                                 ? null
                                 : Number(
                                     service_fee
@@ -3319,8 +3319,11 @@ router.patch(
 // IMPORTANT:
 // NO authorize() HERE.
 //
-// Login logging must work even if a profile has a
-// pending status.
+// Login logging must work for every authenticated role.
+//
+// IMPORTANT:
+// login_otps = OTP records
+// login_logs = login activity records
 // ============================================================
 
 router.post(
@@ -3395,12 +3398,12 @@ router.post(
                 email.split("@")[0];
 
             // ==================================================
-            // IP
+            // IP ADDRESS
             // ==================================================
 
             const forwardedFor =
                 req.headers[
-                "x-forwarded-for"
+                    "x-forwarded-for"
                 ];
 
             const ipAddress =
@@ -3418,18 +3421,22 @@ router.post(
 
             const userAgent =
                 req.headers[
-                "user-agent"
+                    "user-agent"
                 ] || null;
 
             // ==================================================
-            // INSERT
+            // INSERT LOGIN ACTIVITY
+            //
+            // IMPORTANT:
+            // USE login_logs
+            // NOT login_otps
             // ==================================================
 
             const {
                 data,
                 error,
             } = await supabaseAdmin
-                .from("login_otps")
+                .from("login_logs")
                 .insert({
 
                     user_id:
@@ -3520,6 +3527,8 @@ router.post(
     }
 );
 
+
+
 // ============================================================
 // GET CURRENT USER LOGIN LOGS
 //
@@ -3555,7 +3564,7 @@ router.get(
                 data,
                 error,
             } = await supabaseAdmin
-                .from("login_otps")
+                .from("login_logs")
                 .select(`
                     id,
                     user_id,
@@ -3627,6 +3636,7 @@ router.get(
     }
 );
 
+
 // ============================================================
 // ADMIN / SUPERADMIN LOGIN LOGS
 //
@@ -3650,7 +3660,7 @@ router.get(
                 data,
                 error,
             } = await supabaseAdmin
-                .from("login_otps")
+                .from("login_logs")
                 .select(`
                     id,
                     user_id,
@@ -3721,6 +3731,8 @@ router.get(
         }
     }
 );
+
+
 
 // ============================================================
 // EXPORT
