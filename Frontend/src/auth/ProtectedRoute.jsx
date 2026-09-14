@@ -18,7 +18,7 @@ export default function ProtectedRoute({
     const location = useLocation();
 
     // ============================================================
-    // CHECKING AUTH
+    // CHECKING AUTHENTICATION
     // ============================================================
 
     if (loading) {
@@ -59,10 +59,32 @@ export default function ProtectedRoute({
     // GET USER ROLE
     // ============================================================
 
-    const userRole =
+    const userRole = String(
         user?.role ||
         user?.user_role ||
-        user?.userRole;
+        user?.userRole ||
+        ""
+    )
+        .trim()
+        .toLowerCase();
+
+    // ============================================================
+    // GET USER STATUS
+    // ============================================================
+
+    const userStatus = String(
+        user?.status || ""
+    )
+        .trim()
+        .toLowerCase();
+
+    // ============================================================
+    // DEBUG LOGS
+    // ============================================================
+
+    console.log(
+        "================================================"
+    );
 
     console.log(
         "PROTECTED ROUTE:",
@@ -80,36 +102,258 @@ export default function ProtectedRoute({
     );
 
     console.log(
+        "USER STATUS:",
+        userStatus
+    );
+
+    console.log(
         "ALLOWED ROLES:",
         allowedRoles
+    );
+
+    console.log(
+        "================================================"
     );
 
     // ============================================================
     // ROLE CHECK
     // ============================================================
 
-    if (
-        allowedRoles &&
-        !allowedRoles.includes(userRole)
-    ) {
-        console.warn(
-            `Access denied: ${userRole} cannot access ${location.pathname}`
-        );
+    if (allowedRoles) {
+        const normalizedAllowedRoles =
+            allowedRoles.map((role) =>
+                String(role)
+                    .trim()
+                    .toLowerCase()
+            );
 
-        return (
-            <Navigate
-                to="/unauthorized"
-                replace
-                state={{
-                    from: location,
-                }}
-            />
-        );
+        if (
+            !normalizedAllowedRoles.includes(
+                userRole
+            )
+        ) {
+            console.warn(
+                `Access denied: ${userRole} cannot access ${location.pathname}`
+            );
+
+            return (
+                <Navigate
+                    to="/unauthorized"
+                    replace
+                    state={{
+                        from: location,
+                        reason: "ROLE_NOT_ALLOWED",
+                        message:
+                            "You do not have permission to access this resource.",
+                    }}
+                />
+            );
+        }
+    }
+
+    // ============================================================
+    // APPROVAL CHECK
+    //
+    // Client / Employee / Admin require
+    // Super Admin approval before accessing dashboard.
+    //
+    // Superadmin does NOT go through this check.
+    // ============================================================
+
+    const approvalRequiredRoles = [
+        "client",
+        "employee",
+        "admin",
+    ];
+
+    if (
+        approvalRequiredRoles.includes(
+            userRole
+        )
+    ) {
+
+        // ========================================================
+        // PENDING APPROVAL
+        // ========================================================
+
+        if (userStatus === "pending") {
+
+            console.warn(
+                `Account pending approval: ${userRole}`
+            );
+
+            return (
+                <Navigate
+                    to="/unauthorized"
+                    replace
+                    state={{
+                        from: location,
+                        reason: "PENDING_APPROVAL",
+                        message:
+                            "Your account is waiting for Super Admin approval.",
+                    }}
+                />
+            );
+        }
+
+        // ========================================================
+        // REJECTED / DISABLED
+        // ========================================================
+
+        if (
+            userStatus === "rejected" ||
+            userStatus === "disabled"
+        ) {
+
+            console.warn(
+                `Inactive account: ${userRole} - ${userStatus}`
+            );
+
+            return (
+                <Navigate
+                    to="/unauthorized"
+                    replace
+                    state={{
+                        from: location,
+                        reason: "ACCOUNT_INACTIVE",
+                        message:
+                            "Your account is not active. Please contact the administrator.",
+                    }}
+                />
+            );
+        }
+
+        // ========================================================
+        // ADMIN
+        // ========================================================
+
+        if (userRole === "admin") {
+
+            if (
+                ![
+                    "active",
+                    "approved",
+                ].includes(userStatus)
+            ) {
+
+                console.warn(
+                    `Admin account is not active: ${userStatus}`
+                );
+
+                return (
+                    <Navigate
+                        to="/unauthorized"
+                        replace
+                        state={{
+                            from: location,
+                            reason: "ACCOUNT_INACTIVE",
+                            message:
+                                "Your admin account is not active.",
+                        }}
+                    />
+                );
+            }
+        }
+
+        // ========================================================
+        // CLIENT
+        // ========================================================
+
+        if (userRole === "client") {
+
+            if (
+                userStatus !== "active"
+            ) {
+
+                console.warn(
+                    `Client account is not active: ${userStatus}`
+                );
+
+                return (
+                    <Navigate
+                        to="/unauthorized"
+                        replace
+                        state={{
+                            from: location,
+                            reason: "ACCOUNT_INACTIVE",
+                            message:
+                                "Your client account is not active.",
+                        }}
+                    />
+                );
+            }
+        }
+
+        // ========================================================
+        // EMPLOYEE
+        // ========================================================
+
+        if (userRole === "employee") {
+
+            if (
+                userStatus !== "active"
+            ) {
+
+                console.warn(
+                    `Employee account is not active: ${userStatus}`
+                );
+
+                return (
+                    <Navigate
+                        to="/unauthorized"
+                        replace
+                        state={{
+                            from: location,
+                            reason: "ACCOUNT_INACTIVE",
+                            message:
+                                "Your employee account is not active.",
+                        }}
+                    />
+                );
+            }
+        }
+    }
+
+    // ============================================================
+    // SUPERADMIN CHECK
+    // ============================================================
+
+    if (userRole === "superadmin") {
+
+        if (
+            userStatus &&
+            ![
+                "active",
+                "approved",
+            ].includes(userStatus)
+        ) {
+
+            console.warn(
+                `Superadmin account is not active: ${userStatus}`
+            );
+
+            return (
+                <Navigate
+                    to="/unauthorized"
+                    replace
+                    state={{
+                        from: location,
+                        reason: "ACCOUNT_INACTIVE",
+                        message:
+                            "Super Admin account is not active.",
+                    }}
+                />
+            );
+        }
     }
 
     // ============================================================
     // AUTHORIZED
     // ============================================================
+
+    console.log(
+        `✅ Access granted: ${userRole} → ${location.pathname}`
+    );
 
     return <Outlet />;
 }

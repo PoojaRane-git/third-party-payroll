@@ -3381,7 +3381,7 @@ router.post(
                 data,
                 error,
             } = await supabaseAdmin
-                .from("login_logs")
+                .from("login_otps")
                 .insert({
 
                     user_id:
@@ -3507,7 +3507,7 @@ router.get(
                 data,
                 error,
             } = await supabaseAdmin
-                .from("login_logs")
+                .from("login_otps")
                 .select(`
                     id,
                     user_id,
@@ -3602,7 +3602,7 @@ router.get(
                 data,
                 error,
             } = await supabaseAdmin
-                .from("login_logs")
+                .from("login_otps")
                 .select(`
                     id,
                     user_id,

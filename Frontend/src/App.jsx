@@ -87,8 +87,6 @@ function App() {
                         PUBLIC ROUTES
                     ===================================================== */}
 
-                    {/* DEFAULT */}
-
                     <Route
                         path="/"
                         element={
@@ -99,34 +97,38 @@ function App() {
                         }
                     />
 
-                    {/* LOGIN */}
-
                     <Route
                         path="/login"
                         element={<Login />}
                     />
-
-                    {/* CLIENT SIGNUP */}
 
                     <Route
                         path="/signup/client"
                         element={<ClientSignup />}
                     />
 
-                    {/* ADMIN SIGNUP */}
-
                     <Route
                         path="/signup/admin"
                         element={<AdminSignup />}
                     />
+
                     <Route
                         path="/unauthorized"
                         element={<Unauthorized />}
                     />
+
+
+                    {/* =====================================================
+                        ADMIN PORTAL
+                    ===================================================== */}
+
                     <Route
                         element={
                             <ProtectedRoute
-                                allowedRoles={["admin", "superadmin"]}
+                                allowedRoles={[
+                                    "admin",
+                                    "superadmin",
+                                ]}
                             />
                         }
                     >
@@ -209,18 +211,19 @@ function App() {
                     </Route>
 
 
-                    {/* =================================================
-                            EMPLOYEE PORTAL
-                        ================================================= */}
+                    {/* =====================================================
+                        EMPLOYEE PORTAL
+                    ===================================================== */}
 
                     <Route
                         element={
                             <ProtectedRoute
-                                allowedRoles={["employee"]}
+                                allowedRoles={[
+                                    "employee",
+                                ]}
                             />
                         }
                     >
-
 
                         <Route
                             path="/employee-portal"
@@ -257,18 +260,22 @@ function App() {
                             }
                         />
 
+                    </Route>
 
-                        {/* =================================================
-                            CLIENT PORTAL
-                        ================================================= */}
 
-                        <Route
-                            element={
-                                <ProtectedRoute
-                                    allowedRoles={["client"]}
-                                />
-                            }
-                        ></Route>
+                    {/* =====================================================
+                        CLIENT PORTAL
+                    ===================================================== */}
+
+                    <Route
+                        element={
+                            <ProtectedRoute
+                                allowedRoles={[
+                                    "client",
+                                ]}
+                            />
+                        }
+                    >
 
                         <Route
                             path="/client-dashboard"
@@ -277,18 +284,12 @@ function App() {
                             }
                         />
 
-
-                        {/* CLIENT REQUIREMENTS */}
-
                         <Route
                             path="/client-dashboard/requirements"
                             element={
                                 <JobRequirementsClient />
                             }
                         />
-
-
-                        {/* CLIENT CANDIDATES */}
 
                         <Route
                             path="/client-dashboard/candidates"
@@ -297,18 +298,12 @@ function App() {
                             }
                         />
 
-
-                        {/* CLIENT ATTENDANCE APPROVAL */}
-
                         <Route
                             path="/client-dashboard/attendance-approval"
                             element={
                                 <AttendanceApproval />
                             }
                         />
-
-
-                        {/* CLIENT INVOICES */}
 
                         <Route
                             path="/client-dashboard/invoices"
@@ -317,10 +312,25 @@ function App() {
                             }
                         />
 
+                    </Route>
 
-                        {/* =================================================
-                            OTHER SECTIONS
-                        ================================================= */}
+
+                    {/* =====================================================
+                        OTHER SECTIONS
+                    ===================================================== */}
+
+                    <Route
+                        element={
+                            <ProtectedRoute
+                                allowedRoles={[
+                                    "employee",
+                                    "client",
+                                    "admin",
+                                    "superadmin",
+                                ]}
+                            />
+                        }
+                    >
 
                         {[
                             "it",
@@ -336,7 +346,6 @@ function App() {
                                 key={tab}
                                 path={`/${tab}`}
                                 element={
-
                                     <div className="min-h-screen bg-slate-50 p-8">
 
                                         <h2 className="text-2xl font-bold text-slate-900 capitalize">
@@ -375,7 +384,7 @@ function App() {
 
             </div>
 
-        </AuthProvider >
+        </AuthProvider>
     );
 }
 
