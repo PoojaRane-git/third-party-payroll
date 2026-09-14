@@ -13,7 +13,18 @@ const nodemailer = require("nodemailer");
 // CONSTANTS
 // ============================================================
 
-const SUPER_ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const SUPER_ADMIN_EMAIL = String(
+    process.env.ADMIN_EMAIL || ""
+)
+    .trim()
+    .toLowerCase();
+
+const ALLOWED_ROLES = [
+    "superadmin",
+    "admin",
+    "client",
+    "employee",
+];
 
 // ============================================================
 // EMAIL CONFIGURATION
@@ -22,8 +33,17 @@ const SUPER_ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
 
-console.log("DEBUG EMAIL_USER:", JSON.stringify(EMAIL_USER));
-console.log("DEBUG EMAIL_PASS exists:", !!EMAIL_PASS, "length:", EMAIL_PASS ? EMAIL_PASS.length : 0);
+console.log(
+    "DEBUG EMAIL_USER:",
+    JSON.stringify(EMAIL_USER)
+);
+
+console.log(
+    "DEBUG EMAIL_PASS exists:",
+    !!EMAIL_PASS,
+    "length:",
+    EMAIL_PASS ? EMAIL_PASS.length : 0
+);
 
 // ============================================================
 // EMAIL TRANSPORTER
@@ -50,7 +70,17 @@ transporter.verify((error) => {
         );
     }
 });
+
+// ============================================================
+// HELPER
+// FIND USER PROFILE FROM SUPABASE AUTH UUID
+// ============================================================
+
 async function findUserProfile(authUserId) {
+
+    if (!authUserId) {
+        return null;
+    }
 
     // ========================================================
     // 1. THIRD PARTY USERS
@@ -75,24 +105,26 @@ async function findUserProfile(authUserId) {
         .eq("auth_user_id", authUserId)
         .maybeSingle();
 
-    // TEMPORARY DEBUG — remove after diagnosing
-    console.log("DEBUG findUserProfile authUserId:", authUserId);
-    console.log("DEBUG thirdPartyUser result:", thirdPartyUser);
-    console.log("DEBUG thirdPartyError:", thirdPartyError);
-
     if (thirdPartyError) {
+        console.error(
+            "❌ third_party_users lookup error:",
+            thirdPartyError
+        );
+
         throw thirdPartyError;
     }
 
     if (thirdPartyUser) {
+
+        const role = String(
+            thirdPartyUser.role || ""
+        )
+            .trim()
+            .toLowerCase();
+
         return {
             profile: thirdPartyUser,
-
-            role: String(
-                thirdPartyUser.role || ""
-            )
-                .trim()
-                .toLowerCase(),
+            role,
         };
     }
 
@@ -118,6 +150,11 @@ async function findUserProfile(authUserId) {
         .maybeSingle();
 
     if (clientError) {
+        console.error(
+            "❌ client_users lookup error:",
+            clientError
+        );
+
         throw clientError;
     }
 
@@ -150,6 +187,11 @@ async function findUserProfile(authUserId) {
         .maybeSingle();
 
     if (employeeError) {
+        console.error(
+            "❌ employee_users lookup error:",
+            employeeError
+        );
+
         throw employeeError;
     }
 
@@ -162,14 +204,52 @@ async function findUserProfile(authUserId) {
 
     return null;
 }
+
+// ============================================================
+// HELPER
+// CHECK ROLE
+// ============================================================
+
+function isAllowedRole(role) {
+    return ALLOWED_ROLES.includes(
+        String(role || "")
+            .trim()
+            .toLowerCase()
+    );
+}
+
+// ============================================================
+// HELPER
+// CHECK SUPER ADMIN
+// ============================================================
+
+function isAuthorizedSuperAdmin(
+    email
+) {
+    return (
+        String(email || "")
+            .trim()
+            .toLowerCase() ===
+        SUPER_ADMIN_EMAIL
+    );
+}
+
 // ============================================================
 // GET CURRENT USER
 //
 // GET /api/auth/me
 //
-// Password login identifies the account.
-// OTP is required to complete login.
-// NO ADMIN APPROVAL IS REQUIRED.
+// Supabase password authentication
+//        ↓
+// Supabase access token
+//        ↓
+// authenticate middleware
+//        ↓
+// profile lookup
+//
+// OTP is handled separately.
+//
+// NO ADMIN APPROVAL REQUIRED FOR LOGIN.
 // ============================================================
 
 router.get(
@@ -218,9 +298,18 @@ router.get(
             const role =
                 result.role;
 
+            if (!isAllowedRole(role)) {
+
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        "Access denied. You are not allowed to login.",
+                });
+            }
+
             const profileEmail =
                 String(
-                    profile.email ||
+                    profile?.email ||
                     authEmail
                 )
                     .trim()
@@ -230,13 +319,12 @@ router.get(
             // SUPER ADMIN
             // ==================================================
 
-            if (
-                role === "superadmin"
-            ) {
+            if (role === "superadmin") {
 
                 if (
-                    profileEmail !==
-                    SUPER_ADMIN_EMAIL
+                    !isAuthorizedSuperAdmin(
+                        profileEmail
+                    )
                 ) {
 
                     return res.status(403).json({
@@ -267,8 +355,7 @@ router.get(
                             authUserId,
 
                         email:
-                            profile.email ||
-                            authEmail,
+                            profileEmail,
 
                         profile_id:
                             profile.id,
@@ -299,61 +386,10 @@ router.get(
             // ==================================================
             // NORMAL ADMIN
             //
-            // OTP ONLY
-            // NO APPROVAL CHECK
+            // NO APPROVAL CHECK HERE
             // ==================================================
 
             if (role === "admin") {
-
-    return res.status(200).json({
-
-        success: true,
-
-        user: {
-
-            supabase_user_id:
-                authUserId,
-
-            email:
-                profile.email ||
-                authEmail,
-
-            profile_id:
-                profile.id,
-
-            role:
-                "admin",
-
-            status:
-                profile.status,
-
-            is_active:
-                profile.is_active,
-
-            name:
-                profile.company_name ||
-                "Admin",
-
-            company_name:
-                profile.company_name ||
-                "Talent Corner",
-
-            admin_id:
-                profile.id,
-        },
-    });
-}
-
-            // ==================================================
-            // CLIENT
-            //
-            // OTP ONLY
-            // NO APPROVAL CHECK
-            // ==================================================
-
-            if (
-                role === "client"
-            ) {
 
                 return res.status(200).json({
 
@@ -365,8 +401,53 @@ router.get(
                             authUserId,
 
                         email:
-                            profile.email ||
-                            authEmail,
+                            profileEmail,
+
+                        profile_id:
+                            profile.id,
+
+                        role:
+                            "admin",
+
+                        status:
+                            profile.status,
+
+                        is_active:
+                            profile.is_active !== false,
+
+                        name:
+                            profile.company_name ||
+                            "Admin",
+
+                        company_name:
+                            profile.company_name ||
+                            "Talent Corner",
+
+                        admin_id:
+                            profile.id,
+                    },
+                });
+            }
+
+            // ==================================================
+            // CLIENT
+            //
+            // NO APPROVAL CHECK HERE
+            // ==================================================
+
+            if (role === "client") {
+
+                return res.status(200).json({
+
+                    success: true,
+
+                    user: {
+
+                        supabase_user_id:
+                            authUserId,
+
+                        email:
+                            profileEmail,
 
                         profile_id:
                             profile.id,
@@ -394,13 +475,10 @@ router.get(
             // ==================================================
             // EMPLOYEE
             //
-            // OTP ONLY
-            // NO APPROVAL CHECK
+            // NO APPROVAL CHECK HERE
             // ==================================================
 
-            if (
-                role === "employee"
-            ) {
+            if (role === "employee") {
 
                 return res.status(200).json({
 
@@ -412,8 +490,7 @@ router.get(
                             authUserId,
 
                         email:
-                            profile.email ||
-                            authEmail,
+                            profileEmail,
 
                         profile_id:
                             profile.id,
@@ -437,10 +514,6 @@ router.get(
                     },
                 });
             }
-
-            // ==================================================
-            // UNKNOWN ROLE
-            // ==================================================
 
             return res.status(403).json({
 
@@ -470,13 +543,17 @@ router.get(
         }
     }
 );
+
 // ============================================================
 // SEND LOGIN OTP
 //
 // POST /api/auth/send-login-otp
 //
-// PASSWORD + OTP
-// NO APPROVAL REQUIRED
+// Password is already verified by Supabase Auth.
+//
+// This endpoint requires a valid Supabase access token.
+//
+// NO ADMIN APPROVAL REQUIRED.
 // ============================================================
 
 router.post(
@@ -526,15 +603,10 @@ router.post(
                 result.role;
 
             // ==================================================
-            // ALLOWED ROLES
+            // ROLE CHECK
             // ==================================================
 
-            if (
-                role !== "superadmin" &&
-                role !== "admin" &&
-                role !== "client" &&
-                role !== "employee"
-            ) {
+            if (!isAllowedRole(role)) {
 
                 return res.status(403).json({
                     success: false,
@@ -549,7 +621,7 @@ router.post(
 
             if (
                 role === "superadmin" &&
-                email !== SUPER_ADMIN_EMAIL
+                !isAuthorizedSuperAdmin(email)
             ) {
 
                 return res.status(403).json({
@@ -572,7 +644,7 @@ router.post(
                 );
 
             // ==================================================
-            // OTP EXPIRY
+            // EXPIRY
             // 5 MINUTES
             // ==================================================
 
@@ -609,7 +681,7 @@ router.post(
             }
 
             // ==================================================
-            // INSERT NEW OTP
+            // INSERT OTP
             // ==================================================
 
             const {
@@ -764,6 +836,14 @@ router.post(
                 });
             }
 
+            console.log(
+                "✅ Login OTP sent:",
+                {
+                    email,
+                    role,
+                }
+            );
+
             return res.status(200).json({
 
                 success: true,
@@ -798,24 +878,11 @@ router.post(
         }
     }
 );
+
 // ============================================================
 // VERIFY LOGIN OTP
 //
 // POST /api/auth/verify-login-otp
-//
-// LOGIN FLOW:
-//
-// Password
-//    ↓
-// Supabase Auth
-//    ↓
-// OTP
-//    ↓
-// Verify OTP
-//    ↓
-// Dashboard
-//
-// NO ADMIN APPROVAL
 // ============================================================
 
 router.post(
@@ -855,7 +922,7 @@ router.post(
             }
 
             // ==================================================
-            // VALIDATE OTP FORMAT
+            // OTP FORMAT
             // ==================================================
 
             if (
@@ -943,11 +1010,12 @@ router.post(
             }
 
             // ==================================================
-            // CHECK OTP
+            // OTP MATCH
             // ==================================================
 
             if (
-                otpRecord.otp !== otp
+                String(otpRecord.otp) !==
+                String(otp)
             ) {
 
                 return res.status(400).json({
@@ -960,13 +1028,13 @@ router.post(
             }
 
             // ==================================================
-            // CHECK EXPIRY
+            // OTP EXPIRY
             // ==================================================
 
             if (
                 new Date(
                     otpRecord.expires_at
-                ).getTime() <
+                ).getTime() <=
                 Date.now()
             ) {
 
@@ -988,7 +1056,7 @@ router.post(
             }
 
             // ==================================================
-            // FIND USER PROFILE
+            // FIND PROFILE
             // ==================================================
 
             const result =
@@ -1002,7 +1070,8 @@ router.post(
 
                     success: false,
 
-                    otp_verified: false,
+                    otp_verified:
+                        false,
 
                     message:
                         "User profile was not found.",
@@ -1016,21 +1085,17 @@ router.post(
                 result.role;
 
             // ==================================================
-            // ALLOWED ROLES
+            // ROLE CHECK
             // ==================================================
 
-            if (
-                role !== "superadmin" &&
-                role !== "admin" &&
-                role !== "client" &&
-                role !== "employee"
-            ) {
+            if (!isAllowedRole(role)) {
 
                 return res.status(403).json({
 
                     success: false,
 
-                    otp_verified: false,
+                    otp_verified:
+                        false,
 
                     message:
                         "Invalid account role.",
@@ -1038,7 +1103,7 @@ router.post(
             }
 
             // ==================================================
-            // SUPER ADMIN EMAIL CHECK
+            // SUPER ADMIN CHECK
             // ==================================================
 
             if (
@@ -1047,21 +1112,24 @@ router.post(
 
                 const profileEmail =
                     String(
-                        profile.email || ""
+                        profile.email ||
+                        email
                     )
                         .trim()
                         .toLowerCase();
 
                 if (
-                    profileEmail !==
-                    SUPER_ADMIN_EMAIL
+                    !isAuthorizedSuperAdmin(
+                        profileEmail
+                    )
                 ) {
 
                     return res.status(403).json({
 
                         success: false,
 
-                        otp_verified: false,
+                        otp_verified:
+                            false,
 
                         message:
                             "Only the authorized Super Admin can login.",
@@ -1076,7 +1144,8 @@ router.post(
 
                         success: false,
 
-                        otp_verified: false,
+                        otp_verified:
+                            false,
 
                         message:
                             "Super Admin account is inactive.",
@@ -1113,6 +1182,9 @@ router.post(
 
                     message:
                         "Unable to complete OTP verification.",
+
+                    error:
+                        verifyError.message,
                 });
             }
 
@@ -1126,8 +1198,12 @@ router.post(
                     authUserId,
 
                 email:
-                    profile.email ||
-                    email,
+                    String(
+                        profile.email ||
+                        email
+                    )
+                        .trim()
+                        .toLowerCase(),
 
                 profile_id:
                     profile.id,
@@ -1137,6 +1213,11 @@ router.post(
 
                 status:
                     profile.status,
+
+                is_active:
+                    role === "superadmin"
+                        ? profile.is_active !== false
+                        : true,
 
                 client_id:
                     profile.client_id ||
@@ -1156,15 +1237,26 @@ router.post(
                     null,
             };
 
-            // ==================================================
-            // SUCCESS
-            // ==================================================
+            console.log(
+                "✅ OTP verified:",
+                {
+                    userId:
+                        authUserId,
+
+                    email:
+                        responseUser.email,
+
+                    role:
+                        role,
+                }
+            );
 
             return res.status(200).json({
 
                 success: true,
 
-                otp_verified: true,
+                otp_verified:
+                    true,
 
                 message:
                     "OTP verified successfully.",
@@ -1271,7 +1363,7 @@ router.post(
             }
 
             // ==================================================
-            // EXISTING CLIENT USER
+            // CHECK EXISTING CLIENT USER
             // ==================================================
 
             const {
@@ -1313,7 +1405,7 @@ router.post(
             }
 
             // ==================================================
-            // EXISTING CLIENT
+            // CHECK EXISTING CLIENT
             // ==================================================
 
             const {
@@ -1353,7 +1445,7 @@ router.post(
             }
 
             // ==================================================
-            // CREATE AUTH USER
+            // CREATE SUPABASE AUTH USER
             // ==================================================
 
             const {
@@ -1492,10 +1584,6 @@ router.post(
 
             // ==================================================
             // CREATE CLIENT USER
-            //
-            // NOTE:
-            // No updated_at because your schema was not confirmed
-            // to contain it.
             // ==================================================
 
             const {
@@ -1581,7 +1669,7 @@ router.post(
                 success: true,
 
                 message:
-                    "Client registration submitted successfully. Please wait for Admin approval before logging in.",
+                    "Client registration submitted successfully.",
 
                 user: {
 
@@ -1657,9 +1745,6 @@ router.post(
 
 // ============================================================
 // ADMIN SIGNUP
-//
-// Normal admins are NOT allowed to login.
-// Only exact Super Admin can login.
 // ============================================================
 
 router.post(
@@ -1716,10 +1801,6 @@ router.post(
                 });
             }
 
-            // ==================================================
-            // CHECK EXISTING ADMIN
-            // ==================================================
-
             const {
                 data: existingAdmin,
                 error: existingAdminError,
@@ -1753,10 +1834,6 @@ router.post(
                         "An admin with this email already exists.",
                 });
             }
-
-            // ==================================================
-            // CREATE AUTH USER
-            // ==================================================
 
             const {
                 data: authData,
@@ -1792,10 +1869,6 @@ router.post(
 
             authUserId =
                 authData.user.id;
-
-            // ==================================================
-            // CREATE ADMIN PROFILE
-            // ==================================================
 
             const {
                 data: adminProfile,
@@ -1942,8 +2015,6 @@ router.post(
 // ADMIN STATUS
 //
 // GET /api/auth/admin-status?email=...
-//
-// Used by AdminSignup.jsx
 // ============================================================
 
 router.get(
@@ -2024,7 +2095,11 @@ router.get(
                     data.email,
 
                 role:
-                    data.role,
+                    String(
+                        data.role || ""
+                    )
+                        .trim()
+                        .toLowerCase(),
             });
 
         } catch (error) {
@@ -2047,15 +2122,6 @@ router.get(
 
 // ============================================================
 // EMPLOYEE SIGNUP
-//
-// SELF REGISTRATION ONLY
-//
-// Creates:
-// 1. Supabase Auth user
-// 2. Candidate
-// 3. employee_users
-//
-// employee_users.employee_id = candidate.id
 // ============================================================
 
 router.post(
@@ -2111,10 +2177,6 @@ router.post(
                 });
             }
 
-            // ==================================================
-            // CHECK EXISTING EMPLOYEE LOGIN
-            // ==================================================
-
             const {
                 data: existingEmployee,
                 error: existingEmployeeError,
@@ -2153,10 +2215,6 @@ router.post(
                 });
             }
 
-            // ==================================================
-            // CREATE AUTH USER
-            // ==================================================
-
             const {
                 data: authData,
                 error: authError,
@@ -2191,10 +2249,6 @@ router.post(
 
             authUserId =
                 authData.user.id;
-
-            // ==================================================
-            // CREATE CANDIDATE
-            // ==================================================
 
             const {
                 data: candidate,
@@ -2255,10 +2309,6 @@ router.post(
 
             candidateId =
                 candidate.id;
-
-            // ==================================================
-            // CREATE EMPLOYEE USER
-            // ==================================================
 
             const {
                 data: employeeUser,
@@ -2342,7 +2392,7 @@ router.post(
                 success: true,
 
                 message:
-                    "Employee registration submitted successfully. Please wait for Admin approval before logging in.",
+                    "Employee registration submitted successfully.",
 
                 user: {
 
@@ -2459,7 +2509,7 @@ router.get(
                     role,
                     status
                 `)
-                .eq(
+                .ilike(
                     "email",
                     email
                 )
@@ -2590,6 +2640,8 @@ router.get(
                 success: false,
                 message:
                     "Unable to fetch pending admins.",
+                error:
+                    error.message,
             });
         }
     }
@@ -2686,6 +2738,8 @@ router.patch(
                 success: false,
                 message:
                     "Unable to approve admin.",
+                error:
+                    error.message,
             });
         }
     }
@@ -2782,6 +2836,8 @@ router.patch(
                 success: false,
                 message:
                     "Unable to reject admin.",
+                error:
+                    error.message,
             });
         }
     }
@@ -2789,6 +2845,8 @@ router.patch(
 
 // ============================================================
 // PENDING EMPLOYEES
+//
+// GET /api/auth/pending-employees
 // ============================================================
 
 router.get(
@@ -2798,6 +2856,11 @@ router.get(
     async (req, res) => {
 
         try {
+
+            console.log(
+                "📋 Fetching pending employees for:",
+                req.user?.email
+            );
 
             const {
                 data: employees,
@@ -2831,14 +2894,28 @@ router.get(
 
             if (error) {
 
+                console.error(
+                    "❌ Pending employee database error:",
+                    error
+                );
+
                 return res.status(500).json({
                     success: false,
                     message:
                         "Unable to fetch pending employees.",
                     error:
                         error.message,
+                    code:
+                        error.code,
+                    details:
+                        error.details,
                 });
             }
+
+            console.log(
+                "✅ Pending employees:",
+                employees?.length || 0
+            );
 
             return res.status(200).json({
 
@@ -2851,14 +2928,19 @@ router.get(
         } catch (error) {
 
             console.error(
-                "pending-employees error:",
+                "❌ pending-employees route error:",
                 error
             );
 
             return res.status(500).json({
+
                 success: false,
+
                 message:
                     "Unable to fetch pending employees.",
+
+                error:
+                    error.message,
             });
         }
     }
@@ -2944,7 +3026,6 @@ router.patch(
                 await supabaseAdmin
                     .from("employee_users")
                     .update({
-
                         status:
                             "active",
                     })
@@ -2982,7 +3063,6 @@ router.patch(
                 await supabaseAdmin
                     .from("candidates")
                     .update({
-
                         employment_status:
                             "Available",
                     })
@@ -3014,6 +3094,8 @@ router.patch(
                 success: false,
                 message:
                     "Unable to approve employee.",
+                error:
+                    error.message,
             });
         }
     }
@@ -3099,7 +3181,6 @@ router.patch(
                 await supabaseAdmin
                     .from("employee_users")
                     .update({
-
                         status:
                             "rejected",
                     })
@@ -3137,7 +3218,6 @@ router.patch(
                 await supabaseAdmin
                     .from("candidates")
                     .update({
-
                         employment_status:
                             "Rejected",
                     })
@@ -3169,70 +3249,133 @@ router.patch(
                 success: false,
                 message:
                     "Unable to reject employee.",
+                error:
+                    error.message,
             });
         }
     }
 );
 
 // ============================================================
-// LOGIN LOG
+// POST LOGIN LOG
+//
+// POST /api/auth/login-log
+//
+// ALL AUTHENTICATED ROLES
+//
+// superadmin
+// admin
+// client
+// employee
+//
+// IMPORTANT:
+// NO authorize() HERE.
+//
+// Login logging must work even if a profile has a
+// pending status.
 // ============================================================
 
 router.post(
     "/login-log",
     authenticate,
-    authorize(
-        "admin",
-        "superadmin",
-        "client",
-        "employee"
-    ),
     async (req, res) => {
+
         try {
-            const userId = req.user.id;
 
-            const profile = req.profile;
-            const role = req.userRole;
+            const userId =
+                req.user?.id;
 
-            const email = String(
-                profile?.email ||
-                req.user?.email ||
-                ""
-            )
-                .trim()
-                .toLowerCase();
+            if (!userId) {
+
+                return res.status(401).json({
+
+                    success: false,
+
+                    message:
+                        "Authentication required.",
+                });
+            }
+
+            // ==================================================
+            // FIND PROFILE
+            // ==================================================
+
+            const result =
+                await findUserProfile(
+                    userId
+                );
+
+            if (!result) {
+
+                return res.status(403).json({
+
+                    success: false,
+
+                    message:
+                        "User profile was not found.",
+                });
+            }
+
+            const profile =
+                result.profile;
+
+            const role =
+                result.role;
+
+            // ==================================================
+            // EMAIL
+            // ==================================================
+
+            const email =
+                String(
+                    profile?.email ||
+                    req.user?.email ||
+                    ""
+                )
+                    .trim()
+                    .toLowerCase();
+
+            // ==================================================
+            // DISPLAY NAME
+            // ==================================================
 
             const displayName =
                 profile?.name ||
                 profile?.full_name ||
                 profile?.display_name ||
+                profile?.company_name ||
                 email.split("@")[0];
 
-            // ----------------------------------------------------
-            // IP ADDRESS
-            // ----------------------------------------------------
+            // ==================================================
+            // IP
+            // ==================================================
 
             const forwardedFor =
-                req.headers["x-forwarded-for"];
+                req.headers[
+                    "x-forwarded-for"
+                ];
 
             const ipAddress =
                 forwardedFor
-                    ? String(forwardedFor)
-                          .split(",")[0]
-                          .trim()
+                    ? String(
+                        forwardedFor
+                    )
+                        .split(",")[0]
+                        .trim()
                     : req.ip || null;
 
-            // ----------------------------------------------------
+            // ==================================================
             // USER AGENT
-            // ----------------------------------------------------
+            // ==================================================
 
             const userAgent =
-                req.headers["user-agent"] ||
-                null;
+                req.headers[
+                    "user-agent"
+                ] || null;
 
-            // ----------------------------------------------------
-            // INSERT LOGIN LOG
-            // ----------------------------------------------------
+            // ==================================================
+            // INSERT
+            // ==================================================
 
             const {
                 data,
@@ -3240,68 +3383,126 @@ router.post(
             } = await supabaseAdmin
                 .from("login_logs")
                 .insert({
-                    user_id: userId,
-                    role,
-                    email,
-                    display_name: displayName,
-                    login_at: new Date().toISOString(),
-                    ip_address: ipAddress,
-                    user_agent: userAgent,
-                    success: true,
+
+                    user_id:
+                        userId,
+
+                    role:
+                        role,
+
+                    email:
+                        email,
+
+                    display_name:
+                        displayName,
+
+                    login_at:
+                        new Date()
+                            .toISOString(),
+
+                    ip_address:
+                        ipAddress,
+
+                    user_agent:
+                        userAgent,
+
+                    success:
+                        true,
                 })
                 .select()
                 .single();
 
             if (error) {
+
                 console.error(
-                    "Login log insert error:",
+                    "❌ Login log insert error:",
                     error
                 );
 
                 return res.status(500).json({
+
                     success: false,
+
                     message:
                         "Unable to record login activity.",
+
+                    error:
+                        error.message,
                 });
             }
 
+            console.log(
+                "✅ Login activity recorded:",
+                {
+                    userId,
+                    email,
+                    role,
+                }
+            );
+
             return res.status(201).json({
+
                 success: true,
+
                 message:
                     "Login activity recorded.",
-                log: data,
+
+                log:
+                    data,
             });
+
         } catch (error) {
+
             console.error(
-                "Login log error:",
+                "❌ Login log error:",
                 error
             );
 
             return res.status(500).json({
+
                 success: false,
+
                 message:
                     "Unable to record login activity.",
-                error: error.message,
+
+                error:
+                    error.message,
             });
         }
     }
 );
 
-
 // ============================================================
-// GET LOGIN LOGS
-// ADMIN / SUPERADMIN ONLY
+// GET CURRENT USER LOGIN LOGS
+//
+// GET /api/auth/login-log
+//
+// ALL AUTHENTICATED ROLES
+//
+// Returns ONLY the current user's logs.
 // ============================================================
 
 router.get(
-    "/admin/login-logs",
+    "/login-log",
     authenticate,
-    authorize(
-        "admin",
-        "superadmin"
-    ),
     async (req, res) => {
+
         try {
+
+            const userId =
+                req.user?.id;
+
+            if (!userId) {
+
+                return res.status(401).json({
+
+                    success: false,
+
+                    message:
+                        "Authentication required.",
+                });
+            }
+
             const {
                 data,
                 error,
@@ -3318,7 +3519,10 @@ router.get(
                     user_agent,
                     success
                 `)
-                .eq("success", true)
+                .eq(
+                    "user_id",
+                    userId
+                )
                 .order(
                     "login_at",
                     {
@@ -3328,37 +3532,148 @@ router.get(
                 .limit(100);
 
             if (error) {
+
                 console.error(
-                    "Login logs fetch error:",
+                    "❌ Current user login logs error:",
                     error
                 );
 
                 return res.status(500).json({
+
                     success: false,
+
                     message:
-                        "Unable to fetch login logs.",
+                        "Unable to fetch login activity.",
+
+                    error:
+                        error.message,
                 });
             }
 
-            return res.json({
+            return res.status(200).json({
+
                 success: true,
-                logs: data || [],
+
+                logs:
+                    data || [],
             });
+
         } catch (error) {
+
             console.error(
-                "Login logs route error:",
+                "❌ GET /auth/login-log error:",
                 error
             );
 
             return res.status(500).json({
+
                 success: false,
+
                 message:
-                    "Unable to fetch login logs.",
-                error: error.message,
+                    "Unable to fetch login activity.",
+
+                error:
+                    error.message,
             });
         }
     }
 );
+
+// ============================================================
+// ADMIN / SUPERADMIN LOGIN LOGS
+//
+// GET /api/auth/admin/login-logs
+//
+// Only admin + superadmin.
+// ============================================================
+
+router.get(
+    "/admin/login-logs",
+    authenticate,
+    authorize(
+        "admin",
+        "superadmin"
+    ),
+    async (req, res) => {
+
+        try {
+
+            const {
+                data,
+                error,
+            } = await supabaseAdmin
+                .from("login_logs")
+                .select(`
+                    id,
+                    user_id,
+                    role,
+                    email,
+                    display_name,
+                    login_at,
+                    ip_address,
+                    user_agent,
+                    success
+                `)
+                .eq(
+                    "success",
+                    true
+                )
+                .order(
+                    "login_at",
+                    {
+                        ascending: false,
+                    }
+                )
+                .limit(100);
+
+            if (error) {
+
+                console.error(
+                    "❌ Login logs fetch error:",
+                    error
+                );
+
+                return res.status(500).json({
+
+                    success: false,
+
+                    message:
+                        "Unable to fetch login logs.",
+
+                    error:
+                        error.message,
+                });
+            }
+
+            return res.status(200).json({
+
+                success: true,
+
+                logs:
+                    data || [],
+            });
+
+        } catch (error) {
+
+            console.error(
+                "❌ Login logs route error:",
+                error
+            );
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Unable to fetch login logs.",
+
+                error:
+                    error.message,
+            });
+        }
+    }
+);
+
 // ============================================================
 // EXPORT
 // ============================================================

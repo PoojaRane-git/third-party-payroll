@@ -18,7 +18,6 @@ const API_BASE = String(
 
 const api = axios.create({
     baseURL: API_BASE,
-
     headers: {
         "Content-Type": "application/json",
     },
@@ -31,10 +30,6 @@ const api = axios.create({
 api.interceptors.request.use(
     async (config) => {
         try {
-            // ----------------------------------------------------
-            // Get current Supabase session
-            // ----------------------------------------------------
-
             const {
                 data: { session },
                 error,
@@ -43,37 +38,32 @@ api.interceptors.request.use(
             if (error) {
                 console.error(
                     "❌ Supabase session error:",
-                    error
+                    error.message
                 );
             }
 
-            // ----------------------------------------------------
-            // Attach access token
-            // ----------------------------------------------------
-
-            if (session?.access_token) {
-                config.headers =
-                    config.headers || {};
-
-                config.headers.Authorization =
-                    `Bearer ${session.access_token}`;
-
-                console.log(
-                    "✅ Authorization token attached"
-                );
-
-                console.log(
-                    "Token length:",
-                    session.access_token.length
-                );
-            } else {
+            if (!session?.access_token) {
                 console.error(
                     "❌ No Supabase access token available"
                 );
+
+                return config;
             }
 
-            return config;
+            if (!config.headers) {
+                config.headers = {};
+            }
 
+            config.headers.Authorization =
+                `Bearer ${session.access_token}`;
+
+            console.log(
+                "✅ Authorization token attached:",
+                config.method?.toUpperCase(),
+                config.url
+            );
+
+            return config;
         } catch (error) {
             console.error(
                 "❌ Failed to get Supabase session:",
@@ -83,7 +73,6 @@ api.interceptors.request.use(
             return config;
         }
     },
-
     (error) => {
         return Promise.reject(error);
     }
@@ -94,29 +83,26 @@ api.interceptors.request.use(
 // ============================================================
 
 api.interceptors.response.use(
-    (response) => {
-        return response;
-    },
+    (response) => response,
 
-    async (error) => {
-        // --------------------------------------------------------
-        // Authentication failure
-        // --------------------------------------------------------
-
+    (error) => {
         if (error.response?.status === 401) {
             console.error(
                 "❌ API authentication failed:",
-                error.response?.data
+                error.response.data
             );
 
             console.error(
-                "Request URL:",
+                "Request:",
+                error.config?.method?.toUpperCase(),
                 error.config?.url
             );
 
             console.error(
-                "API Base:",
-                API_BASE
+                "Authorization sent:",
+                error.config?.headers?.Authorization
+                    ? "YES"
+                    : "NO"
             );
         }
 
@@ -129,5 +115,4 @@ api.interceptors.response.use(
 // ============================================================
 
 export default api;
-
 export { API_BASE };

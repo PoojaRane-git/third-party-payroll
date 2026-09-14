@@ -29,26 +29,21 @@ const authorize = (...allowedRoles) => {
             // 1. ADMIN / SUPERADMIN
             // =====================================================
 
-            const {
-                data: adminUser,
-                error: adminError,
-            } = await supabaseAdmin
-                .from("third_party_users")
-                .select(
-                    `
-                    id,
-                    email,
-                    company_name,
-                    role,
-                    status,
-                    is_active,
-                    auth_user_id,
-                    client_id
-                    `
-                )
-                .eq("auth_user_id", userId)
-                .in("role", ["admin", "superadmin"])
-                .maybeSingle();
+            const { data: adminUser, error: adminError } =
+                await supabaseAdmin
+                    .from("third_party_users")
+                    .select(`
+            id,
+            email,
+            company_name,
+            role,
+            status,
+            is_active,
+            auth_user_id,
+            client_id
+        `)
+                    .eq("auth_user_id", userId)
+                    .maybeSingle();
 
             if (adminError) {
                 console.error(
@@ -58,17 +53,13 @@ const authorize = (...allowedRoles) => {
 
                 return res.status(500).json({
                     success: false,
-                    message:
-                        "Unable to verify admin profile.",
+                    message: "Unable to verify admin profile."
                 });
             }
 
             if (adminUser) {
                 profile = adminUser;
-
-                role = String(
-                    adminUser.role || ""
-                )
+                role = String(adminUser.role || "")
                     .trim()
                     .toLowerCase();
             }
