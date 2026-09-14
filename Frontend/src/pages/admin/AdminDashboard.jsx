@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "./Layout/Sidebar";
@@ -256,9 +257,13 @@ export default function AdminDashboard() {
     // ============================================================
     // FETCH ALL APPROVAL REQUESTS
     //
-    // ADMIN    -> /pending-admins
-    // CLIENT   -> /pending-clients
-    // EMPLOYEE -> /pending-employees
+    // REGISTRATION:
+    // ADMIN    -> /admin/pending-admins
+    // CLIENT   -> /admin/pending-clients
+    // EMPLOYEE -> /admin/pending-employees
+    //
+    // LOGIN:
+    // ALL ROLES -> /login-requests/pending
     // ============================================================
 
     const fetchApprovalRequests =
@@ -271,13 +276,14 @@ export default function AdminDashboard() {
                 setApprovalError("");
 
                 // =================================================
-                // FETCH SEPARATELY
+                // FETCH ALL APPROVAL TYPES
                 // =================================================
 
                 const [
                     adminResponse,
                     clientResponse,
                     employeeResponse,
+                    loginResponse,
                 ] = await Promise.all([
                     api.get(
                         "/admin/pending-admins"
@@ -289,6 +295,10 @@ export default function AdminDashboard() {
 
                     api.get(
                         "/admin/pending-employees"
+                    ),
+
+                    api.get(
+                        "/login-requests/pending"
                     ),
                 ]);
 
@@ -305,6 +315,9 @@ export default function AdminDashboard() {
                 const employeeResult =
                     employeeResponse.data;
 
+                const loginResult =
+                    loginResponse.data;
+
                 console.log(
                     "Pending admins:",
                     adminResult
@@ -320,8 +333,13 @@ export default function AdminDashboard() {
                     employeeResult
                 );
 
+                console.log(
+                    "Pending login requests:",
+                    loginResult
+                );
+
                 // =================================================
-                // ADMIN
+                // REGISTRATION - ADMIN
                 // =================================================
 
                 const adminRequests =
@@ -329,11 +347,20 @@ export default function AdminDashboard() {
                     Array.isArray(
                         adminResult.admins
                     )
-                        ? adminResult.admins
+                        ? adminResult.admins.map(
+                              (request) => ({
+                                  ...request,
+                                  request_type:
+                                      "registration",
+                                  role:
+                                      request.role ||
+                                      "admin",
+                              })
+                          )
                         : [];
 
                 // =================================================
-                // CLIENT
+                // REGISTRATION - CLIENT
                 // =================================================
 
                 const clientRequests =
@@ -341,11 +368,20 @@ export default function AdminDashboard() {
                     Array.isArray(
                         clientResult.clients
                     )
-                        ? clientResult.clients
+                        ? clientResult.clients.map(
+                              (request) => ({
+                                  ...request,
+                                  request_type:
+                                      "registration",
+                                  role:
+                                      request.role ||
+                                      "client",
+                              })
+                          )
                         : [];
 
                 // =================================================
-                // EMPLOYEE
+                // REGISTRATION - EMPLOYEE
                 // =================================================
 
                 const employeeRequests =
@@ -353,25 +389,66 @@ export default function AdminDashboard() {
                     Array.isArray(
                         employeeResult.employees
                     )
-                        ? employeeResult.employees
+                        ? employeeResult.employees.map(
+                              (request) => ({
+                                  ...request,
+                                  request_type:
+                                      "registration",
+                                  role:
+                                      request.role ||
+                                      "employee",
+                              })
+                          )
                         : [];
 
                 // =================================================
-                // COMBINE
+                // LOGIN REQUESTS
+                // GET /login-requests/pending
+                // =================================================
+
+                const loginRequests =
+                    loginResult?.success &&
+                    Array.isArray(
+                        loginResult.requests
+                    )
+                        ? loginResult.requests.map(
+                              (request) => ({
+                                  ...request,
+                                  request_type:
+                                      "login",
+                                  role:
+                                      request.role ||
+                                      "client",
+                              })
+                          )
+                        : [];
+
+                // =================================================
+                // COMBINE ALL REQUESTS
                 // =================================================
 
                 const requests = [
                     ...adminRequests,
                     ...clientRequests,
                     ...employeeRequests,
+                    ...loginRequests,
                 ].sort(
                     (a, b) =>
                         new Date(
-                            b.created_at || 0
+                            b.created_at ||
+                                b.requested_at ||
+                                0
                         ) -
                         new Date(
-                            a.created_at || 0
+                            a.created_at ||
+                                a.requested_at ||
+                                0
                         )
+                );
+
+                console.log(
+                    "ALL APPROVAL REQUESTS:",
+                    requests
                 );
 
                 setApprovalRequests(
@@ -388,6 +465,19 @@ export default function AdminDashboard() {
                     setApprovalError(
                         clientResult?.message ||
                             "Unable to fetch pending client requests."
+                    );
+                }
+
+                // =================================================
+                // LOGIN WARNING
+                // =================================================
+
+                if (
+                    !loginResult?.success
+                ) {
+                    console.warn(
+                        "Login approval endpoint failed:",
+                        loginResult?.message
                     );
                 }
 
@@ -417,6 +507,11 @@ export default function AdminDashboard() {
                 console.error(
                     "Approval request error:",
                     err
+                );
+
+                console.error(
+                    "Approval API response:",
+                    err.response?.data
                 );
 
                 setApprovalError(
@@ -449,8 +544,17 @@ export default function AdminDashboard() {
                         request.role || ""
                     ).toLowerCase();
 
+                const requestType =
+                    String(
+                        request.request_type ||
+                            "registration"
+                    ).toLowerCase();
+
+                // IMPORTANT:
+                // Login and registration IDs can overlap.
+                // Therefore action ID must include request type.
                 const actionId =
-                    `${role}-${requestId}`;
+                    `${requestType}-${role}-${requestId}`;
 
                 setApprovalActionId(
                     actionId
@@ -460,20 +564,29 @@ export default function AdminDashboard() {
 
                 let endpoint = "";
 
-                // ------------------------------------------------
-                // ADMIN
-                // ------------------------------------------------
+                // =================================================
+                // LOGIN REQUEST
+                // PATCH /login-requests/:id/approve
+                // =================================================
 
                 if (
+                    requestType ===
+                    "login"
+                ) {
+                    endpoint =
+                        `/login-requests/${requestId}/approve`;
+                }
+
+                // =================================================
+                // REGISTRATION REQUESTS
+                // =================================================
+
+                else if (
                     role === "admin"
                 ) {
                     endpoint =
                         `/admin/approve-admin/${requestId}`;
                 }
-
-                // ------------------------------------------------
-                // CLIENT
-                // ------------------------------------------------
 
                 else if (
                     role === "client"
@@ -481,10 +594,6 @@ export default function AdminDashboard() {
                     endpoint =
                         `/admin/approve-client/${requestId}`;
                 }
-
-                // ------------------------------------------------
-                // EMPLOYEE
-                // ------------------------------------------------
 
                 else if (
                     role === "employee"
@@ -499,6 +608,16 @@ export default function AdminDashboard() {
                     );
                 }
 
+                console.log(
+                    "Approving request:",
+                    {
+                        requestId,
+                        role,
+                        requestType,
+                        endpoint,
+                    }
+                );
+
                 // =================================================
                 // API REQUEST
                 // api.js automatically adds Supabase token
@@ -511,6 +630,11 @@ export default function AdminDashboard() {
 
                 const result =
                     response.data;
+
+                console.log(
+                    "Approve response:",
+                    result
+                );
 
                 if (
                     result?.success === false
@@ -540,7 +664,12 @@ export default function AdminDashboard() {
                                         item.role ||
                                             ""
                                     ).toLowerCase() ===
-                                        role
+                                        role &&
+                                    String(
+                                        item.request_type ||
+                                            "registration"
+                                    ).toLowerCase() ===
+                                        requestType
                                 )
                         )
                 );
@@ -550,16 +679,38 @@ export default function AdminDashboard() {
                 // =================================================
 
                 if (
+                    requestType ===
+                        "registration" &&
                     role === "client"
                 ) {
                     await fetchActiveClientTenants();
                     await fetchInitialData();
                 }
 
+                // =================================================
+                // LOGIN REQUEST APPROVED
+                // =================================================
+
+                if (
+                    requestType ===
+                        "login" &&
+                    role === "client"
+                ) {
+                    console.log(
+                        "Client login request approved:",
+                        requestId
+                    );
+                }
+
             } catch (err) {
                 console.error(
                     "Approve request error:",
                     err
+                );
+
+                console.error(
+                    "Approve API response:",
+                    err.response?.data
                 );
 
                 setApprovalError(
@@ -590,8 +741,16 @@ export default function AdminDashboard() {
                         request.role || ""
                     ).toLowerCase();
 
+                const requestType =
+                    String(
+                        request.request_type ||
+                            "registration"
+                    ).toLowerCase();
+
+                // IMPORTANT:
+                // Login and registration IDs can overlap.
                 const actionId =
-                    `${role}-${requestId}`;
+                    `${requestType}-${role}-${requestId}`;
 
                 setApprovalActionId(
                     actionId
@@ -601,20 +760,29 @@ export default function AdminDashboard() {
 
                 let endpoint = "";
 
-                // ------------------------------------------------
-                // ADMIN
-                // ------------------------------------------------
+                // =================================================
+                // LOGIN REQUEST
+                // PATCH /login-requests/:id/reject
+                // =================================================
 
                 if (
+                    requestType ===
+                    "login"
+                ) {
+                    endpoint =
+                        `/login-requests/${requestId}/reject`;
+                }
+
+                // =================================================
+                // REGISTRATION REQUESTS
+                // =================================================
+
+                else if (
                     role === "admin"
                 ) {
                     endpoint =
                         `/admin/reject-admin/${requestId}`;
                 }
-
-                // ------------------------------------------------
-                // CLIENT
-                // ------------------------------------------------
 
                 else if (
                     role === "client"
@@ -622,10 +790,6 @@ export default function AdminDashboard() {
                     endpoint =
                         `/admin/reject-client/${requestId}`;
                 }
-
-                // ------------------------------------------------
-                // EMPLOYEE
-                // ------------------------------------------------
 
                 else if (
                     role === "employee"
@@ -640,6 +804,16 @@ export default function AdminDashboard() {
                     );
                 }
 
+                console.log(
+                    "Rejecting request:",
+                    {
+                        requestId,
+                        role,
+                        requestType,
+                        endpoint,
+                    }
+                );
+
                 // =================================================
                 // API REQUEST
                 // =================================================
@@ -651,6 +825,11 @@ export default function AdminDashboard() {
 
                 const result =
                     response.data;
+
+                console.log(
+                    "Reject response:",
+                    result
+                );
 
                 if (
                     result?.success === false
@@ -680,7 +859,12 @@ export default function AdminDashboard() {
                                         item.role ||
                                             ""
                                     ).toLowerCase() ===
-                                        role
+                                        role &&
+                                    String(
+                                        item.request_type ||
+                                            "registration"
+                                    ).toLowerCase() ===
+                                        requestType
                                 )
                         )
                 );
@@ -689,6 +873,11 @@ export default function AdminDashboard() {
                 console.error(
                     "Reject request error:",
                     err
+                );
+
+                console.error(
+                    "Reject API response:",
+                    err.response?.data
                 );
 
                 setApprovalError(
@@ -803,7 +992,12 @@ export default function AdminDashboard() {
                 String(
                     request.role || ""
                 ).toLowerCase() ===
-                "admin"
+                    "admin" &&
+                String(
+                    request.request_type ||
+                        "registration"
+                ).toLowerCase() ===
+                    "registration"
         ).length;
 
     const pendingClientCount =
@@ -812,7 +1006,12 @@ export default function AdminDashboard() {
                 String(
                     request.role || ""
                 ).toLowerCase() ===
-                "client"
+                    "client" &&
+                String(
+                    request.request_type ||
+                        "registration"
+                ).toLowerCase() ===
+                    "registration"
         ).length;
 
     const pendingEmployeeCount =
@@ -821,7 +1020,22 @@ export default function AdminDashboard() {
                 String(
                     request.role || ""
                 ).toLowerCase() ===
-                "employee"
+                    "employee" &&
+                String(
+                    request.request_type ||
+                        "registration"
+                ).toLowerCase() ===
+                    "registration"
+        ).length;
+
+    const pendingLoginCount =
+        approvalRequests.filter(
+            (request) =>
+                String(
+                    request.request_type ||
+                        "registration"
+                ).toLowerCase() ===
+                "login"
         ).length;
 
     // ============================================================
@@ -1048,7 +1262,7 @@ export default function AdminDashboard() {
                                             0 && (
                                             <div className="px-4 py-3 border-b border-slate-800 bg-[#0d1220]">
 
-                                                <div className="grid grid-cols-3 gap-2">
+                                                <div className="grid grid-cols-4 gap-2">
 
                                                     <div className="rounded-lg bg-indigo-600/10 border border-indigo-500/20 px-2 py-2 text-center">
                                                         <p className="text-[9px] text-indigo-300">
@@ -1082,6 +1296,18 @@ export default function AdminDashboard() {
                                                         <p className="text-sm font-extrabold text-cyan-400">
                                                             {
                                                                 pendingEmployeeCount
+                                                            }
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="rounded-lg bg-amber-600/10 border border-amber-500/20 px-2 py-2 text-center">
+                                                        <p className="text-[9px] text-amber-300">
+                                                            Login
+                                                        </p>
+
+                                                        <p className="text-sm font-extrabold text-amber-400">
+                                                            {
+                                                                pendingLoginCount
                                                             }
                                                         </p>
                                                     </div>
@@ -1120,7 +1346,7 @@ export default function AdminDashboard() {
                                             </p>
 
                                             <p className="text-[10px] text-slate-500 mt-1">
-                                                All registration requests have been processed.
+                                                All registration and login requests have been processed.
                                             </p>
 
                                         </div>
@@ -1140,8 +1366,17 @@ export default function AdminDashboard() {
                                                                 ""
                                                         ).toLowerCase();
 
+                                                    const requestType =
+                                                        String(
+                                                            request.request_type ||
+                                                                "registration"
+                                                        ).toLowerCase();
+
+                                                    // IMPORTANT:
+                                                    // Prevent collision between
+                                                    // registration ID and login ID.
                                                     const actionId =
-                                                        `${role}-${requestId}`;
+                                                        `${requestType}-${role}-${requestId}`;
 
                                                     const isProcessing =
                                                         String(
@@ -1152,15 +1387,26 @@ export default function AdminDashboard() {
                                                         );
 
                                                     const displayName =
-                                                        request.company_name ||
-                                                        request.name ||
-                                                        request.full_name ||
-                                                        request.employee_name ||
-                                                        "New User";
+                                                        requestType ===
+                                                        "login"
+                                                            ? (
+                                                                  request.company_name ||
+                                                                  request.name ||
+                                                                  request.full_name ||
+                                                                  request.email ||
+                                                                  "Login Request"
+                                                              )
+                                                            : (
+                                                                  request.company_name ||
+                                                                  request.name ||
+                                                                  request.full_name ||
+                                                                  request.employee_name ||
+                                                                  "New User"
+                                                              );
 
                                                     return (
                                                         <div
-                                                            key={`${role}-${requestId}`}
+                                                            key={`${requestType}-${role}-${requestId}`}
                                                             className="px-4 py-4 border-b border-slate-800/70 hover:bg-slate-800/30 transition"
                                                         >
 
@@ -1196,9 +1442,12 @@ export default function AdminDashboard() {
 
                                                                         <span className="text-[9px] font-bold uppercase text-slate-400">
                                                                             {
-                                                                                getRoleLabel(
-                                                                                    role
-                                                                                )
+                                                                                requestType ===
+                                                                                "login"
+                                                                                    ? "Login"
+                                                                                    : getRoleLabel(
+                                                                                          role
+                                                                                      )
                                                                             }
                                                                         </span>
 
@@ -1218,9 +1467,13 @@ export default function AdminDashboard() {
                                                                         <Clock3 className="h-3 w-3 text-slate-600" />
 
                                                                         <span className="text-[9px] text-slate-500">
-                                                                            {request.created_at
+                                                                            {(
+                                                                                request.created_at ||
+                                                                                request.requested_at
+                                                                            )
                                                                                 ? new Date(
-                                                                                      request.created_at
+                                                                                      request.created_at ||
+                                                                                          request.requested_at
                                                                                   ).toLocaleString()
                                                                                 : "New request"}
                                                                         </span>
@@ -1702,3 +1955,4 @@ export default function AdminDashboard() {
         </div>
     );
 }
+
