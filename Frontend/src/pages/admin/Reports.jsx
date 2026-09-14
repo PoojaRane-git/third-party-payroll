@@ -23,8 +23,7 @@ import {
 
 import Sidebar from "./Layout/Sidebar";
 
-const API_BASE =
-  "http://localhost:5000/api";
+import api from '../services/api'
 
 function Reports({
   activeTab,
@@ -129,17 +128,12 @@ function Reports({
         "========================================="
       );
 
-      const response =
-        await axios.get(
-          `${API_BASE}/reports/summary`,
-          {
-            params: {
-              month,
-            },
-
-            timeout: 15000,
-          }
-        );
+      const response = await api.get("/reports/summary", {
+  params: {
+    month,
+  },
+  timeout: 15000,
+});
 
       const data =
         response?.data;

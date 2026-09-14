@@ -7,6 +7,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import { AuthProvider } from "./auth/AuthProvider";
 import ProtectedRoute from "./auth/ProtectedRoute";
+import Unauthorized from "./pages/admin/Unauthorized";
 
 // =====================================================
 // AUTH PAGES
@@ -118,157 +119,108 @@ function App() {
                         path="/signup/admin"
                         element={<AdminSignup />}
                     />
-
-
-                    {/* =====================================================
-                        PROTECTED ROUTES
-                    ===================================================== */}
-
-                    <Route element={<ProtectedRoute />}>
-
-                        {/* =================================================
-                            ADMIN DASHBOARD
-                        ================================================= */}
+                    <Route
+                        path="/unauthorized"
+                        element={<Unauthorized />}
+                    />
+                    <Route
+                        element={
+                            <ProtectedRoute
+                                allowedRoles={["admin", "super_admin"]}
+                            />
+                        }
+                    >
 
                         <Route
                             path="/admindashboard"
-                            element={
-                                <AdminDashboard />
-                            }
+                            element={<AdminDashboard />}
                         />
-
-
-                        {/* =================================================
-                            ADMIN - CLIENT MANAGEMENT
-                        ================================================= */}
 
                         <Route
                             path="/clients"
-                            element={
-                                <ClientManagement />
-                            }
+                            element={<ClientManagement />}
                         />
 
                         <Route
                             path="/contracts"
-                            element={
-                                <ContractManagement />
-                            }
+                            element={<ContractManagement />}
                         />
-
-
-                        {/* =================================================
-                            ADMIN - RECRUITMENT
-                        ================================================= */}
 
                         <Route
                             path="/admin-job-requirements"
-                            element={
-                                <JobRequirements />
-                            }
+                            element={<JobRequirements />}
                         />
 
                         <Route
                             path="/candidates"
-                            element={
-                                <Candidates />
-                            }
+                            element={<Candidates />}
                         />
-
-
-                        {/* =================================================
-                            ADMIN - EMPLOYEE / DEPLOYMENT
-                        ================================================= */}
 
                         <Route
                             path="/employees"
-                            element={
-                                <EmployeeDeployment />
-                            }
+                            element={<EmployeeDeployment />}
                         />
 
                         <Route
                             path="/attendance"
-                            element={
-                                <Attendance />
-                            }
+                            element={<Attendance />}
                         />
 
                         <Route
                             path="/unassigned"
-                            element={
-                                <Unassiged />
-                            }
+                            element={<Unassiged />}
                         />
 
                         <Route
                             path="/addEmployee"
-                            element={
-                                <AddEmployee />
-                            }
+                            element={<AddEmployee />}
                         />
 
                         <Route
                             path="/employee/details/:id"
-                            element={
-                                <EmployeeDetails />
-                            }
+                            element={<EmployeeDetails />}
                         />
 
                         <Route
                             path="/employee/create-account/:id"
-                            element={
-                                <CreateEmployeeAccount />
-                            }
+                            element={<CreateEmployeeAccount />}
                         />
-
-
-                        {/* =================================================
-                            ADMIN - BILLING
-                        ================================================= */}
 
                         <Route
                             path="/client-billing"
-                            element={
-                                <ClientBilling />
-                            }
+                            element={<ClientBilling />}
                         />
 
                         <Route
                             path="/payment-confirmations"
-                            element={
-                                <PaymentConfirmations />
-                            }
+                            element={<PaymentConfirmations />}
                         />
-
-
-                        {/* =================================================
-                            ADMIN - PAYROLL
-                        ================================================= */}
 
                         <Route
                             path="/payroll"
-                            element={
-                                <Payroll />
-                            }
+                            element={<Payroll />}
                         />
-
-
-                        {/* =================================================
-                            ADMIN - REPORTS
-                        ================================================= */}
 
                         <Route
                             path="/reports"
-                            element={
-                                <Reports />
-                            }
+                            element={<Reports />}
                         />
 
+                    </Route>
 
-                        {/* =================================================
+
+                    {/* =================================================
                             EMPLOYEE PORTAL
                         ================================================= */}
+
+                    <Route
+                        element={
+                            <ProtectedRoute
+                                allowedRoles={["employee"]}
+                            />
+                        }
+                    >
+
 
                         <Route
                             path="/employee-portal"
@@ -309,6 +261,14 @@ function App() {
                         {/* =================================================
                             CLIENT PORTAL
                         ================================================= */}
+
+                        <Route
+                            element={
+                                <ProtectedRoute
+                                    allowedRoles={["client"]}
+                                />
+                            }
+                        ></Route>
 
                         <Route
                             path="/client-dashboard"
@@ -415,7 +375,7 @@ function App() {
 
             </div>
 
-        </AuthProvider>
+        </AuthProvider >
     );
 }
 

@@ -2,8 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Briefcase, Building, Search, MapPin, DollarSign, Users, UserCheck } from 'lucide-react';
 import axios from 'axios';
 import Sidebar from '../Layout/Sidebar';
+import api from '../../services/api';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = String(
+  import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.PROD
+      ? "/api"
+      : "http://localhost:5000/api")
+).replace(/\/+$/, "");
 
 export default function JobRequirements() {
   const [jobRequirements, setJobRequirements] = useState([]);
@@ -56,7 +62,7 @@ export default function JobRequirements() {
 
   const fetchCandidates = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/candidates`);
+      const res = await api.get("/candidates");
       setCandidates(res.data.data || res.data || []);
     } catch (err) {
       console.error('Error fetching candidates:', err);
@@ -76,13 +82,13 @@ const handleAssignCandidate = async (e) => {
   try {
     setAssigning(true);
 
-    await axios.post(
-      `${API_BASE}/admin-job-requirements/${selectedJob.id}/assign`,
-      {
-        candidate_id: selectedCandidateId,
-        client_id: selectedJob.client_id
-      }
-    );
+    await api.post(
+  `/admin-job-requirements/${selectedJob.id}/assign`,
+  {
+    candidate_id: selectedCandidateId,
+    client_id: selectedJob.client_id
+  }
+);
 
     setShowAssignModal(false);
 
