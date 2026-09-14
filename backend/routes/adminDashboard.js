@@ -23,7 +23,7 @@ console.log("==========================================");
 router.get(
     "/dashboard",
     authenticate,
-    authorize("admin"),
+    authorize("admin","superadmin"),
     async (req, res) => {
         try {
             return res.status(200).json({
@@ -111,7 +111,7 @@ router.get(
 router.get(
     "/pending-admins",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const {
@@ -220,7 +220,7 @@ router.get(
 router.get(
     "/pending-clients",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             console.log(
@@ -387,7 +387,7 @@ router.get(
 router.get(
     "/pending-employees",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const {
@@ -491,7 +491,7 @@ router.get(
 router.patch(
     "/approve-admin/:id",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const id = Number(
@@ -613,7 +613,7 @@ router.patch(
 router.patch(
     "/reject-admin/:id",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const id = Number(
@@ -730,7 +730,7 @@ router.patch(
 router.patch(
     "/approve-client/:id",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const clientId = Number(
@@ -929,7 +929,7 @@ router.patch(
 router.patch(
     "/reject-client/:id",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const clientId = Number(
@@ -1103,7 +1103,7 @@ router.patch(
 router.patch(
     "/approve-employee/:id",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const id = Number(
@@ -1226,7 +1226,7 @@ router.patch(
 router.patch(
     "/reject-employee/:id",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const id = Number(
@@ -1348,7 +1348,7 @@ router.patch(
 router.get(
     "/active-tenants",
     authenticate,
-    authorize("admin"),
+    authorize("superadmin"),
     async (req, res) => {
         try {
             const {
