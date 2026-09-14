@@ -205,75 +205,7 @@ function ClientInvoiceManagement({
         );
     };
 
-    // =========================================================
-    // FETCH CLIENT INVOICES
-    // =========================================================
-
-    const fetchInvoices = async (showRefresh = false) => {
-        try {
-            if (showRefresh) {
-                setRefreshing(true);
-            } else {
-                setLoading(true);
-            }
-
-            const token = localStorage.getItem("access_token");
-
-            if (!token) {
-                console.error("Access token not found");
-                setInvoices([]);
-                return;
-            }
-
-            const response = await fetch(
-                `${API_BASE}/client-management/invoices`,
-                {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
-
-            const data = await response.json();
-
-            console.log("Client invoices response:", data);
-
-            if (!response.ok) {
-                throw new Error(
-                    data?.message || "Failed to fetch client invoices"
-                );
-            }
-
-            const invoiceData = Array.isArray(data)
-                ? data
-                : data.data || data.invoices || [];
-
-            setInvoices(
-                Array.isArray(invoiceData)
-                    ? invoiceData
-                    : []
-            );
-        } catch (error) {
-            console.error("Error fetching client invoices:", error);
-            setInvoices([]);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    };
-
-    // =========================================================
-    // INITIAL LOAD
-    // =========================================================
-
-    useEffect(() => {
-        fetchInvoices();
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
+    
     // =========================================================
     // NORMALIZE INVOICE
     // =========================================================
