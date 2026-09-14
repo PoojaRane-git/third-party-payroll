@@ -15,9 +15,9 @@ const AuthContext = createContext(null);
 
 const API_BASE_URL = String(
     import.meta.env.VITE_API_BASE_URL ||
-        (import.meta.env.PROD
-            ? "/api"
-            : "http://localhost:5000/api")
+    (import.meta.env.PROD
+        ? "/api"
+        : "http://localhost:5000/api")
 ).replace(/\/+$/, "");
 
 // ============================================================
@@ -65,8 +65,8 @@ export const AuthProvider = ({ children }) => {
                     result
                 );
 
-                setUser(null);
-
+                // Do NOT destroy the existing authenticated state
+                // because a temporary API failure is not a logout.
                 return null;
             }
 
@@ -94,15 +94,15 @@ export const AuthProvider = ({ children }) => {
             return null;
 
         } catch (error) {
-            console.error(
-                "AUTH PROVIDER USER FETCH ERROR:",
-                error
-            );
+    console.error(
+        "AUTH PROVIDER USER FETCH ERROR:",
+        error
+    );
 
-            setUser(null);
-
-            return null;
-        }
+    // Do NOT setUser(null) here.
+    // Keep the current authenticated state.
+    return null;
+}
     };
 
     // ============================================================
@@ -217,7 +217,7 @@ export const AuthProvider = ({ children }) => {
 
                     if (
                         event ===
-                            "SIGNED_OUT" ||
+                        "SIGNED_OUT" ||
                         !currentSession?.access_token
                     ) {
                         setUser(null);
@@ -241,11 +241,11 @@ export const AuthProvider = ({ children }) => {
 
                     if (
                         event ===
-                            "SIGNED_IN" ||
+                        "SIGNED_IN" ||
                         event ===
-                            "TOKEN_REFRESHED" ||
+                        "TOKEN_REFRESHED" ||
                         event ===
-                            "USER_UPDATED"
+                        "USER_UPDATED"
                     ) {
                         await fetchCurrentUser(
                             currentSession.access_token
