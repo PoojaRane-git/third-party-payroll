@@ -1,4 +1,3 @@
-
 // =====================================================
 // SERVER.JS
 // Third-Party Payroll Management System
@@ -10,14 +9,16 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 
+
+
+
 // =====================================================
 // APP INITIALIZATION
 // =====================================================
 
 const app = express();
 
-const PORT =
-    Number(process.env.PORT) || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
 // =====================================================
 // ENVIRONMENT CHECK
@@ -28,120 +29,51 @@ console.log("Starting Third-Party Payroll Backend");
 console.log("==============================================");
 
 console.log(
-    "SUPABASE_URL:",
-    process.env.SUPABASE_URL
-        ? "Loaded"
-        : "Missing"
+  "SUPABASE_URL:",
+  process.env.SUPABASE_URL ? "Loaded" : "Missing"
 );
 
 console.log(
-    "SUPABASE_SERVICE_ROLE_KEY:",
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-        ? "Loaded"
-        : "Missing"
+  "SUPABASE_SERVICE_ROLE_KEY:",
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? "Loaded"
+    : "Missing"
 );
 
 // =====================================================
-// CORS CONFIGURATION
+// MIDDLEWARE
 // =====================================================
-
-// IMPORTANT:
-// These must be REAL URLs.
-// Do NOT use Markdown links here.
 
 const allowedOrigins = [
     "https://third-party-payroll.vercel.app",
-
-    // Local frontend
     "http://localhost:5173",
-
-    // Optional local variants
-    "http://127.0.0.1:5173",
 ];
 
-// =====================================================
-// VERCEL PREVIEW DEPLOYMENT REGEX
-// =====================================================
-//
-// Example:
-// https://third-party-payroll-mbho0icyp-poojarane514-1612s-projects.vercel.app
-//
-// This allows preview deployments of this project.
-//
-// =====================================================
-
+// Matches ANY preview deployment of this specific project,
+// e.g. https://third-party-payroll-<anything>-poojarane514-1612s-projects.vercel.app
 const previewOriginPattern =
-    /^https:\/\/third-party-payroll-[a-z0-9]+-poojarane514-1612s-projects\.vercel\.app$/i;
-
-// =====================================================
-// CORS OPTIONS
-// =====================================================
+    /^https:\/\/third-party-payroll-[a-z0-9]+-poojarane514-1612s-projects\.vercel\.app$/;
 
 const corsOptions = {
-    origin: function (
-        origin,
-        callback
-    ) {
-        // Requests without an Origin header
-        // such as server-to-server / curl requests
+    origin: function (origin, callback) {
         if (!origin) {
             return callback(null, true);
         }
 
-        // Exact production/local origins
         if (
-            allowedOrigins.includes(origin)
+            allowedOrigins.includes(origin) ||
+            previewOriginPattern.test(origin)
         ) {
-            console.log(
-                "✅ CORS allowed:",
-                origin
-            );
-
-            return callback(
-                null,
-                true
-            );
+            return callback(null, true);
         }
 
-        // Vercel preview deployment
-        if (
-            previewOriginPattern.test(
-                origin
-            )
-        ) {
-            console.log(
-                "✅ Vercel preview CORS allowed:",
-                origin
-            );
-
-            return callback(
-                null,
-                true
-            );
-        }
-
-        console.error(
-            "❌ CORS blocked origin:",
-            origin
-        );
-
-        return callback(
-            new Error(
-                `CORS blocked origin: ${origin}`
-            )
-        );
+        console.error("❌ CORS blocked origin:", origin);
+        return callback(new Error("Not allowed by CORS"));
     },
 
     credentials: true,
 
-    methods: [
-        "GET",
-        "POST",
-        "PUT",
-        "PATCH",
-        "DELETE",
-        "OPTIONS",
-    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 
     allowedHeaders: [
         "Content-Type",
@@ -153,265 +85,165 @@ const corsOptions = {
     optionsSuccessStatus: 204,
 };
 
-// =====================================================
-// CORS MIDDLEWARE
-// =====================================================
+app.use(cors(corsOptions));
 
-app.use(
-    cors(corsOptions)
-);
 
-// Explicitly handle preflight requests.
-//
-// This is important because your frontend is sending
-// Authorization: Bearer <supabase-token>, which causes
-// the browser to perform an OPTIONS preflight request.
-
-app.options(
-    "*",
-    cors(corsOptions)
-);
-
-// =====================================================
-// BODY PARSING
-// =====================================================
-
-app.use(
-    express.json({
-        limit: "10mb",
-    })
-);
-
-app.use(
-    express.urlencoded({
-        extended: true,
-        limit: "10mb",
-    })
-);
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // =====================================================
 // REQUEST LOGGER
 // =====================================================
 
-app.use(
-    (req, res, next) => {
-        console.log(
-            `${req.method} ${req.originalUrl}`
-        );
-
-        if (req.headers.origin) {
-            console.log(
-                "Origin:",
-                req.headers.origin
-            );
-        }
-
-        next();
-    }
-);
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // =====================================================
 // AUTH / AUTHORIZATION
 // =====================================================
 
-const authenticate =
-    require("./middleware/authenticate");
-
-const authorize =
-    require("./middleware/authorize");
+const authenticate = require("./middleware/authenticate");
+const authorize = require("./middleware/authorize");
 
 // =====================================================
 // MAIN ROUTES
 // =====================================================
 
-const clientRoutes =
-    require("./routes/clients");
+const clientRoutes = require("./routes/clients");
+const contractRoutes = require("./routes/contracts");
+const candidateRoutes = require("./routes/candidates");
+const employee_attdanceRoutes = require("./routes/emp_attedance");
+const deploymentRoutes = require("./routes/deployments");
+const timesheetRoutes = require("./routes/timesheets");
+const thirdPartyAttendanceRoutes = require("./routes/thirdPartyAttendance");
+const employeeAttendanceRoutes = require("./routes/employeeAttendance");
+const payrollRoutes = require("./routes/payroll");
+const billingRoutes = require("./routes/billing");
+const paymentRoutes = require("./routes/payments");
+const invoiceDisputeRoutes = require("./routes/invoiceDisputes");
+const reportsRoutes = require("./routes/reports");
+const ClientjobRequirementRoutes = require("./routes/client/ClientjobRequirements")
 
-const contractRoutes =
-    require("./routes/contracts");
 
-const candidateRoutes =
-    require("./routes/candidates");
-
-const employee_attdanceRoutes =
-    require("./routes/emp_attedance");
-
-const deploymentRoutes =
-    require("./routes/deployments");
-
-const timesheetRoutes =
-    require("./routes/timesheets");
-
-const thirdPartyAttendanceRoutes =
-    require("./routes/thirdPartyAttendance");
-
-const employeeAttendanceRoutes =
-    require("./routes/employeeAttendance");
-
-const payrollRoutes =
-    require("./routes/payroll");
-
-const billingRoutes =
-    require("./routes/billing");
-
-const paymentRoutes =
-    require("./routes/payments");
-
-const invoiceDisputeRoutes =
-    require("./routes/invoiceDisputes");
-
-const reportsRoutes =
-    require("./routes/reports");
-
-const ClientjobRequirementRoutes =
-    require(
-        "./routes/client/ClientjobRequirements"
-    );
 
 const AdminjobRequirementRoutes =
-    require(
-        "./routes/AdminjobRequirements"
-    );
+  require("./routes/AdminjobRequirements");
 
 app.use(
-    "/api/admin-job-requirements",
-    AdminjobRequirementRoutes
+  "/api/admin-job-requirements",
+  AdminjobRequirementRoutes
 );
-
 // =====================================================
 // EMPLOYEE USERS
 // =====================================================
 
 const employeeUsersRouter =
-    require("./routes/employeeUsers");
+  require("./routes/employeeUsers");
 
-const loginRequestsRoutes =
-    require("./routes/loginRequests");
-
-app.use(
-    "/login-requests",
-    loginRequestsRoutes
-);
+const loginRequestsRoutes = require("./routes/loginRequests");
+app.use("/api/login-requests", loginRequestsRoutes);
 
 // =====================================================
 // CLIENT PORTAL ROUTES
 // =====================================================
 
 const clientPortalRoutes =
-    require("./routes/client/clientPortal");
+  require("./routes/client/clientPortal");
 
 const attendanceApprovalRouter =
-    require(
-        "./routes/client/attendanceApprovalRouter"
-    );
+  require("./routes/client/attendanceApprovalRouter");
 
 const clientEmployeesRouter =
-    require(
-        "./routes/client/Clientemployee"
-    );
+  require("./routes/client/Clientemployee");
 
 const clientCandidatesRouter =
-    require(
-        "./routes/client/Clientcandidates"
-    );
+  require("./routes/client/Clientcandidates");
 
 // =====================================================
 // CLIENT INVOICE MANAGEMENT
 // =====================================================
 
 const clientManagementInvoicesRouter =
-    require(
-        "./routes/client/clientManagementInvoices"
-    );
+  require("./routes/client/clientManagementInvoices");
 
 // =====================================================
 // CLIENT PAYMENT CONFIRMATION + DISPUTES
 // =====================================================
 
 const clientPaymentActionsRouter =
-    require(
-        "./routes/client/clientPaymentActions"
-    );
+  require("./routes/client/clientPaymentActions");
 
 // =====================================================
 // NEW CANDIDATES
 // =====================================================
 
 const candidatesRouter =
-    require("./routes/newcandidates");
+  require("./routes/newcandidates");
+
+
 
 // =====================================================
 // BASIC ROUTES
 // =====================================================
 
 // Root
+app.get("/", (req, res) => {
+  return res.json({
+    success: true,
+    message:
+      "Third-Party Payroll Management API is running",
+    port: PORT,
+    timestamp: new Date().toISOString(),
+  });
+});
 
-app.get(
-    "/",
-    (req, res) => {
-        return res.json({
-            success: true,
-
-            message:
-                "Third-Party Payroll Management API is running",
-
-            port: PORT,
-
-            timestamp:
-                new Date().toISOString(),
-        });
-    }
-);
-
-// =====================================================
-// HEALTH CHECK
-// =====================================================
-
-app.get(
-    "/api/health",
-    (req, res) => {
-        return res.json({
-            success: true,
-
-            status: "healthy",
-
-            message:
-                "Backend server is running",
-
-            port: PORT,
-
-            timestamp:
-                new Date().toISOString(),
-        });
-    }
-);
+// Health check
+app.get("/api/health", (req, res) => {
+  return res.json({
+    success: true,
+    status: "healthy",
+    message: "Backend server is running",
+    port: PORT,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // =====================================================
 // AUTH ROUTES
+//
+// NOTE:
+// /api/auth/me, /api/auth/send-login-otp,
+// /api/auth/verify-login-otp, signup routes, etc.
+// all live inside routes/auth.js and are mounted below.
+//
+// A duplicate inline "/api/auth/me" route used to be
+// defined here directly on `app`, which shadowed the
+// real handler in routes/auth.js (Express matches routes
+// in registration order, and this one was registered
+// first). It has been removed so routes/auth.js is the
+// single source of truth for this endpoint.
 // =====================================================
-//
-// /api/auth/me
-// /api/auth/send-login-otp
-// /api/auth/verify-login-otp
-// signup routes
-// login request routes
-//
+
+// =====================================================
+// ADMIN / COMMON ROUTES
 // =====================================================
 
 const adminDashboardRoutes =
-    require("./routes/adminDashboard");
+  require("./routes/adminDashboard");
 
 app.use(
-    "/api/admin",
-    adminDashboardRoutes
+  "/api/admin",
+  adminDashboardRoutes
 );
 
 const authRoutes =
-    require("./routes/auth");
+  require("./routes/auth");
 
 app.use(
-    "/api/auth",
-    authRoutes
+  "/api/auth",
+  authRoutes
 );
 
 // =====================================================
@@ -419,8 +251,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/clients",
-    clientRoutes
+  "/api/clients",
+  clientRoutes
 );
 
 // =====================================================
@@ -428,8 +260,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/contracts",
-    contractRoutes
+  "/api/contracts",
+  contractRoutes
 );
 
 // =====================================================
@@ -437,8 +269,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/candidates",
-    candidateRoutes
+  "/api/candidates",
+  candidateRoutes
 );
 
 // =====================================================
@@ -446,8 +278,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/employee",
-    employee_attdanceRoutes
+  "/api/employee",
+  employee_attdanceRoutes
 );
 
 // =====================================================
@@ -455,17 +287,25 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/deployments",
-    deploymentRoutes
+  "/api/deployments",
+  deploymentRoutes
 );
 
 // =====================================================
 // EMPLOYEE USERS
+//
+// FINAL ROUTES:
+//
+// GET
+// /api/employee-users
+//
+// POST
+// /api/employee-users/create-account
 // =====================================================
 
 app.use(
-    "/api/employee-users",
-    employeeUsersRouter
+  "/api/employee-users",
+  employeeUsersRouter
 );
 
 // =====================================================
@@ -473,8 +313,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/timesheets",
-    timesheetRoutes
+  "/api/timesheets",
+  timesheetRoutes
 );
 
 // =====================================================
@@ -482,8 +322,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/third-party-attendance",
-    thirdPartyAttendanceRoutes
+  "/api/third-party-attendance",
+  thirdPartyAttendanceRoutes
 );
 
 // =====================================================
@@ -491,8 +331,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/emp-attendance",
-    employeeAttendanceRoutes
+  "/api/emp-attendance",
+  employeeAttendanceRoutes
 );
 
 // =====================================================
@@ -500,8 +340,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/payroll",
-    payrollRoutes
+  "/api/payroll",
+  payrollRoutes
 );
 
 // =====================================================
@@ -509,8 +349,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api",
-    billingRoutes
+  "/api",
+  billingRoutes
 );
 
 // =====================================================
@@ -518,8 +358,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api",
-    paymentRoutes
+  "/api",
+  paymentRoutes
 );
 
 // =====================================================
@@ -527,31 +367,33 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api",
-    invoiceDisputeRoutes
+  "/api",
+  invoiceDisputeRoutes
 );
 
 // =====================================================
 // JOB REQUIREMENTS
 // =====================================================
 
-app.use(
-    "/api",
-    candidatesRouter
-);
+
+
 
 app.use(
-    "/api/client-job-requirements",
-    ClientjobRequirementRoutes
+  "/api",
+  candidatesRouter
 );
+app.use(
+  "/api/client-job-requirements",
+  ClientjobRequirementRoutes
+)
 
 // =====================================================
 // REPORTS
 // =====================================================
 
 app.use(
-    "/api/reports",
-    reportsRoutes
+  "/api/reports",
+  reportsRoutes
 );
 
 // =====================================================
@@ -559,8 +401,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/client-portal",
-    clientPortalRoutes
+  "/api/client-portal",
+  clientPortalRoutes
 );
 
 // =====================================================
@@ -568,8 +410,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api",
-    attendanceApprovalRouter
+  "/api",
+  attendanceApprovalRouter
 );
 
 // =====================================================
@@ -577,8 +419,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/employees",
-    clientEmployeesRouter
+  "/api/employees",
+  clientEmployeesRouter
 );
 
 // =====================================================
@@ -586,8 +428,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/client-candidates",
-    clientCandidatesRouter
+  "/api/client-candidates",
+  clientCandidatesRouter
 );
 
 // =====================================================
@@ -595,8 +437,8 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/client-management",
-    clientManagementInvoicesRouter
+  "/api/client-management",
+  clientManagementInvoicesRouter
 );
 
 // =====================================================
@@ -604,249 +446,199 @@ app.use(
 // =====================================================
 
 app.use(
-    "/api/client",
-    clientPaymentActionsRouter
+  "/api/client",
+  clientPaymentActionsRouter
 );
 
 // =====================================================
 // 404 HANDLER
 // =====================================================
 
-app.use(
-    (req, res) => {
-        console.log(
-            "404:",
-            req.method,
-            req.originalUrl
-        );
+app.use((req, res) => {
+  console.log(
+    "404:",
+    req.method,
+    req.originalUrl
+  );
 
-        return res.status(404).json({
-            success: false,
-
-            message:
-                "API endpoint not found",
-
-            path:
-                req.originalUrl,
-
-            method:
-                req.method,
-        });
-    }
-);
+  return res.status(404).json({
+    success: false,
+    message:
+      "API endpoint not found",
+    path:
+      req.originalUrl,
+    method:
+      req.method,
+  });
+});
 
 // =====================================================
 // GLOBAL ERROR HANDLER
 // =====================================================
 
 app.use(
-    (
-        err,
-        req,
-        res,
-        next
-    ) => {
-        console.error(
-            "=============================================="
-        );
+  (err, req, res, next) => {
 
-        console.error(
-            "GLOBAL SERVER ERROR"
-        );
+    console.error(
+      "=============================================="
+    );
 
-        console.error(
-            "=============================================="
-        );
+    console.error(
+      "GLOBAL SERVER ERROR"
+    );
 
-        console.error(err);
+    console.error(
+      "=============================================="
+    );
 
-        if (res.headersSent) {
-            return next(err);
-        }
+    console.error(err);
 
-        return res.status(
-            err.status || 500
-        ).json({
-            success: false,
-
-            message:
-                err.message ||
-                "Internal server error",
-        });
+    if (res.headersSent) {
+      return next(err);
     }
+
+    return res.status(
+      err.status || 500
+    ).json({
+      success: false,
+      message:
+        err.message ||
+        "Internal server error",
+    });
+  }
 );
 
-// =====================================================
-// ROUTE TYPE CHECK
-// =====================================================
+console.log("==============================================");
+console.log("ROUTE TYPE CHECK");
+console.log("==============================================");
 
 console.log(
-    "=============================================="
-);
-
-console.log(
-    "ROUTE TYPE CHECK"
-);
-
-console.log(
-    "=============================================="
-);
-
-console.log(
-    "clientRoutes:",
-    typeof clientRoutes
+  "clientRoutes:",
+  typeof clientRoutes
 );
 
 console.log(
-    "contractRoutes:",
-    typeof contractRoutes
+  "contractRoutes:",
+  typeof contractRoutes
 );
 
 console.log(
-    "candidateRoutes:",
-    typeof candidateRoutes
+  "candidateRoutes:",
+  typeof candidateRoutes
 );
 
 console.log(
-    "employee_attdanceRoutes:",
-    typeof employee_attdanceRoutes
+  "employee_attdanceRoutes:",
+  typeof employee_attdanceRoutes
 );
 
 console.log(
-    "deploymentRoutes:",
-    typeof deploymentRoutes
+  "deploymentRoutes:",
+  typeof deploymentRoutes
 );
 
 console.log(
-    "timesheetRoutes:",
-    typeof timesheetRoutes
+  "timesheetRoutes:",
+  typeof timesheetRoutes
 );
 
 console.log(
-    "thirdPartyAttendanceRoutes:",
-    typeof thirdPartyAttendanceRoutes
+  "thirdPartyAttendanceRoutes:",
+  typeof thirdPartyAttendanceRoutes
 );
 
 console.log(
-    "employeeAttendanceRoutes:",
-    typeof employeeAttendanceRoutes
+  "employeeAttendanceRoutes:",
+  typeof employeeAttendanceRoutes
 );
 
 console.log(
-    "payrollRoutes:",
-    typeof payrollRoutes
+  "payrollRoutes:",
+  typeof payrollRoutes
 );
 
 console.log(
-    "billingRoutes:",
-    typeof billingRoutes
+  "billingRoutes:",
+  typeof billingRoutes
 );
 
 console.log(
-    "paymentRoutes:",
-    typeof paymentRoutes
+  "paymentRoutes:",
+  typeof paymentRoutes
 );
 
 console.log(
-    "invoiceDisputeRoutes:",
-    typeof invoiceDisputeRoutes
+  "invoiceDisputeRoutes:",
+  typeof invoiceDisputeRoutes
+);
+
+
+console.log(
+  "reportsRoutes:",
+  typeof reportsRoutes
 );
 
 console.log(
-    "reportsRoutes:",
-    typeof reportsRoutes
+  "ClientjobRequirementRoutes:",
+  typeof ClientjobRequirementRoutes
 );
 
 console.log(
-    "ClientjobRequirementRoutes:",
-    typeof ClientjobRequirementRoutes
+  "employeeUsersRouter:",
+  typeof employeeUsersRouter
 );
 
 console.log(
-    "employeeUsersRouter:",
-    typeof employeeUsersRouter
+  "clientPortalRoutes:",
+  typeof clientPortalRoutes
 );
 
 console.log(
-    "clientPortalRoutes:",
-    typeof clientPortalRoutes
+  "attendanceApprovalRouter:",
+  typeof attendanceApprovalRouter
 );
 
 console.log(
-    "attendanceApprovalRouter:",
-    typeof attendanceApprovalRouter
+  "clientEmployeesRouter:",
+  typeof clientEmployeesRouter
 );
 
 console.log(
-    "clientEmployeesRouter:",
-    typeof clientEmployeesRouter
+  "clientCandidatesRouter:",
+  typeof clientCandidatesRouter
 );
 
 console.log(
-    "clientCandidatesRouter:",
-    typeof clientCandidatesRouter
+  "clientManagementInvoicesRouter:",
+  typeof clientManagementInvoicesRouter
 );
 
 console.log(
-    "clientManagementInvoicesRouter:",
-    typeof clientManagementInvoicesRouter
+  "clientPaymentActionsRouter:",
+  typeof clientPaymentActionsRouter
 );
 
 console.log(
-    "clientPaymentActionsRouter:",
-    typeof clientPaymentActionsRouter
+  "candidatesRouter:",
+  typeof candidatesRouter
 );
 
-console.log(
-    "candidatesRouter:",
-    typeof candidatesRouter
-);
-
-console.log(
-    "=============================================="
-);
+console.log("==============================================");
 
 // =====================================================
 // START SERVER
 // =====================================================
 
-// Only listen locally.
-// Vercel handles invocation through the exported app.
-
+// Only listen locally — Vercel handles invocation via the exported app
 if (require.main === module) {
-    app.listen(
-        PORT,
-        () => {
-            console.log(
-                "=============================================="
-            );
-
-            console.log(
-                "Third-Party Payroll Backend Started"
-            );
-
-            console.log(
-                "=============================================="
-            );
-
-            console.log(
-                `Server: http://localhost:${PORT}`
-            );
-
-            console.log(
-                `Health: http://localhost:${PORT}/api/health`
-            );
-
-            console.log(
-                "=============================================="
-            );
-        }
-    );
+  app.listen(PORT, () => {
+    console.log("==============================================");
+    console.log("Third-Party Payroll Backend Started");
+    console.log("==============================================");
+    console.log(`Server: http://localhost:${PORT}`);
+    console.log(`Health: http://localhost:${PORT}/api/health`);
+    // ...keep the rest of your console.logs here
+  });
 }
 
-// =====================================================
-// EXPORT APP FOR VERCEL
-// =====================================================
-
 module.exports = app;
-
