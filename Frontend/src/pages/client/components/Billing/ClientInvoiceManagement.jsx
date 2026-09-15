@@ -1884,16 +1884,6 @@ const summary = useMemo(() => {
                                                                             </button>
                                                                         )}
 
-                                                                        {!isPaymentRejected(invoice) && !isPaymentVerified(invoice) && canReportPayment(invoice) && (
-                                                                            <button
-                                                                                onClick={() => openPaymentModal(invoice)}
-                                                                                className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition whitespace-nowrap"
-                                                                            >
-                                                                                <CreditCard className="w-3.5 h-3.5" />
-                                                                                Report Payment
-                                                                            </button>
-                                                                        )}
-
                                                                         {isPaymentVerified(invoice) && invoice.paymentStatus.toLowerCase() !== "paid" && (
                                                                             <button
                                                                                 onClick={() => openPaymentModal(invoice)}
