@@ -63,7 +63,7 @@ import EmployeeProfile from "./pages/Employee/components/EmployeeProfile";
 
 import ClientPortalDashboard from "./pages/client/components/ClientPortalDashboard";
 
-import AttendanceApproval from "./pages/client/components/AttedanceApproval/AttendanceApproval";
+import ClientAttendance from "./pages/client/components/AttedanceApproval/ClientAttendance";
 
 import JobRequirementsClient from "./pages/client/components/Recruitment/JobRequirementsClient";
 
@@ -301,7 +301,7 @@ function App() {
                         <Route
                             path="/client-dashboard/attendance-approval"
                             element={
-                                <AttendanceApproval />
+                                <ClientAttendance />
                             }
                         />
 
