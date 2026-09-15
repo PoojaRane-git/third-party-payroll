@@ -15,7 +15,7 @@ import {
 
 import Sidebar from "../Layout/Sidebar";
 import api from "../../../services/api";
-import { useAuth } from "../../../auth/AuthProvider";
+import { useAuth } from "../../../../auth/AuthProvider";
 
 // ============================================================
 // COMPONENT
