@@ -104,9 +104,7 @@ const getOvertime = (record) => {
 };
 
 const getStatus = (record) => {
-    return normalizeStatus(
-        record?.status
-    );
+    return normalizeStatus(record?.status);
 };
 
 // ============================================================
@@ -114,11 +112,6 @@ const getStatus = (record) => {
 // ============================================================
 
 const ClientAttendance = () => {
-    const {
-        user,
-        session,
-        loading: authLoading,
-    } = useAuth();
 
     // ========================================================
     // STATE
@@ -155,283 +148,410 @@ const ClientAttendance = () => {
         useState(false);
 
     // ========================================================
-    // CLIENT ID
-    // ========================================================
-    //
-    // Your /auth/me response should ideally contain:
-    //
-    // user.client_id
-    //
-    // These fallbacks make the component tolerant of
-    // slightly different user object structures.
-    //
+    // CLIENT SESSION
     // ========================================================
 
-    const clientId = useMemo(() => {
-        return (
-            user?.client_id ??
-            user?.clientId ??
-            user?.client?.id ??
-            user?.profile?.client_id ??
-            ""
-        );
-    }, [user]);
+    const clientSession = useMemo(() => {
+        let id = null;
+        let companyName = "";
+
+        // ----------------------------------------------------
+        // 1. client_id
+        // ----------------------------------------------------
+
+        const directClientId =
+            localStorage.getItem("client_id");
+
+        if (directClientId) {
+            id = directClientId;
+        }
+
+        // ----------------------------------------------------
+        // 2. clientId
+        // ----------------------------------------------------
+
+        if (!id) {
+            const clientId =
+                localStorage.getItem("clientId");
+
+            if (clientId) {
+                id = clientId;
+            }
+        }
+
+        // ----------------------------------------------------
+        // 3. user
+        // ----------------------------------------------------
+
+        if (!id) {
+            try {
+                const storedUser =
+                    JSON.parse(
+                        localStorage.getItem("user") || "null"
+                    );
+
+                if (storedUser) {
+                    id =
+                        storedUser.client_id ??
+                        storedUser.clientId ??
+                        storedUser.profile?.client_id ??
+                        storedUser.profile?.clientId ??
+                        null;
+
+                    companyName =
+                        storedUser.company_name ??
+                        storedUser.companyName ??
+                        storedUser.profile?.company_name ??
+                        storedUser.profile?.companyName ??
+                        storedUser.name ??
+                        "";
+                }
+            } catch (parseError) {
+                console.error(
+                    "Failed to parse stored user:",
+                    parseError
+                );
+            }
+        }
+
+        // ----------------------------------------------------
+        // 4. client
+        // ----------------------------------------------------
+
+        if (!id) {
+            try {
+                const storedClient =
+                    JSON.parse(
+                        localStorage.getItem("client") || "null"
+                    );
+
+                if (storedClient) {
+                    id =
+                        storedClient.id ??
+                        storedClient.client_id ??
+                        storedClient.clientId ??
+                        null;
+
+                    companyName =
+                        storedClient.company_name ??
+                        storedClient.companyName ??
+                        "";
+                }
+            } catch (parseError) {
+                console.error(
+                    "Failed to parse stored client:",
+                    parseError
+                );
+            }
+        }
+
+        // ----------------------------------------------------
+        // 5. profile
+        // ----------------------------------------------------
+
+        if (!id) {
+            try {
+                const profile =
+                    JSON.parse(
+                        localStorage.getItem("profile") || "null"
+                    );
+
+                if (profile) {
+                    id =
+                        profile.client_id ??
+                        profile.clientId ??
+                        null;
+
+                    companyName =
+                        profile.company_name ??
+                        profile.companyName ??
+                        profile.name ??
+                        "";
+                }
+            } catch (parseError) {
+                console.error(
+                    "Failed to parse stored profile:",
+                    parseError
+                );
+            }
+        }
+
+        // ----------------------------------------------------
+        // 6. Company name fallback
+        // ----------------------------------------------------
+
+        if (!companyName) {
+            companyName =
+                localStorage.getItem("company_name") ||
+                localStorage.getItem("companyName") ||
+                "";
+        }
+
+        const numericId = Number(id);
+
+        return {
+            clientId:
+                Number.isFinite(numericId) &&
+                numericId > 0
+                    ? numericId
+                    : null,
+
+            companyName,
+        };
+    }, []);
+
+    const clientId = clientSession.clientId;
+
+    const clientName = clientSession.companyName;
+
+    // ========================================================
+    // LOGOUT
+    // ========================================================
+
+    const handleLogout = () => {
+        localStorage.clear();
+        window.location.href = "/login";
+    };
 
     // ========================================================
     // FETCH DAILY ATTENDANCE
     // ========================================================
 
-    const fetchDailyAttendance =
-        useCallback(
-            async (
-                showLoader = true
-            ) => {
-                if (!clientId) {
-                    setError(
-                        "Client ID not found for the logged-in user."
-                    );
+    const fetchDailyAttendance = useCallback(
+        async (showLoader = true) => {
 
-                    setDailyAttendance([]);
+            if (!clientId) {
+                setError(
+                    "Client ID not found for the logged-in user."
+                );
 
-                    return;
+                setDailyAttendance([]);
+
+                return;
+            }
+
+            try {
+
+                if (showLoader) {
+                    setLoading(true);
                 }
 
-                try {
-                    if (showLoader) {
-                        setLoading(true);
-                    }
+                setError("");
 
-                    setError("");
+                const response =
+                    await api.get(
+                        "/attendance/daily",
+                        {
+                            params: {
+                                client_id:
+                                    clientId,
 
-                    const config =
-                        await getAuthConfig();
+                                attendance_date:
+                                    attendanceDate,
+                            },
+                        }
+                    );
 
-                    const response =
-                        await api.get(
-                            "/attendance/daily",
-                            {
-                                params: {
-                                    client_id:
-                                        clientId,
+                const result =
+                    response?.data || {};
 
-                                    attendance_date:
-                                        attendanceDate,
-                                },
-
-                                ...config,
-                            }
-                        );
-
-                    const result =
-                        response?.data || {};
-
-                    const records =
-                        Array.isArray(
-                            result.data
+                const records =
+                    Array.isArray(result.data)
+                        ? result.data
+                        : Array.isArray(
+                            result.attendance
                         )
-                            ? result.data
-                            : Array.isArray(
-                                result.attendance
-                            )
-                                ? result.attendance
-                                : [];
+                            ? result.attendance
+                            : [];
 
-                    setDailyAttendance(
-                        records
+                setDailyAttendance(records);
+
+            } catch (err) {
+
+                console.error(
+                    "Fetch daily attendance error:",
+                    err
+                );
+
+                if (
+                    err?.response?.status ===
+                    401
+                ) {
+                    setError(
+                        "Your session has expired. Please login again."
                     );
-                } catch (err) {
-                    console.error(
-                        "Fetch daily attendance error:",
-                        err
+                } else if (
+                    err?.response?.status ===
+                    403
+                ) {
+                    setError(
+                        "You do not have permission to view this attendance."
                     );
-
-                    if (
-                        err?.response?.status ===
-                        401
-                    ) {
-                        setError(
-                            "Your session has expired. Please login again."
-                        );
-                    } else if (
-                        err?.response?.status ===
-                        403
-                    ) {
-                        setError(
-                            "You do not have permission to view this attendance."
-                        );
-                    } else {
-                        setError(
-                            err?.response?.data
-                                ?.error ||
-                            err?.response?.data
-                                ?.message ||
-                            err?.message ||
-                            "Failed to load attendance."
-                        );
-                    }
-
-                    setDailyAttendance([]);
-                } finally {
-                    if (showLoader) {
-                        setLoading(false);
-                    }
+                } else {
+                    setError(
+                        err?.response?.data?.error ||
+                        err?.response?.data?.message ||
+                        err?.message ||
+                        "Failed to load attendance."
+                    );
                 }
-            },
-            [
-                clientId,
-                attendanceDate,
-                getAuthConfig,
-            ]
-        );
+
+                setDailyAttendance([]);
+
+            } finally {
+
+                if (showLoader) {
+                    setLoading(false);
+                }
+
+            }
+        },
+        [
+            clientId,
+            attendanceDate,
+        ]
+    );
 
     // ========================================================
     // FETCH MONTHLY ATTENDANCE
     // ========================================================
 
-    const fetchMonthlyAttendance =
-        useCallback(
-            async (
-                showLoader = true
-            ) => {
-                if (!clientId) {
+    const fetchMonthlyAttendance = useCallback(
+        async (showLoader = true) => {
+
+            if (!clientId) {
+                setError(
+                    "Client ID not found for the logged-in user."
+                );
+
+                setMonthlyAttendance([]);
+
+                return;
+            }
+
+            try {
+
+                if (showLoader) {
+                    setLoading(true);
+                }
+
+                setError("");
+
+                const response =
+                    await api.get(
+                        "/attendance/monthly",
+                        {
+                            params: {
+                                client_id:
+                                    clientId,
+
+                                billing_month:
+                                    billingMonth,
+                            },
+                        }
+                    );
+
+                const result =
+                    response?.data || {};
+
+                const records =
+                    Array.isArray(result.data)
+                        ? result.data
+                        : [];
+
+                setMonthlyAttendance(records);
+
+            } catch (err) {
+
+                console.error(
+                    "Fetch monthly attendance error:",
+                    err
+                );
+
+                if (
+                    err?.response?.status ===
+                    401
+                ) {
                     setError(
-                        "Client ID not found for the logged-in user."
+                        "Your session has expired. Please login again."
                     );
-
-                    setMonthlyAttendance([]);
-
-                    return;
+                } else if (
+                    err?.response?.status ===
+                    403
+                ) {
+                    setError(
+                        "You do not have permission to view this attendance."
+                    );
+                } else {
+                    setError(
+                        err?.response?.data?.error ||
+                        err?.response?.data?.message ||
+                        err?.message ||
+                        "Failed to load monthly attendance."
+                    );
                 }
 
-                try {
-                    if (showLoader) {
-                        setLoading(true);
-                    }
+                setMonthlyAttendance([]);
 
-                    setError("");
+            } finally {
 
-                    const config =
-                        await getAuthConfig();
-
-                    const response =
-                        await api.get(
-                            "/attendance/monthly",
-                            {
-                                params: {
-                                    client_id:
-                                        clientId,
-
-                                    billing_month:
-                                        billingMonth,
-                                },
-
-                                ...config,
-                            }
-                        );
-
-                    const result =
-                        response?.data || {};
-
-                    const records =
-                        Array.isArray(
-                            result.data
-                        )
-                            ? result.data
-                            : [];
-
-                    setMonthlyAttendance(
-                        records
-                    );
-                } catch (err) {
-                    console.error(
-                        "Fetch monthly attendance error:",
-                        err
-                    );
-
-                    if (
-                        err?.response?.status ===
-                        401
-                    ) {
-                        setError(
-                            "Your session has expired. Please login again."
-                        );
-                    } else if (
-                        err?.response?.status ===
-                        403
-                    ) {
-                        setError(
-                            "You do not have permission to view this attendance."
-                        );
-                    } else {
-                        setError(
-                            err?.response?.data
-                                ?.error ||
-                            err?.response?.data
-                                ?.message ||
-                            err?.message ||
-                            "Failed to load monthly attendance."
-                        );
-                    }
-
-                    setMonthlyAttendance([]);
-                } finally {
-                    if (showLoader) {
-                        setLoading(false);
-                    }
+                if (showLoader) {
+                    setLoading(false);
                 }
-            },
-            [
-                clientId,
-                billingMonth,
-                getAuthConfig,
-            ]
-        );
+
+            }
+        },
+        [
+            clientId,
+            billingMonth,
+        ]
+    );
 
     // ========================================================
     // FETCH CURRENT TAB
     // ========================================================
 
-    const fetchAttendance =
-        useCallback(
-            async (
-                showLoader = true
-            ) => {
-                if (
-                    activeTab ===
-                    "daily"
-                ) {
-                    await fetchDailyAttendance(
-                        showLoader
-                    );
-                } else {
-                    await fetchMonthlyAttendance(
-                        showLoader
-                    );
-                }
-            },
-            [
-                activeTab,
-                fetchDailyAttendance,
-                fetchMonthlyAttendance,
-            ]
-        );
+    const fetchAttendance = useCallback(
+        async (showLoader = true) => {
+
+            if (activeTab === "daily") {
+
+                await fetchDailyAttendance(
+                    showLoader
+                );
+
+            } else {
+
+                await fetchMonthlyAttendance(
+                    showLoader
+                );
+
+            }
+        },
+        [
+            activeTab,
+            fetchDailyAttendance,
+            fetchMonthlyAttendance,
+        ]
+    );
 
     // ========================================================
     // INITIAL LOAD / FILTER CHANGE
     // ========================================================
 
     useEffect(() => {
-        if (authLoading) {
-            return;
-        }
 
         if (!clientId) {
+            setError(
+                "Client ID not found for the logged-in user."
+            );
+
             return;
         }
 
         fetchAttendance(true);
+
     }, [
-        authLoading,
         clientId,
         activeTab,
         attendanceDate,
@@ -444,12 +564,17 @@ const ClientAttendance = () => {
     // ========================================================
 
     const handleRefresh = async () => {
+
         try {
+
             setRefreshing(true);
 
             await fetchAttendance(false);
+
         } finally {
+
             setRefreshing(false);
+
         }
     };
 
@@ -459,6 +584,7 @@ const ClientAttendance = () => {
 
     const filteredDailyAttendance =
         useMemo(() => {
+
             const search =
                 searchEmployee
                     .trim()
@@ -466,6 +592,7 @@ const ClientAttendance = () => {
 
             return dailyAttendance.filter(
                 (record) => {
+
                     const employeeName =
                         getEmployeeName(
                             record
@@ -488,15 +615,11 @@ const ClientAttendance = () => {
                         );
 
                     const status =
-                        getStatus(
-                            record
-                        );
+                        getStatus(record);
 
                     const matchesStatus =
-                        statusFilter ===
-                        "all" ||
-                        status ===
-                        statusFilter;
+                        statusFilter === "all" ||
+                        status === statusFilter;
 
                     return (
                         matchesSearch &&
@@ -504,6 +627,7 @@ const ClientAttendance = () => {
                     );
                 }
             );
+
         }, [
             dailyAttendance,
             searchEmployee,
@@ -516,6 +640,7 @@ const ClientAttendance = () => {
 
     const filteredMonthlyAttendance =
         useMemo(() => {
+
             const search =
                 searchEmployee
                     .trim()
@@ -523,6 +648,7 @@ const ClientAttendance = () => {
 
             return monthlyAttendance.filter(
                 (record) => {
+
                     const employeeName =
                         getEmployeeName(
                             record
@@ -546,6 +672,7 @@ const ClientAttendance = () => {
                     );
                 }
             );
+
         }, [
             monthlyAttendance,
             searchEmployee,
@@ -556,6 +683,7 @@ const ClientAttendance = () => {
     // ========================================================
 
     const dailyStats = useMemo(() => {
+
         let present = 0;
         let absent = 0;
         let leave = 0;
@@ -563,36 +691,24 @@ const ClientAttendance = () => {
 
         dailyAttendance.forEach(
             (record) => {
-                const status =
-                    getStatus(
-                        record
-                    );
 
-                if (
-                    status ===
-                    "present"
-                ) {
+                const status =
+                    getStatus(record);
+
+                if (status === "present") {
                     present++;
                 }
 
-                if (
-                    status ===
-                    "absent"
-                ) {
+                if (status === "absent") {
                     absent++;
                 }
 
-                if (
-                    status ===
-                    "leave"
-                ) {
+                if (status === "leave") {
                     leave++;
                 }
 
                 overtime +=
-                    getOvertime(
-                        record
-                    );
+                    getOvertime(record);
             }
         );
 
@@ -608,10 +724,10 @@ const ClientAttendance = () => {
 
             overtime:
                 Math.round(
-                    overtime *
-                    100
+                    overtime * 100
                 ) / 100,
         };
+
     }, [dailyAttendance]);
 
     // ========================================================
@@ -619,7 +735,8 @@ const ClientAttendance = () => {
     // ========================================================
 
     const monthlyStats = useMemo(() => {
-        let employees =
+
+        const employees =
             monthlyAttendance.length;
 
         let present = 0;
@@ -629,43 +746,36 @@ const ClientAttendance = () => {
 
         monthlyAttendance.forEach(
             (record) => {
+
                 present += Number(
-                    record?.present_days ||
-                    0
+                    record?.present_days || 0
                 );
 
                 absent += Number(
-                    record?.absent_days ||
-                    0
+                    record?.absent_days || 0
                 );
 
                 leave += Number(
-                    record?.leave_days ||
-                    0
+                    record?.leave_days || 0
                 );
 
                 overtime += Number(
-                    record?.overtime_hours ||
-                    0
+                    record?.overtime_hours || 0
                 );
             }
         );
 
         return {
             employees,
-
             present,
-
             absent,
-
             leave,
-
             overtime:
                 Math.round(
-                    overtime *
-                    100
+                    overtime * 100
                 ) / 100,
         };
+
     }, [monthlyAttendance]);
 
     // ========================================================
@@ -681,79 +791,56 @@ const ClientAttendance = () => {
     // STATUS BADGE
     // ========================================================
 
-    const getStatusBadge =
-        (status) => {
-            const normalized =
-                normalizeStatus(
-                    status
-                );
+    const getStatusBadge = (status) => {
 
-            let className =
-                "bg-slate-100 text-slate-600";
+        const normalized =
+            normalizeStatus(status);
 
-            let label =
-                status ||
-                "Unknown";
+        let className =
+            "bg-slate-100 text-slate-600";
 
-            if (
-                normalized ===
-                "present"
-            ) {
-                className =
-                    "bg-emerald-50 text-emerald-700";
+        let label =
+            status || "Unknown";
 
-                label = "Present";
-            } else if (
-                normalized ===
-                "absent"
-            ) {
-                className =
-                    "bg-red-50 text-red-600";
+        if (normalized === "present") {
 
-                label = "Absent";
-            } else if (
-                normalized ===
-                "leave"
-            ) {
-                className =
-                    "bg-blue-50 text-blue-600";
+            className =
+                "bg-emerald-50 text-emerald-700";
 
-                label = "Leave";
-            } else if (
-                normalized ===
-                "half_day"
-            ) {
-                className =
-                    "bg-amber-50 text-amber-700";
+            label = "Present";
 
-                label = "Half Day";
-            }
+        } else if (normalized === "absent") {
 
-            return (
-                <span
-                    className={
-                        `inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${className}`
-                    }
-                >
-                    {label}
-                </span>
-            );
-        };
+            className =
+                "bg-red-50 text-red-600";
 
-    // ========================================================
-    // LOADING STATE
-    // ========================================================
+            label = "Absent";
 
-    if (authLoading) {
+        } else if (normalized === "leave") {
+
+            className =
+                "bg-blue-50 text-blue-600";
+
+            label = "Leave";
+
+        } else if (normalized === "half_day") {
+
+            className =
+                "bg-amber-50 text-amber-700";
+
+            label = "Half Day";
+        }
+
         return (
-            <div className="flex min-h-[400px] items-center justify-center">
-                <RefreshCw
-                    size={24}
-                    className="animate-spin text-indigo-600"
-                />
-            </div>
+            <span
+                className={
+                    `inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${className}`
+                }
+            >
+                {label}
+            </span>
         );
-    }
+    };
 
     // ========================================================
     // RENDER
@@ -761,7 +848,14 @@ const ClientAttendance = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 px-6 py-6">
-            <Sidebar/>
+
+            <Sidebar
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                clientName={clientName}
+                onLogout={handleLogout}
+            />
+
             <div className="mx-auto max-w-[1280px]">
 
                 {/* ==================================================
@@ -771,7 +865,9 @@ const ClientAttendance = () => {
                 <div className="mb-6 flex items-start justify-between">
 
                     <div>
+
                         <div className="flex items-center gap-3">
+
                             <CalendarDays
                                 size={25}
                                 strokeWidth={2}
@@ -781,11 +877,13 @@ const ClientAttendance = () => {
                             <h1 className="text-[30px] font-bold leading-none text-slate-900">
                                 Attendance
                             </h1>
+
                         </div>
 
                         <p className="mt-2 text-sm text-slate-500">
                             View employee daily and monthly attendance.
                         </p>
+
                     </div>
 
                     <button
@@ -797,6 +895,7 @@ const ClientAttendance = () => {
                         }
                         className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                     >
+
                         <RefreshCw
                             size={16}
                             className={
@@ -807,7 +906,9 @@ const ClientAttendance = () => {
                         />
 
                         Refresh
+
                     </button>
+
                 </div>
 
                 {/* ==================================================
@@ -821,11 +922,13 @@ const ClientAttendance = () => {
                         {/* Billing Month */}
 
                         <div>
+
                             <label className="mb-2 block px-1 text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Billing Month
                             </label>
 
                             <div className="relative">
+
                                 <Calendar
                                     size={16}
                                     className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -833,9 +936,7 @@ const ClientAttendance = () => {
 
                                 <input
                                     type="month"
-                                    value={
-                                        billingMonth
-                                    }
+                                    value={billingMonth}
                                     onChange={(e) =>
                                         setBillingMonth(
                                             e.target.value
@@ -843,17 +944,21 @@ const ClientAttendance = () => {
                                     }
                                     className="h-[43px] w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                 />
+
                             </div>
+
                         </div>
 
                         {/* Attendance Date */}
 
                         <div>
+
                             <label className="mb-2 block px-1 text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Attendance Date
                             </label>
 
                             <div className="relative">
+
                                 <Calendar
                                     size={16}
                                     className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -861,9 +966,7 @@ const ClientAttendance = () => {
 
                                 <input
                                     type="date"
-                                    value={
-                                        attendanceDate
-                                    }
+                                    value={attendanceDate}
                                     onChange={(e) =>
                                         setAttendanceDate(
                                             e.target.value
@@ -871,17 +974,21 @@ const ClientAttendance = () => {
                                     }
                                     className="h-[43px] w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                 />
+
                             </div>
+
                         </div>
 
                         {/* Search */}
 
                         <div>
+
                             <label className="mb-2 block px-1 text-xs font-bold uppercase tracking-wide text-slate-500">
                                 Search Employee
                             </label>
 
                             <div className="relative">
+
                                 <Search
                                     size={17}
                                     className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -889,9 +996,7 @@ const ClientAttendance = () => {
 
                                 <input
                                     type="text"
-                                    value={
-                                        searchEmployee
-                                    }
+                                    value={searchEmployee}
                                     onChange={(e) =>
                                         setSearchEmployee(
                                             e.target.value
@@ -900,9 +1005,13 @@ const ClientAttendance = () => {
                                     placeholder="Name or employee ID..."
                                     className="h-[43px] w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                 />
+
                             </div>
+
                         </div>
+
                     </div>
+
                 </div>
 
                 {/* ==================================================
@@ -914,9 +1023,11 @@ const ClientAttendance = () => {
                     {/* Employees */}
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
                         <div className="flex items-start justify-between">
 
                             <div>
+
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                                     Employees
                                 </p>
@@ -926,28 +1037,34 @@ const ClientAttendance = () => {
                                 </p>
 
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {activeTab ===
-                                    "daily"
+                                    {activeTab === "daily"
                                         ? "Records today"
                                         : "Employees this month"}
                                 </p>
+
                             </div>
 
                             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50">
+
                                 <Users
                                     size={21}
                                     className="text-indigo-600"
                                 />
+
                             </div>
+
                         </div>
+
                     </div>
 
                     {/* Present */}
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
                         <div className="flex items-start justify-between">
 
                             <div>
+
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                                     Present
                                 </p>
@@ -957,28 +1074,34 @@ const ClientAttendance = () => {
                                 </p>
 
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {activeTab ===
-                                    "daily"
+                                    {activeTab === "daily"
                                         ? "Present today"
                                         : "Present days"}
                                 </p>
+
                             </div>
 
                             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
+
                                 <UserCheck
                                     size={21}
                                     className="text-emerald-600"
                                 />
+
                             </div>
+
                         </div>
+
                     </div>
 
                     {/* Absent */}
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
                         <div className="flex items-start justify-between">
 
                             <div>
+
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                                     Absent
                                 </p>
@@ -988,28 +1111,34 @@ const ClientAttendance = () => {
                                 </p>
 
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {activeTab ===
-                                    "daily"
+                                    {activeTab === "daily"
                                         ? "Absent today"
                                         : "Absent days"}
                                 </p>
+
                             </div>
 
                             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50">
+
                                 <UserX
                                     size={21}
                                     className="text-red-600"
                                 />
+
                             </div>
+
                         </div>
+
                     </div>
 
                     {/* Leave */}
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
                         <div className="flex items-start justify-between">
 
                             <div>
+
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                                     Leave
                                 </p>
@@ -1019,28 +1148,34 @@ const ClientAttendance = () => {
                                 </p>
 
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {activeTab ===
-                                    "daily"
+                                    {activeTab === "daily"
                                         ? "On leave"
                                         : "Leave days"}
                                 </p>
+
                             </div>
 
                             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50">
+
                                 <Coffee
                                     size={21}
                                     className="text-blue-600"
                                 />
+
                             </div>
+
                         </div>
+
                     </div>
 
                     {/* Overtime */}
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
                         <div className="flex items-start justify-between">
 
                             <div>
+
                                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
                                     Overtime
                                 </p>
@@ -1055,16 +1190,22 @@ const ClientAttendance = () => {
                                 <p className="mt-1 text-xs text-slate-500">
                                     Total OT
                                 </p>
+
                             </div>
 
                             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50">
+
                                 <Timer
                                     size={21}
                                     className="text-indigo-600"
                                 />
+
                             </div>
+
                         </div>
+
                     </div>
+
                 </div>
 
                 {/* ==================================================
@@ -1080,46 +1221,43 @@ const ClientAttendance = () => {
                         <button
                             type="button"
                             onClick={() =>
-                                setActiveTab(
-                                    "daily"
-                                )
+                                setActiveTab("daily")
                             }
                             className={`relative px-6 py-4 text-sm font-semibold transition ${
-                                activeTab ===
-                                "daily"
+                                activeTab === "daily"
                                     ? "text-indigo-600"
                                     : "text-slate-500 hover:text-slate-800"
                             }`}
                         >
+
                             Daily Attendance
 
-                            {activeTab ===
-                                "daily" && (
+                            {activeTab === "daily" && (
                                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />
                             )}
+
                         </button>
 
                         <button
                             type="button"
                             onClick={() =>
-                                setActiveTab(
-                                    "monthly"
-                                )
+                                setActiveTab("monthly")
                             }
                             className={`relative px-6 py-4 text-sm font-semibold transition ${
-                                activeTab ===
-                                "monthly"
+                                activeTab === "monthly"
                                     ? "text-indigo-600"
                                     : "text-slate-500 hover:text-slate-800"
                             }`}
                         >
+
                             Monthly Attendance
 
-                            {activeTab ===
-                                "monthly" && (
+                            {activeTab === "monthly" && (
                                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />
                             )}
+
                         </button>
+
                     </div>
 
                     {/* ==================================================
@@ -1136,14 +1274,13 @@ const ClientAttendance = () => {
                         STATUS FILTER
                     ================================================== */}
 
-                    {activeTab ===
-                        "daily" && (
+                    {activeTab === "daily" && (
                         <div className="flex justify-end border-b border-slate-200 px-6 py-6">
+
                             <div className="relative">
+
                                 <select
-                                    value={
-                                        statusFilter
-                                    }
+                                    value={statusFilter}
                                     onChange={(e) =>
                                         setStatusFilter(
                                             e.target.value
@@ -1151,6 +1288,7 @@ const ClientAttendance = () => {
                                     }
                                     className="h-[42px] appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                                 >
+
                                     <option value="all">
                                         All Status
                                     </option>
@@ -1170,13 +1308,16 @@ const ClientAttendance = () => {
                                     <option value="half_day">
                                         Half Day
                                     </option>
+
                                 </select>
 
                                 <ChevronDown
                                     size={16}
                                     className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
                                 />
+
                             </div>
+
                         </div>
                     )}
 
@@ -1185,7 +1326,9 @@ const ClientAttendance = () => {
                     ================================================== */}
 
                     {loading ? (
+
                         <div className="flex min-h-[360px] items-center justify-center">
+
                             <div className="flex flex-col items-center gap-3">
 
                                 <RefreshCw
@@ -1196,23 +1339,28 @@ const ClientAttendance = () => {
                                 <p className="text-sm text-slate-500">
                                     Loading attendance...
                                 </p>
+
                             </div>
+
                         </div>
-                    ) : activeTab ===
-                        "daily" ? (
+
+                    ) : activeTab === "daily" ? (
+
                         /* ==================================================
                            DAILY TABLE / EMPTY STATE
                            ================================================== */
 
-                        filteredDailyAttendance.length ===
-                        0 ? (
+                        filteredDailyAttendance.length === 0 ? (
+
                             <div className="flex min-h-[400px] flex-col items-center justify-center px-6 text-center">
 
                                 <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100">
+
                                     <CalendarDays
                                         size={27}
                                         className="text-slate-400"
                                     />
+
                                 </div>
 
                                 <h3 className="text-base font-bold text-slate-900">
@@ -1220,20 +1368,28 @@ const ClientAttendance = () => {
                                 </h3>
 
                                 <p className="mt-2 text-sm text-slate-500">
+
                                     {searchEmployee ||
-                                    statusFilter !==
-                                        "all"
+                                    statusFilter !== "all"
                                         ? "No attendance records match your current filters."
                                         : `No attendance records were found for ${formatDateLong(
                                             attendanceDate
                                         )}.`}
+
                                 </p>
+
                             </div>
+
                         ) : (
+
                             <div className="overflow-x-auto">
+
                                 <table className="w-full min-w-[900px]">
+
                                     <thead>
+
                                         <tr className="border-b border-slate-200 bg-slate-50">
+
                                             <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                                                 Employee
                                             </th>
@@ -1265,15 +1421,19 @@ const ClientAttendance = () => {
                                             <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                                                 Work Mode
                                             </th>
+
                                         </tr>
+
                                     </thead>
 
                                     <tbody>
+
                                         {filteredDailyAttendance.map(
                                             (
                                                 record,
                                                 index
                                             ) => (
+
                                                 <tr
                                                     key={
                                                         record?.id ??
@@ -1283,8 +1443,11 @@ const ClientAttendance = () => {
                                                     }
                                                     className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
                                                 >
+
                                                     <td className="px-6 py-4">
+
                                                         <div>
+
                                                             <p className="text-sm font-semibold text-slate-900">
                                                                 {getEmployeeName(
                                                                     record
@@ -1295,10 +1458,11 @@ const ClientAttendance = () => {
                                                                 ID:{" "}
                                                                 {getEmployeeId(
                                                                     record
-                                                                ) ||
-                                                                    "—"}
+                                                                ) || "—"}
                                                             </p>
+
                                                         </div>
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm text-slate-600">
@@ -1308,26 +1472,21 @@ const ClientAttendance = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm text-slate-600">
-                                                        {record?.check_in ||
-                                                            "—"}
+                                                        {record?.check_in || "—"}
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm text-slate-600">
-                                                        {record?.check_out ||
-                                                            "—"}
+                                                        {record?.check_out || "—"}
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm font-medium text-slate-700">
-                                                        {record?.working_hours ??
-                                                            "—"}
+                                                        {record?.working_hours ?? "—"}
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm font-medium text-slate-700">
                                                         {getOvertime(
                                                             record
-                                                        ).toFixed(
-                                                            2
-                                                        )}{" "}
+                                                        ).toFixed(2)}{" "}
                                                         hrs
                                                     </td>
 
@@ -1340,33 +1499,43 @@ const ClientAttendance = () => {
                                                     <td className="px-6 py-4 text-sm capitalize text-slate-600">
                                                         {String(
                                                             record?.work_mode ||
-                                                                "—"
+                                                            "—"
                                                         ).replace(
                                                             /_/g,
                                                             " "
                                                         )}
                                                     </td>
+
                                                 </tr>
+
                                             )
                                         )}
+
                                     </tbody>
+
                                 </table>
+
                             </div>
+
                         )
+
                     ) : (
+
                         /* ==================================================
                            MONTHLY TABLE / EMPTY STATE
                            ================================================== */
 
-                        filteredMonthlyAttendance.length ===
-                        0 ? (
+                        filteredMonthlyAttendance.length === 0 ? (
+
                             <div className="flex min-h-[400px] flex-col items-center justify-center px-6 text-center">
 
                                 <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100">
+
                                     <CalendarDays
                                         size={27}
                                         className="text-slate-400"
                                     />
+
                                 </div>
 
                                 <h3 className="text-base font-bold text-slate-900">
@@ -1374,16 +1543,25 @@ const ClientAttendance = () => {
                                 </h3>
 
                                 <p className="mt-2 text-sm text-slate-500">
+
                                     {searchEmployee
                                         ? "No employees match your search."
                                         : `No attendance records were found for ${billingMonth}.`}
+
                                 </p>
+
                             </div>
+
                         ) : (
+
                             <div className="overflow-x-auto">
+
                                 <table className="w-full min-w-[1050px]">
+
                                     <thead>
+
                                         <tr className="border-b border-slate-200 bg-slate-50">
+
                                             <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                                                 Employee
                                             </th>
@@ -1419,15 +1597,19 @@ const ClientAttendance = () => {
                                             <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wide text-slate-500">
                                                 Records
                                             </th>
+
                                         </tr>
+
                                     </thead>
 
                                     <tbody>
+
                                         {filteredMonthlyAttendance.map(
                                             (
                                                 record,
                                                 index
                                             ) => (
+
                                                 <tr
                                                     key={
                                                         record?.employee_id ??
@@ -1435,8 +1617,11 @@ const ClientAttendance = () => {
                                                     }
                                                     className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
                                                 >
+
                                                     <td className="px-6 py-4">
+
                                                         <div>
+
                                                             <p className="text-sm font-semibold text-slate-900">
                                                                 {getEmployeeName(
                                                                     record
@@ -1447,80 +1632,67 @@ const ClientAttendance = () => {
                                                                 ID:{" "}
                                                                 {getEmployeeId(
                                                                     record
-                                                                ) ||
-                                                                    "—"}
+                                                                ) || "—"}
                                                             </p>
+
                                                         </div>
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-emerald-700">
-                                                        {
-                                                            record?.present_days ??
-                                                            0
-                                                        }
+                                                        {record?.present_days ?? 0}
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-red-600">
-                                                        {
-                                                            record?.absent_days ??
-                                                            0
-                                                        }
+                                                        {record?.absent_days ?? 0}
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-blue-600">
-                                                        {
-                                                            record?.leave_days ??
-                                                            0
-                                                        }
+                                                        {record?.leave_days ?? 0}
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-amber-600">
-                                                        {
-                                                            record?.half_days ??
-                                                            0
-                                                        }
+                                                        {record?.half_days ?? 0}
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-slate-700">
-                                                        {
-                                                            record?.working_days ??
-                                                            0
-                                                        }
+                                                        {record?.working_days ?? 0}
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-red-600">
-                                                        {
-                                                            record?.lop_days ??
-                                                            0
-                                                        }
+                                                        {record?.lop_days ?? 0}
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-indigo-600">
                                                         {Number(
-                                                            record?.overtime_hours ??
-                                                                0
-                                                        ).toFixed(
-                                                            2
-                                                        )}{" "}
+                                                            record?.overtime_hours ?? 0
+                                                        ).toFixed(2)}{" "}
                                                         hrs
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm text-slate-600">
-                                                        {
-                                                            record?.total_records ??
-                                                            0
-                                                        }
+                                                        {record?.total_records ?? 0}
                                                     </td>
+
                                                 </tr>
+
                                             )
                                         )}
+
                                     </tbody>
+
                                 </table>
+
                             </div>
+
                         )
+
                     )}
+
                 </div>
+
             </div>
+
         </div>
     );
 };
