@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../../auth/AuthProvider";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../../../lib/supabaseClient";
 import api from "../../../services/api";
 
 // ============================================================
