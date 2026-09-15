@@ -1,21 +1,15 @@
+
 import React, { useState } from "react";
-import axios from "axios";
 import { supabase } from "../../../../lib/supabaseClient";
+import api from "../../../services/api";
 
 // =====================================================
-// CLIENT PORTAL API
-// =====================================================
-
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:5000/api";
-
-// =====================================================
+// CLIENT PORTAL
 // MONTHLY ATTENDANCE SUMMARY
 // =====================================================
 
 function MonthlyAttendanceSummary() {
-  const [billingMonth, setBillingMonth] = useState("2026-09");
+  const [billingMonth, setBillingMonth] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -70,8 +64,7 @@ function MonthlyAttendanceSummary() {
       // GET SUPABASE SESSION TOKEN
       // -------------------------------------------------
 
-      const accessToken =
-        await getAccessToken();
+      const accessToken = await getAccessToken();
 
       console.log(
         "Generating monthly attendance summary:",
@@ -81,10 +74,10 @@ function MonthlyAttendanceSummary() {
       // -------------------------------------------------
       // CALL CLIENT PORTAL BACKEND
       //
-      // IMPORTANT:
       // DO NOT SEND client_id.
       //
       // Backend gets:
+      //
       // access_token
       //      ↓
       // auth.users.id
@@ -94,8 +87,8 @@ function MonthlyAttendanceSummary() {
       // client_id
       // -------------------------------------------------
 
-      const response = await axios.post(
-        `${API_BASE}/client-portal/attendance/generate-summary`,
+      const response = await api.post(
+        "/client-portal/attendance/generate-summary",
         {
           billing_month: billingMonth,
         },
@@ -123,7 +116,6 @@ function MonthlyAttendanceSummary() {
         `Summary generated successfully for ${billingMonth}. ` +
           `${employeesProcessed} employees processed.`
       );
-
     } catch (err) {
       console.error(
         "Generate summary error:",
@@ -151,6 +143,7 @@ function MonthlyAttendanceSummary() {
       if (err.response?.status === 403) {
         setError(
           err.response?.data?.message ||
+            err.response?.data?.error ||
             "You are not authorized to generate this summary."
         );
 
@@ -167,7 +160,6 @@ function MonthlyAttendanceSummary() {
           err.message ||
           "Failed to generate monthly summary."
       );
-
     } finally {
       setLoading(false);
     }
@@ -185,7 +177,6 @@ function MonthlyAttendanceSummary() {
       {/* ================================================= */}
 
       <div className="mb-5">
-
         <h3 className="text-lg font-bold text-slate-900">
           Monthly Attendance Summary
         </h3>
@@ -194,7 +185,6 @@ function MonthlyAttendanceSummary() {
           Generate monthly attendance summary from daily
           attendance records.
         </p>
-
       </div>
 
       {/* ================================================= */}
@@ -206,7 +196,6 @@ function MonthlyAttendanceSummary() {
         {/* BILLING MONTH */}
 
         <div>
-
           <label
             htmlFor="billing-month"
             className="block text-sm font-medium text-slate-700 mb-2"
@@ -238,7 +227,6 @@ function MonthlyAttendanceSummary() {
               disabled:cursor-not-allowed
             "
           />
-
         </div>
 
         {/* GENERATE BUTTON */}
@@ -246,10 +234,7 @@ function MonthlyAttendanceSummary() {
         <button
           type="button"
           onClick={generateSummary}
-          disabled={
-            loading ||
-            !billingMonth
-          }
+          disabled={loading || !billingMonth}
           className="
             px-5 py-2.5
             rounded-lg
@@ -266,7 +251,6 @@ function MonthlyAttendanceSummary() {
             ? "Generating..."
             : "Generate Summary"}
         </button>
-
       </div>
 
       {/* ================================================= */}
@@ -308,9 +292,9 @@ function MonthlyAttendanceSummary() {
           {error}
         </div>
       )}
-
     </div>
   );
 }
 
 export default MonthlyAttendanceSummary;
+
