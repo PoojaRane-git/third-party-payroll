@@ -65,7 +65,7 @@ function Sidebar({ clientName, onLogout }) {
         {
           id: "invoices",
           label: "Invoices",
-          path: "//client-dashboard/invoices",
+          path: "/client-dashboard/invoices",
           icon: Wallet,
         }
       ],
