@@ -175,7 +175,7 @@ router.get(
                 )
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     summary_id,
@@ -190,7 +190,7 @@ router.get(
                     approval_status
                 `)
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .eq(
@@ -314,7 +314,7 @@ router.get(
                 )
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     summary_id,
@@ -329,7 +329,7 @@ router.get(
                     approval_status
                 `)
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .gte(
@@ -454,6 +454,9 @@ router.get(
 
             /* =========================================
                MONTHLY SUMMARY
+               
+               IMPORTANT:
+               summary table uses employee_id
             ========================================= */
 
             const {
@@ -510,6 +513,9 @@ router.get(
 
             /* =========================================
                DAILY ATTENDANCE
+
+               IMPORTANT:
+               daily table uses candidates_id
             ========================================= */
 
             const startDate =
@@ -531,7 +537,7 @@ router.get(
                 )
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     summary_id,
@@ -546,7 +552,7 @@ router.get(
                     approval_status
                 `)
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .gte(
@@ -737,14 +743,17 @@ router.get(
 
 POST /api/employee/attendance/check-in
 
-IMPORTANT:
-Daily attendance uses:
+DATABASE RELATIONSHIP:
 
-third_party_emp_daily_attendance.summary_id
+candidates.id
+      ↓
+deployments.candidate_id
+      ↓
+third_party_emp_daily_attendance.candidates_id
 
-The monthly parent is:
+SUMMARY:
 
-third_party_attendance_summary
+third_party_attendance_summary.employee_id
 ===================================================== */
 
 router.post(
@@ -752,6 +761,16 @@ router.post(
     ...employeeAuth,
     async (req, res) => {
         try {
+            console.log(
+                "================================="
+            );
+            console.log(
+                "EMPLOYEE CHECK-IN"
+            );
+            console.log(
+                "================================="
+            );
+
             const employeeId =
                 Number(req.profile?.employee_id);
 
@@ -766,10 +785,22 @@ router.post(
             const {
                 work_mode = "Office",
                 remarks = "",
-            } = req.body;
+            } = req.body || {};
+
+            console.log(
+                "Employee ID:",
+                employeeId
+            );
+
+            console.log(
+                "Work Mode:",
+                work_mode
+            );
 
             /* =========================================
                FIND ACTIVE DEPLOYMENT
+
+               deployments uses candidate_id
             ========================================= */
 
             const {
@@ -818,12 +849,20 @@ router.post(
                 });
             }
 
+            console.log(
+                "Active deployment:",
+                deployment
+            );
+
             /* =========================================
-               TODAY / MONTH
+               DATE
             ========================================= */
 
+            const now =
+                new Date();
+
             const today =
-                new Date().toLocaleDateString(
+                now.toLocaleDateString(
                     "en-CA",
                     {
                         timeZone:
@@ -836,6 +875,8 @@ router.post(
 
             /* =========================================
                FIND MONTHLY SUMMARY
+
+               summary table uses employee_id
             ========================================= */
 
             const {
@@ -899,6 +940,33 @@ router.post(
             ========================================= */
 
             if (!summary) {
+                console.log(
+                    "Creating monthly summary..."
+                );
+
+                const year =
+                    Number(
+                        billingMonth.slice(
+                            0,
+                            4
+                        )
+                    );
+
+                const monthNumber =
+                    Number(
+                        billingMonth.slice(
+                            5,
+                            7
+                        )
+                    );
+
+                const totalDays =
+                    new Date(
+                        year,
+                        monthNumber,
+                        0
+                    ).getDate();
+
                 const {
                     data: newSummary,
                     error: createSummaryError,
@@ -920,21 +988,7 @@ router.post(
                             billingMonth,
 
                         total_days:
-                            new Date(
-                                Number(
-                                    billingMonth.slice(
-                                        0,
-                                        4
-                                    )
-                                ),
-                                Number(
-                                    billingMonth.slice(
-                                        5,
-                                        7
-                                    )
-                                ),
-                                0
-                            ).getDate(),
+                            totalDays,
 
                         present_days: 0,
 
@@ -950,13 +1004,14 @@ router.post(
 
                         overtime_hours: 0,
 
-                        status: "Pending",
+                        status:
+                            "Pending",
 
                         created_at:
-                            new Date().toISOString(),
+                            now.toISOString(),
 
                         updated_at:
-                            new Date().toISOString(),
+                            now.toISOString(),
                     })
                     .select(`
                         id,
@@ -994,7 +1049,10 @@ router.post(
             }
 
             /* =========================================
-               CHECK IF ALREADY CHECKED IN
+               CHECK EXISTING ATTENDANCE
+
+               IMPORTANT:
+               daily attendance uses candidates_id
             ========================================= */
 
             const {
@@ -1004,9 +1062,24 @@ router.post(
                 .from(
                     "third_party_emp_daily_attendance"
                 )
-                .select("*")
+                .select(`
+                    id,
+                    candidates_id,
+                    deployment_id,
+                    client_id,
+                    summary_id,
+                    attendance_date,
+                    check_in,
+                    check_out,
+                    working_hours,
+                    overtime_hours,
+                    status,
+                    work_mode,
+                    remarks,
+                    approval_status
+                `)
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .eq(
@@ -1054,6 +1127,14 @@ router.post(
 
             /* =========================================
                INSERT DAILY ATTENDANCE
+
+               IMPORTANT:
+               candidates_id is the actual column.
+               
+               UNIQUE INDEX:
+               candidates_id,
+               deployment_id,
+               attendance_date
             ========================================= */
 
             const {
@@ -1065,7 +1146,7 @@ router.post(
                 )
                 .upsert(
                     {
-                        employee_id:
+                        candidates_id:
                             employeeId,
 
                         deployment_id:
@@ -1107,7 +1188,7 @@ router.post(
                     },
                     {
                         onConflict:
-                            "employee_id,deployment_id,attendance_date",
+                            "candidates_id,deployment_id,attendance_date",
                     }
                 )
                 .select()
@@ -1115,7 +1196,18 @@ router.post(
 
             if (attendanceError) {
                 console.error(
-                    "Check-in database error:",
+                    "================================="
+                );
+
+                console.error(
+                    "CHECK-IN DATABASE ERROR"
+                );
+
+                console.error(
+                    "================================="
+                );
+
+                console.error(
                     attendanceError
                 );
 
@@ -1123,10 +1215,66 @@ router.post(
                     success: false,
                     error:
                         attendanceError.message,
+                                details:
+                                    attendanceError,
                 });
             }
 
-            return res.json({
+            /* =========================================
+               UPDATE MONTHLY SUMMARY
+
+               DO NOT UPDATE SUMMARY BEFORE
+               ATTENDANCE INSERT SUCCEEDS
+            ========================================= */
+
+            const newPresentDays =
+                Number(
+                    summary.present_days || 0
+                ) + 1;
+
+            const newPayableDays =
+                Number(
+                    summary.payable_days || 0
+                ) + 1;
+
+            const {
+                error: updateSummaryError,
+            } = await supabase
+                .from(
+                    "third_party_attendance_summary"
+                )
+                .update({
+                    present_days:
+                        newPresentDays,
+
+                    payable_days:
+                        newPayableDays,
+
+                    updated_at:
+                        checkInTime.toISOString(),
+                })
+                .eq(
+                    "id",
+                    summary.id
+                );
+
+            if (updateSummaryError) {
+                console.error(
+                    "Update summary error:",
+                    updateSummaryError
+                );
+            }
+
+            console.log(
+                "CHECK-IN SUCCESS"
+            );
+
+            console.log(
+                "Attendance:",
+                attendance
+            );
+
+            return res.status(201).json({
                 success: true,
 
                 message:
@@ -1137,9 +1285,18 @@ router.post(
 
         } catch (error) {
             console.error(
-                "Check-in error:",
-                error
+                "================================="
             );
+
+            console.error(
+                "CHECK-IN EXCEPTION"
+            );
+
+            console.error(
+                "================================="
+            );
+
+            console.error(error);
 
             return res.status(500).json({
                 success: false,
@@ -1182,7 +1339,9 @@ router.get(
                 data: payslips,
                 error,
             } = await supabase
-                .from("third_party_payroll")
+                .from(
+                    "third_party_payroll"
+                )
                 .select("*")
                 .eq(
                     "employee_ref_id",
@@ -1257,7 +1416,7 @@ router.patch(
                 Number(req.profile?.employee_id);
 
             const attendanceId =
-                req.params.id;
+                Number(req.params.id);
 
             if (!employeeId) {
                 return res.status(404).json({
@@ -1267,8 +1426,19 @@ router.patch(
                 });
             }
 
+            if (!attendanceId) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        "Invalid attendance ID.",
+                });
+            }
+
             /* =========================================
                FIND ATTENDANCE
+
+               IMPORTANT:
+               daily attendance uses candidates_id
             ========================================= */
 
             const {
@@ -1284,7 +1454,7 @@ router.patch(
                     attendanceId
                 )
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .maybeSingle();
@@ -1363,6 +1533,12 @@ router.patch(
                     )
                 );
 
+            /* =========================================
+               OVERTIME
+               
+               More than 8 hours
+            ========================================= */
+
             const overtimeHours =
                 Math.max(
                     0,
@@ -1403,7 +1579,7 @@ router.patch(
                     attendanceId
                 )
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .select()
@@ -1420,6 +1596,62 @@ router.patch(
                     error:
                         error.message,
                 });
+            }
+
+            /* =========================================
+               UPDATE MONTHLY SUMMARY OVERTIME
+            ========================================= */
+
+            if (
+                existing.summary_id
+            ) {
+                const {
+                    data: summary,
+                    error: summaryError,
+                } = await supabase
+                    .from(
+                        "third_party_attendance_summary"
+                    )
+                    .select(
+                        "id, overtime_hours"
+                    )
+                    .eq(
+                        "id",
+                        existing.summary_id
+                    )
+                    .maybeSingle();
+
+                if (
+                    !summaryError &&
+                    summary
+                ) {
+                    const totalOvertime =
+                        Number(
+                            summary.overtime_hours ||
+                                0
+                        ) +
+                        overtimeHours;
+
+                    await supabase
+                        .from(
+                            "third_party_attendance_summary"
+                        )
+                        .update({
+                            overtime_hours:
+                                Number(
+                                    totalOvertime.toFixed(
+                                        2
+                                    )
+                                ),
+
+                            updated_at:
+                                checkOut.toISOString(),
+                        })
+                        .eq(
+                            "id",
+                            summary.id
+                        );
+                }
             }
 
             return res.json({
