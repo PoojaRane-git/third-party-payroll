@@ -8,7 +8,7 @@ if (!SUPABASE_ANON_KEY) throw new Error("VITE_SUPABASE_ANON_KEY is missing.");
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
-        storageKey: "tc-employee-auth",
+        storageKey: "tc-admin-auth",
         storage: window.sessionStorage,
         persistSession: true,
         autoRefreshToken: true,
