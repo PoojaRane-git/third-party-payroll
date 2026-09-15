@@ -10,7 +10,6 @@ import {
   Users,
   Trash2
 } from 'lucide-react';
-import axios from 'axios';
 import Sidebar from "../Layout/Sidebar";
 import api from '../../../services/api';
 
@@ -64,47 +63,34 @@ function JobRequirementsClient() {
     }
 
     // Load ALL job requirements first
-    fetchJobs();
+   
   }, []);
+
+  useEffect(() => {
+    fetchJobs();   // called with NO clientId
+}, []);
 
   // -----------------------------------
   // FETCH JOB REQUIREMENTS
   // -----------------------------------
-
-  const fetchJobs = async (clientId = null) => {
+const fetchJobs = async (clientId = null) => {
     try {
-      const url = clientId
-        ? `/job-requirements?client_id=${clientId}`
-        : `/job-requirements`;
+        const url = clientId
+            ? `/job-requirements?client_id=${clientId}`
+            : `/job-requirements`;
 
-      console.log("=================================");
-      console.log("FETCH JOB REQUIREMENTS");
-      console.log("URL:", url);
-      console.log("Client ID:", clientId);
-      console.log("=================================");
+        const response = await api.get(url);   // ← was axios.get(url)
 
-      const response = await axios.get(url);
+        const jobs = Array.isArray(response.data?.data)
+            ? response.data.data
+            : [];
 
-      console.log("API RESPONSE:", response.data);
-
-      const jobs = Array.isArray(response.data?.data)
-        ? response.data.data
-        : [];
-
-      console.log("JOBS RECEIVED:", jobs);
-      console.log("JOB COUNT:", jobs.length);
-
-      setJobRequirements(jobs);
+        setJobRequirements(jobs);
     } catch (error) {
-      console.error("JOB REQUIREMENTS ERROR");
-      console.error("Status:", error.response?.status);
-      console.error("Response:", error.response?.data);
-      console.error("Message:", error.message);
-
-      setJobRequirements([]);
+        console.error("JOB REQUIREMENTS ERROR", error.response?.data || error.message);
+        setJobRequirements([]);
     }
-  };
-
+};
   // -----------------------------------
   // CREATE JOB REQUIREMENT
   // -----------------------------------

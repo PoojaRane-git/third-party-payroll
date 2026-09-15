@@ -180,21 +180,12 @@ const ClientAttendance = () => {
     // ========================================================
 
     const clientId = useMemo(() => {
-
-        const numericId = Number(
-            user?.profile_id
-        );
-
-        if (
-            Number.isFinite(numericId) &&
-            numericId > 0
-        ) {
-            return numericId;
-        }
-
-        return null;
-
-    }, [user]);
+    const numericId = Number(user?.client_id); 
+    if (Number.isFinite(numericId) && numericId > 0) {
+        return numericId;
+    }
+    return null;
+}, [user]);
 
     const clientName = useMemo(() => {
 
