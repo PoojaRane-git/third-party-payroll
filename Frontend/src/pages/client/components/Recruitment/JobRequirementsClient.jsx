@@ -1,8 +1,5 @@
-import React, {
-  useState,
-  useEffect,
-} from "react";
 
+import React, { useState, useEffect } from 'react';
 import {
   Briefcase,
   Building,
@@ -11,550 +8,204 @@ import {
   MapPin,
   DollarSign,
   Users,
-} from "lucide-react";
-
+  Trash2
+} from 'lucide-react';
+import axios from 'axios';
 import Sidebar from "../Layout/Sidebar";
-import api from "../../../services/api";
-import { useAuth } from "../../../../auth/AuthProvider";
-// ============================================================
-// COMPONENT
-// ============================================================
+import api from '../../../services/api';
 
 function JobRequirementsClient() {
 
-  // ==========================================================
-  // AUTH
-  // ==========================================================
-
-  const {
-    session,
-    user,
-    loading: authLoading,
-    logout,
-  } = useAuth();
-
-  // ==========================================================
+  // -----------------------------------
   // STATE
-  // ==========================================================
+  // -----------------------------------
 
-  const [jobRequirements, setJobRequirements] =
-    useState([]);
+  const [jobRequirements, setJobRequirements] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [clientName, setClientName] = useState('Loading Workspace...');
+  const [deletingId, setDeletingId] = useState(null);
 
-  const [searchQuery, setSearchQuery] =
-    useState("");
+  const [formData, setFormData] = useState({
+    client_id: '',
+    job_title: '',
+    skills_required: '',
+    positions_count: 1,
+    location: '',
+    experience_min: 0,
+    experience_max: 0,
+    salary_lpa: '',
+    status: 'Open'
+  });
 
-  const [showModal, setShowModal] =
-    useState(false);
 
-  const [clientName, setClientName] =
-    useState("Loading Workspace...");
-
-  const [clientId, setClientId] =
-    useState(null);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [deletingId, setDeletingId] =
-    useState(null);
-
-  const [formData, setFormData] =
-    useState({
-      client_id: "",
-      job_title: "",
-      skills_required: "",
-      positions_count: 1,
-      location: "",
-      experience_min: 0,
-      experience_max: 0,
-      salary_lpa: "",
-      status: "Open",
-    });
-
-  // ==========================================================
-  // GET CLIENT ID FROM AUTHENTICATED USER
-  // ==========================================================
-
+  // -----------------------------------
+  // LOAD CLIENT + JOB REQUIREMENTS
+  // -----------------------------------
   useEffect(() => {
+    const storedClientId = localStorage.getItem("client_id");
+    const storedCompany = localStorage.getItem("company_name");
 
-    if (authLoading) {
-      return;
+    console.log("=================================");
+    console.log("JOB REQUIREMENTS PAGE");
+    console.log("Stored client_id:", storedClientId);
+    console.log("Stored company:", storedCompany);
+    console.log("=================================");
+
+    if (storedCompany) {
+      setClientName(storedCompany);
     }
 
-    if (!session || !user) {
-
-      console.error(
-        "JOB REQUIREMENTS: No authenticated session/user."
-      );
-
-      setClientId(null);
-      setClientName("Workspace");
-
-      setLoading(false);
-
-      return;
+    if (storedClientId) {
+      setFormData((prev) => ({
+        ...prev,
+        client_id: storedClientId,
+      }));
     }
 
-    console.log(
-      "================================="
-    );
+    // Load ALL job requirements first
+    fetchJobs();
+  }, []);
 
-    console.log(
-      "JOB REQUIREMENTS - AUTH SESSION"
-    );
+  // -----------------------------------
+  // FETCH JOB REQUIREMENTS
+  // -----------------------------------
 
-    console.log(
-      "Supabase user:",
-      session?.user
-    );
-
-    console.log(
-      "Application user:",
-      user
-    );
-
-    console.log(
-      "================================="
-    );
-
-    // --------------------------------------------------------
-    // CLIENT ID
-    // --------------------------------------------------------
-
-    const authenticatedClientId =
-      user?.client_id ??
-      user?.clientId ??
-      user?.profile?.client_id ??
-      user?.profile?.clientId ??
-      user?.profile_id ??
-      null;
-
-    // --------------------------------------------------------
-    // CLIENT / COMPANY NAME
-    // --------------------------------------------------------
-
-    const authenticatedClientName =
-      user?.company_name ??
-      user?.companyName ??
-      user?.profile?.company_name ??
-      user?.profile?.companyName ??
-      user?.name ??
-      "Client Workspace";
-
-    const numericClientId =
-      Number(authenticatedClientId);
-
-    if (
-      !Number.isFinite(numericClientId) ||
-      numericClientId <= 0
-    ) {
-
-      console.error(
-        "JOB REQUIREMENTS: Client ID not found in authenticated user.",
-        user
-      );
-
-      setClientId(null);
-
-      setClientName(
-        authenticatedClientName
-      );
-
-      setLoading(false);
-
-      return;
-    }
-
-    console.log(
-      "Authenticated Client ID:",
-      numericClientId
-    );
-
-    console.log(
-      "Authenticated Client Name:",
-      authenticatedClientName
-    );
-
-    setClientId(numericClientId);
-
-    setClientName(
-      authenticatedClientName
-    );
-
-    setFormData((previous) => ({
-      ...previous,
-      client_id: numericClientId,
-    }));
-
-  }, [
-    authLoading,
-    session,
-    user,
-  ]);
-
-  // ==========================================================
-  // FETCH ONLY LOGGED-IN CLIENT'S JOB REQUIREMENTS
-  // ==========================================================
-
-  const fetchJobs = async () => {
-
-    if (!clientId) {
-
-      console.warn(
-        "FETCH JOBS: Client ID is not available."
-      );
-
-      setJobRequirements([]);
-
-      return;
-    }
-
+  const fetchJobs = async (clientId = null) => {
     try {
+      const url = clientId
+        ? `/job-requirements?client_id=${clientId}`
+        : `/job-requirements`;
 
-      setLoading(true);
+      console.log("=================================");
+      console.log("FETCH JOB REQUIREMENTS");
+      console.log("URL:", url);
+      console.log("Client ID:", clientId);
+      console.log("=================================");
 
-      console.log(
-        "================================="
-      );
+      const response = await axios.get(url);
 
-      console.log(
-        "FETCH CLIENT JOB REQUIREMENTS"
-      );
+      console.log("API RESPONSE:", response.data);
 
-      console.log(
-        "Client ID:",
-        clientId
-      );
+      const jobs = Array.isArray(response.data?.data)
+        ? response.data.data
+        : [];
 
-      console.log(
-        "Endpoint:",
-        "/job-requirements"
-      );
+      console.log("JOBS RECEIVED:", jobs);
+      console.log("JOB COUNT:", jobs.length);
 
-      console.log(
-        "================================="
-      );
-
-      // IMPORTANT:
-      // Only this client's requirements are requested.
-      const response =
-        await api.get(
-          "/job-requirements",
-          {
-            params: {
-              client_id: clientId,
-            },
-          }
-        );
-
-      console.log(
-        "JOB REQUIREMENTS API RESPONSE:",
-        response?.data
-      );
-
-      const jobs =
-        Array.isArray(
-          response?.data?.data
-        )
-          ? response.data.data
-          : [];
-
-      // ------------------------------------------------------
-      // EXTRA FRONTEND SAFETY
-      // ------------------------------------------------------
-      // Even if the backend accidentally returns extra rows,
-      // don't display another client's requirements.
-
-      const clientJobs =
-        jobs.filter(
-          (job) =>
-            Number(job?.client_id) ===
-            Number(clientId)
-        );
-
-      console.log(
-        "CLIENT JOB REQUIREMENTS:",
-        clientJobs
-      );
-
-      console.log(
-        "CLIENT JOB COUNT:",
-        clientJobs.length
-      );
-
-      setJobRequirements(
-        clientJobs
-      );
-
+      setJobRequirements(jobs);
     } catch (error) {
-
-      console.error(
-        "FETCH CLIENT JOB REQUIREMENTS ERROR:",
-        error
-      );
-
-      console.error(
-        "STATUS:",
-        error?.response?.status
-      );
-
-      console.error(
-        "RESPONSE:",
-        error?.response?.data
-      );
+      console.error("JOB REQUIREMENTS ERROR");
+      console.error("Status:", error.response?.status);
+      console.error("Response:", error.response?.data);
+      console.error("Message:", error.message);
 
       setJobRequirements([]);
-
-    } finally {
-
-      setLoading(false);
-
     }
   };
 
-  // ==========================================================
-  // LOAD JOBS WHEN CLIENT SESSION IS READY
-  // ==========================================================
-
-  useEffect(() => {
-
-    if (
-      authLoading ||
-      !session ||
-      !user ||
-      !clientId
-    ) {
-      return;
-    }
-
-    fetchJobs();
-
-  }, [
-    authLoading,
-    session,
-    user,
-    clientId,
-  ]);
-
-  // ==========================================================
+  // -----------------------------------
   // CREATE JOB REQUIREMENT
-  // ==========================================================
+  // -----------------------------------
 
   const handleCreate = async (e) => {
 
     e.preventDefault();
 
-    if (!clientId) {
-
-      alert(
-        "Client information is not available. Please login again."
-      );
-
-      return;
-    }
-
     try {
-
-      // IMPORTANT:
-      // Always use the authenticated client ID.
-      // Do not trust a client_id manually entered by frontend.
-
-      const payload = {
-        ...formData,
-        client_id: clientId,
-        positions_count:
-          Number(
-            formData.positions_count
-          ),
-        experience_min:
-          Number(
-            formData.experience_min
-          ),
-        experience_max:
-          Number(
-            formData.experience_max
-          ),
-      };
-
-      console.log(
-        "================================="
-      );
-
-      console.log(
-        "CREATE JOB REQUIREMENT"
-      );
-
-      console.log(
-        "Payload:",
-        payload
-      );
-
-      console.log(
-        "Authenticated Client ID:",
-        clientId
-      );
-
-      console.log(
-        "================================="
-      );
 
       await api.post(
         "/job-requirements",
-        payload
+        formData
       );
 
-      // ------------------------------------------------------
-      // CLOSE MODAL
-      // ------------------------------------------------------
-
+      // Close modal
       setShowModal(false);
 
-      // ------------------------------------------------------
-      // REFRESH ONLY THIS CLIENT'S REQUIREMENTS
-      // ------------------------------------------------------
+      // Refresh jobs
+      await fetchJobs(formData.client_id);
 
-      await fetchJobs();
-
-      // ------------------------------------------------------
-      // RESET FORM
-      // ------------------------------------------------------
+      // Keep client ID but reset other fields
+      const currentClientId =
+        formData.client_id;
 
       setFormData({
-        client_id: clientId,
-        job_title: "",
-        skills_required: "",
+        client_id: currentClientId,
+        job_title: '',
+        skills_required: '',
         positions_count: 1,
-        location: "",
+        location: '',
         experience_min: 0,
         experience_max: 0,
-        salary_lpa: "",
-        status: "Open",
+        salary_lpa: '',
+        status: 'Open'
       });
 
-    } catch (error) {
+    } catch (err) {
 
       console.error(
-        "CREATE JOB REQUIREMENT ERROR:",
-        error
-      );
-
-      console.error(
-        "STATUS:",
-        error?.response?.status
-      );
-
-      console.error(
-        "RESPONSE:",
-        error?.response?.data
+        'Error creating job requirement:',
+        err
       );
 
       alert(
-        error?.response?.data?.error ||
-        error?.response?.data?.message ||
-        "Failed to create job requirement."
+        err.response?.data?.error ||
+        'Failed to create job requirement.'
       );
-
     }
   };
 
-  // ==========================================================
-  // DELETE JOB REQUIREMENT
-  // ==========================================================
 
-  const handleDelete = async (
-    jobId
-  ) => {
+  // -----------------------------------
+  // REMOVE JOB REQUIREMENT
+  // -----------------------------------
+  const handleDelete = async (jobId) => {
 
-    console.log(
-      "Deleting job ID:",
-      jobId
-    );
+    console.log("Deleting job ID:", jobId);
 
     if (!jobId) {
-
-      alert(
-        "Invalid job requirement ID."
-      );
-
+      alert("Invalid job ID");
       return;
     }
 
-    if (!clientId) {
+    const confirmed = window.confirm(
+      "Are you sure you want to remove this job requirement?"
+    );
 
-      alert(
-        "Client information is not available."
-      );
-
-      return;
-    }
-
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to remove this job requirement?"
-      );
-
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     try {
 
       setDeletingId(jobId);
 
+
+      const response = await api.delete(
+        `/job-requirements/${jobId}`
+      );
       console.log(
-        "DELETE JOB REQUIREMENT:",
-        {
-          jobId,
-          clientId,
-        }
+        "Delete response:",
+        response.data
       );
 
-      // ------------------------------------------------------
-      // API DELETE
-      // ------------------------------------------------------
-
-      await api.delete(
-        `/job-requirements/${jobId}`,
-        {
-          params: {
-            client_id: clientId,
-          },
-        }
-      );
-
-      // ------------------------------------------------------
-      // Remove from UI immediately
-      // ------------------------------------------------------
-
-      setJobRequirements(
-        (previous) =>
-          previous.filter(
-            (job) =>
-              Number(job.id) !==
-              Number(jobId)
-          )
+      setJobRequirements(prev =>
+        prev.filter(job => job.id !== jobId)
       );
 
     } catch (error) {
 
       console.error(
-        "DELETE JOB REQUIREMENT ERROR:",
+        "DELETE REQUEST FAILED:",
         error
       );
 
       console.error(
-        "STATUS:",
-        error?.response?.status
-      );
-
-      console.error(
-        "RESPONSE:",
-        error?.response?.data
+        "Response:",
+        error.response?.data
       );
 
       alert(
-        error?.response?.data?.error ||
-        error?.response?.data?.message ||
+        error.response?.data?.error ||
         "Failed to remove job requirement."
       );
 
@@ -565,142 +216,72 @@ function JobRequirementsClient() {
     }
   };
 
-  // ==========================================================
+  // -----------------------------------
   // LOGOUT
-  // ==========================================================
+  // -----------------------------------
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
 
-    try {
+    localStorage.clear();
 
-      await logout();
+    window.location.href = '/login';
 
-    } catch (error) {
-
-      console.error(
-        "Logout error:",
-        error
-      );
-
-    } finally {
-
-      window.location.href =
-        "/login";
-
-    }
   };
 
-  // ==========================================================
+
+  // -----------------------------------
   // SEARCH
-  // ==========================================================
+  // -----------------------------------
 
   const filteredJobs =
-    jobRequirements.filter(
-      (job) => {
+    jobRequirements.filter(job => {
 
-        const query =
-          searchQuery
-            .trim()
-            .toLowerCase();
+      const query =
+        searchQuery.toLowerCase();
 
-        return (
-          job?.job_title
-            ?.toLowerCase()
-            .includes(query) ||
+      return (
+        job.job_title
+          ?.toLowerCase()
+          .includes(query) ||
 
-          job?.location
-            ?.toLowerCase()
-            .includes(query) ||
+        job.location
+          ?.toLowerCase()
+          .includes(query)
+      );
 
-          job?.skills_required
-            ?.toLowerCase()
-            .includes(query)
-        );
+    });
 
-      }
-    );
 
-  // ==========================================================
-  // AUTH LOADING
-  // ==========================================================
-
-  if (authLoading) {
-
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0b0f19] text-slate-100">
-
-        <div className="text-sm text-slate-400">
-          Loading workspace...
-        </div>
-
-      </div>
-    );
-  }
-
-  // ==========================================================
-  // NO CLIENT SESSION
-  // ==========================================================
-
-  if (!session || !user || !clientId) {
-
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0b0f19] text-slate-100">
-
-        <div className="rounded-2xl border border-slate-800 bg-[#111627] p-8 text-center">
-
-          <h2 className="text-lg font-bold">
-            Client session not found
-          </h2>
-
-          <p className="mt-2 text-sm text-slate-400">
-            Please login again to access job requirements.
-          </p>
-
-          <button
-            type="button"
-            onClick={() =>
-              (window.location.href =
-                "/login")
-            }
-            className="mt-5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-indigo-500"
-          >
-            Go to Login
-          </button>
-
-        </div>
-
-      </div>
-    );
-  }
-
-  // ==========================================================
-  // RENDER
-  // ==========================================================
+  // -----------------------------------
+  // UI
+  // -----------------------------------
 
   return (
 
     <div className="flex min-h-screen bg-[#0b0f19] text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white">
 
-      {/* ======================================================
-          SIDEBAR
-      ====================================================== */}
+      {/* -------------------------------- */}
+      {/* SIDEBAR */}
+      {/* -------------------------------- */}
 
       <Sidebar
         clientName={clientName}
         onLogout={handleLogout}
       />
 
-      {/* ======================================================
-          MAIN
-      ====================================================== */}
+
+      {/* -------------------------------- */}
+      {/* MAIN CONTENT */}
+      {/* -------------------------------- */}
 
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6 md:p-10 space-y-6">
 
         <div className="max-w-[1500px] mx-auto w-full space-y-6">
 
-          {/* ==================================================
-              HEADER
-          ================================================== */}
+
+          {/* -------------------------------- */}
+          {/* HEADER */}
+          {/* -------------------------------- */}
 
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#111627] border border-slate-800/80 p-6 rounded-2xl shadow-sm">
 
@@ -714,11 +295,8 @@ function JobRequirementsClient() {
                 Manage manpower requisitions and hiring mandates for your workspace.
               </p>
 
-              <p className="mt-2 text-[11px] text-indigo-400 font-semibold">
-                Client ID: {clientId}
-              </p>
-
             </div>
+
 
             {/* SEARCH + ADD */}
 
@@ -739,22 +317,18 @@ function JobRequirementsClient() {
                   placeholder="Search title or location..."
                   value={searchQuery}
                   onChange={(e) =>
-                    setSearchQuery(
-                      e.target.value
-                    )
+                    setSearchQuery(e.target.value)
                   }
                   className="w-full pl-9 pr-4 py-2 bg-[#0b0f19] border border-slate-700/60 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-indigo-500 shadow-inner"
                 />
 
               </div>
 
+
               {/* ADD BUTTON */}
 
               <button
-                type="button"
-                onClick={() =>
-                  setShowModal(true)
-                }
+                onClick={() => setShowModal(true)}
                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm shrink-0"
               >
 
@@ -768,201 +342,168 @@ function JobRequirementsClient() {
 
           </div>
 
-          {/* ==================================================
-              JOB CARDS
-          ================================================== */}
 
-          {loading ? (
+          {/* -------------------------------- */}
+          {/* JOB CARDS */}
+          {/* -------------------------------- */}
 
-            <div className="py-16 text-center text-slate-400 text-sm bg-[#111627] border border-slate-800/80 rounded-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
 
-              Loading job requirements...
+            {filteredJobs.length === 0 ? (
 
-            </div>
+              <div className="col-span-full py-12 text-center text-slate-400 text-xs bg-[#111627] border border-slate-800/80 rounded-2xl">
 
-          ) : (
+                No job requirements found for this workspace.
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              </div>
 
-              {filteredJobs.length === 0 ? (
+            ) : (
 
-                <div className="col-span-full py-12 text-center text-slate-400 text-xs bg-[#111627] border border-slate-800/80 rounded-2xl">
+              filteredJobs.map(job => (
 
-                  No job requirements found for this workspace.
+                <div
+                  key={job.id}
+                  className="bg-[#111627] border border-slate-800/80 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4"
+                >
 
-                </div>
+                  {/* -------------------------------- */}
+                  {/* CARD TOP */}
+                  {/* -------------------------------- */}
 
-              ) : (
+                  <div className="space-y-2">
 
-                filteredJobs.map(
-                  (job) => (
+                    <div className="flex justify-between items-start">
 
-                    <div
-                      key={job.id}
-                      className="bg-[#111627] border border-slate-800/80 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4"
-                    >
+                      {/* STATUS */}
 
-                      {/* CARD TOP */}
+                      <span
+                        className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${job.status === 'Open'
+                          ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
+                          : job.status === 'In Progress'
+                            ? 'bg-amber-950/60 text-amber-400 border border-amber-800/50'
+                            : 'bg-slate-800 text-slate-400'
+                          }`}
+                      >
 
-                      <div className="space-y-2">
+                        {job.status}
 
-                        <div className="flex justify-between items-start">
+                      </span>
 
-                          {/* STATUS */}
 
-                          <span
-                            className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${
-                              job.status === "Open"
-                                ? "bg-emerald-950/60 text-emerald-400 border border-emerald-800/50"
-                                : job.status === "In Progress"
-                                  ? "bg-amber-950/60 text-amber-400 border border-amber-800/50"
-                                  : "bg-slate-800 text-slate-400"
-                            }`}
-                          >
+                      {/* SLOTS */}
 
-                            {job.status}
+                      <span className="text-[10px] font-extrabold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full flex items-center gap-1">
 
-                          </span>
+                        <Users className="h-3 w-3" />
 
-                          {/* SLOTS */}
+                        {job.positions_count} Slots
 
-                          <span className="text-[10px] font-extrabold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full flex items-center gap-1">
-
-                            <Users className="h-3 w-3" />
-
-                            {job.positions_count} Slots
-
-                          </span>
-
-                        </div>
-
-                        {/* JOB TITLE */}
-
-                        <h3 className="text-base font-black text-slate-100">
-
-                          {job.job_title}
-
-                        </h3>
-
-                        {/* CLIENT */}
-
-                        <p className="text-xs text-slate-400 flex items-center gap-1.5 font-mono">
-
-                          <Building className="h-3.5 w-3.5 text-slate-500" />
-
-                          Client ID: {job.client_id}
-
-                        </p>
-
-                      </div>
-
-                      {/* JOB DETAILS */}
-
-                      <div className="space-y-2 pt-3 border-t border-slate-800/60 text-xs text-slate-300">
-
-                        {/* LOCATION */}
-
-                        <div className="flex items-center gap-2">
-
-                          <MapPin className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-
-                          {job.location ||
-                            "Remote / Unspecified"}
-
-                        </div>
-
-                        {/* EXPERIENCE */}
-
-                        <div className="flex items-center gap-2">
-
-                          <Briefcase className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-
-                          Exp:{" "}
-                          {job.experience_min ?? 0}
-                          {" - "}
-                          {job.experience_max ?? 0}
-                          {" "}
-                          Years
-
-                        </div>
-
-                        {/* SALARY */}
-
-                        <div className="flex items-center gap-2">
-
-                          <DollarSign className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-
-                          {job.salary_lpa ||
-                            "Competitive"}{" "}
-                          LPA
-
-                        </div>
-
-                        {/* SKILLS */}
-
-                        {job.skills_required && (
-
-                          <div className="pt-1 text-[11px] text-slate-400">
-
-                            <span className="font-semibold text-slate-300">
-                              Skills:
-                            </span>{" "}
-
-                            {job.skills_required}
-
-                          </div>
-
-                        )}
-
-                        {/* REMOVE */}
-
-                        <div className="flex justify-end pt-3">
-
-                          <button
-                            type="button"
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-400 border border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            onClick={() =>
-                              handleDelete(
-                                job.id
-                              )
-                            }
-                            disabled={
-                              deletingId ===
-                              job.id
-                            }
-                          >
-
-                            {deletingId ===
-                            job.id
-                              ? "Removing..."
-                              : "Remove Requirement"}
-
-                          </button>
-
-                        </div>
-
-                      </div>
+                      </span>
 
                     </div>
 
-                  )
-                )
 
-              )}
+                    {/* JOB TITLE */}
 
-            </div>
+                    <h3 className="text-base font-black text-slate-100">
 
-          )}
+                      {job.job_title}
 
-          {/* ==================================================
-              ADD REQUIREMENT MODAL
-          ================================================== */}
+                    </h3>
+
+
+                    {/* CLIENT */}
+
+                    <p className="text-xs text-slate-400 flex items-center gap-1.5 font-mono">
+
+                      <Building className="h-3.5 w-3.5 text-slate-500" />
+
+                      ID: {job.client_id}
+
+                    </p>
+
+                  </div>
+
+
+                  {/* -------------------------------- */}
+                  {/* JOB DETAILS */}
+                  {/* -------------------------------- */}
+
+                  <div className="space-y-2 pt-3 border-t border-slate-800/60 text-xs text-slate-300">
+
+                    {/* LOCATION */}
+
+                    <div className="flex items-center gap-2">
+
+                      <MapPin className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+
+                      {job.location || 'Remote / Unspecified'}
+
+                    </div>
+
+
+                    {/* EXPERIENCE */}
+
+                    <div className="flex items-center gap-2">
+
+                      <Briefcase className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+
+                      Exp: {job.experience_min} - {job.experience_max} Years
+
+                    </div>
+
+
+                    {/* SALARY */}
+
+                    <div className="flex items-center gap-2">
+
+                      <DollarSign className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+
+                      {job.salary_lpa || 'Competitive'} LPA
+
+                    </div>
+
+
+                    {/* -------------------------------- */}
+                    {/* REMOVE BUTTON */}
+                    {/* -------------------------------- */}
+
+                    <div className="flex justify-end pt-3">
+
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-400 border border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => handleDelete(job.id)}
+                        disabled={deletingId === job.id}
+                      >
+                        {deletingId === job.id
+                          ? "Removing..."
+                          : "Remove Requirement"}
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              ))
+
+            )}
+
+          </div>
+
+
+          {/* -------------------------------- */}
+          {/* ADD REQUIREMENT MODAL */}
+          {/* -------------------------------- */}
 
           {showModal && (
 
             <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
 
               <div className="bg-[#111627] border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+
 
                 {/* MODAL HEADER */}
 
@@ -986,12 +527,14 @@ function JobRequirementsClient() {
 
                 </div>
 
+
                 {/* FORM */}
 
                 <form
                   onSubmit={handleCreate}
                   className="space-y-4 text-xs"
                 >
+
 
                   {/* JOB TITLE */}
 
@@ -1005,20 +548,18 @@ function JobRequirementsClient() {
                       type="text"
                       required
                       placeholder="e.g. Senior Fullstack Engineer"
-                      value={
-                        formData.job_title
-                      }
+                      value={formData.job_title}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          job_title:
-                            e.target.value,
+                          job_title: e.target.value
                         })
                       }
                       className="w-full px-3.5 py-2.5 bg-[#0b0f19] border border-slate-700/60 rounded-xl text-slate-100 focus:outline-none focus:border-indigo-500"
                     />
 
                   </div>
+
 
                   {/* SKILLS */}
 
@@ -1031,20 +572,18 @@ function JobRequirementsClient() {
                     <input
                       type="text"
                       placeholder="e.g. React, Node.js, PostgreSQL"
-                      value={
-                        formData.skills_required
-                      }
+                      value={formData.skills_required}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          skills_required:
-                            e.target.value,
+                          skills_required: e.target.value
                         })
                       }
                       className="w-full px-3.5 py-2.5 bg-[#0b0f19] border border-slate-700/60 rounded-xl text-slate-100 focus:outline-none focus:border-indigo-500"
                     />
 
                   </div>
+
 
                   {/* POSITIONS + LOCATION */}
 
@@ -1060,22 +599,19 @@ function JobRequirementsClient() {
                         type="number"
                         min="1"
                         required
-                        value={
-                          formData.positions_count
-                        }
+                        value={formData.positions_count}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
                             positions_count:
-                              Number(
-                                e.target.value
-                              ),
+                              Number(e.target.value)
                           })
                         }
                         className="w-full px-3.5 py-2.5 bg-[#0b0f19] border border-slate-700/60 rounded-xl text-slate-100 focus:outline-none focus:border-indigo-500 font-mono"
                       />
 
                     </div>
+
 
                     <div>
 
@@ -1086,14 +622,11 @@ function JobRequirementsClient() {
                       <input
                         type="text"
                         placeholder="e.g. Mumbai / Hybrid"
-                        value={
-                          formData.location
-                        }
+                        value={formData.location}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            location:
-                              e.target.value,
+                            location: e.target.value
                           })
                         }
                         className="w-full px-3.5 py-2.5 bg-[#0b0f19] border border-slate-700/60 rounded-xl text-slate-100 focus:outline-none focus:border-indigo-500"
@@ -1102,6 +635,7 @@ function JobRequirementsClient() {
                     </div>
 
                   </div>
+
 
                   {/* EXPERIENCE + SALARY */}
 
@@ -1116,22 +650,19 @@ function JobRequirementsClient() {
                       <input
                         type="number"
                         min="0"
-                        value={
-                          formData.experience_min
-                        }
+                        value={formData.experience_min}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
                             experience_min:
-                              Number(
-                                e.target.value
-                              ),
+                              Number(e.target.value)
                           })
                         }
                         className="w-full px-3 py-2 bg-[#0b0f19] border border-slate-700/60 rounded-xl text-slate-100 font-mono"
                       />
 
                     </div>
+
 
                     <div>
 
@@ -1142,22 +673,19 @@ function JobRequirementsClient() {
                       <input
                         type="number"
                         min="0"
-                        value={
-                          formData.experience_max
-                        }
+                        value={formData.experience_max}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
                             experience_max:
-                              Number(
-                                e.target.value
-                              ),
+                              Number(e.target.value)
                           })
                         }
                         className="w-full px-3 py-2 bg-[#0b0f19] border border-slate-700/60 rounded-xl text-slate-100 font-mono"
                       />
 
                     </div>
+
 
                     <div>
 
@@ -1168,14 +696,11 @@ function JobRequirementsClient() {
                       <input
                         type="text"
                         placeholder="e.g. 12"
-                        value={
-                          formData.salary_lpa
-                        }
+                        value={formData.salary_lpa}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            salary_lpa:
-                              e.target.value,
+                            salary_lpa: e.target.value
                           })
                         }
                         className="w-full px-3 py-2 bg-[#0b0f19] border border-slate-700/60 rounded-xl text-slate-100 font-mono"
@@ -1184,6 +709,7 @@ function JobRequirementsClient() {
                     </div>
 
                   </div>
+
 
                   {/* BUTTONS */}
 
@@ -1198,6 +724,7 @@ function JobRequirementsClient() {
                     >
                       Cancel
                     </button>
+
 
                     <button
                       type="submit"
