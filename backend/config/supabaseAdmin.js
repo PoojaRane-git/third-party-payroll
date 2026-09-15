@@ -32,6 +32,6 @@ export const supabase = createClient(
 );
 
 // TEMPORARY DEBUG
-console.log("DEBUG supabaseAdmin created. Has .auth?", typeof supabaseAdmin.auth);
+console.log("DEBUG supabaseAdmin created. Has .auth?", typeof supabase.auth);
 
 module.exports = supabase;
