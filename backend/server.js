@@ -145,6 +145,8 @@ const employeeUsersRouter =
 const loginRequestsRoutes = require("./routes/loginRequests");
 app.use("/api/login-requests", loginRequestsRoutes);
 
+
+
 // =====================================================
 // CLIENT PORTAL ROUTES
 // =====================================================

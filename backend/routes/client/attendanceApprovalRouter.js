@@ -4,10 +4,8 @@
 //
 // ATTENDANCE-ONLY MODULE
 //
-// TABLE USED:
+// TABLES USED:
 //   1. third_party_emp_daily_attendance
-//
-// EMPLOYEE DETAILS:
 //   2. candidates
 //   3. deployments
 //
@@ -63,8 +61,17 @@ function normalizeStatus(status) {
 // -----------------------------------------------------
 
 function isValidDate(value) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(
-        String(value || "")
+    const dateString = String(value || "");
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return false;
+    }
+
+    const date = new Date(`${dateString}T00:00:00`);
+
+    return (
+        !Number.isNaN(date.getTime()) &&
+        date.toISOString().slice(0, 10) === dateString
     );
 }
 
@@ -73,8 +80,20 @@ function isValidDate(value) {
 // -----------------------------------------------------
 
 function isValidBillingMonth(value) {
-    return /^\d{4}-\d{2}$/.test(
-        String(value || "")
+    const monthString = String(value || "");
+
+    if (!/^\d{4}-\d{2}$/.test(monthString)) {
+        return false;
+    }
+
+    const [year, month] =
+        monthString.split("-").map(Number);
+
+    return (
+        year >= 2000 &&
+        year <= 2100 &&
+        month >= 1 &&
+        month <= 12
     );
 }
 
@@ -84,9 +103,7 @@ function isValidBillingMonth(value) {
 
 function getMonthRange(billingMonth) {
     const [year, month] =
-        billingMonth
-            .split("-")
-            .map(Number);
+        billingMonth.split("-").map(Number);
 
     const lastDay = new Date(
         year,
@@ -118,73 +135,50 @@ function calculateAttendanceSummary(records) {
     let halfDays = 0;
     let overtimeHours = 0;
 
-    attendance.forEach((row) => {
-        const status = normalizeStatus(
-            row?.status
-        );
+    for (const row of attendance) {
+        const status = normalizeStatus(row?.status);
 
-        // ---------------------------------------------
         // PRESENT
-        // ---------------------------------------------
-
         if (status === "present") {
             presentDays += 1;
         }
 
-        // ---------------------------------------------
         // ABSENT
-        // ---------------------------------------------
-
-        if (status === "absent") {
+        else if (status === "absent") {
             absentDays += 1;
         }
 
-        // ---------------------------------------------
         // LEAVE
-        // ---------------------------------------------
-
-        if (
+        else if (
             status === "leave" ||
             status === "on_leave"
         ) {
             leaveDays += 1;
         }
 
-        // ---------------------------------------------
         // HALF DAY
-        // ---------------------------------------------
-
-        if (
+        else if (
             status === "half_day" ||
             status === "halfday"
         ) {
             halfDays += 1;
         }
 
-        // ---------------------------------------------
-        // OVERTIME
-        // ---------------------------------------------
-
         overtimeHours += Number(
             row?.overtime_hours || 0
         );
-    });
+    }
 
     return {
-        total_records:
-            attendance.length,
+        total_records: attendance.length,
 
-        present_days:
-            presentDays,
+        present_days: presentDays,
 
-        absent_days:
-            absentDays,
+        absent_days: absentDays,
 
-        leave_days:
-            leaveDays,
+        leave_days: leaveDays,
 
-        half_days:
-            halfDays,
+        half_days: halfDays,
 
         working_days:
             presentDays +
@@ -198,6 +192,21 @@ function calculateAttendanceSummary(records) {
                 overtimeHours.toFixed(2)
             ),
     };
+}
+
+// =====================================================
+// EMPLOYEE DETAILS MAP
+// =====================================================
+
+function createEmployeeMap(candidates) {
+    return new Map(
+        (candidates || []).map(
+            (candidate) => [
+                String(candidate.id),
+                candidate,
+            ]
+        )
+    );
 }
 
 // =====================================================
@@ -285,6 +294,7 @@ router.get(
             ) {
                 return res.json({
                     success: true,
+                    count: 0,
                     employees: [],
                 });
             }
@@ -314,9 +324,7 @@ router.get(
             // FETCH CANDIDATES
             // -------------------------------------------------
 
-            if (
-                candidateIds.length > 0
-            ) {
+            if (candidateIds.length > 0) {
                 const {
                     data,
                     error:
@@ -352,9 +360,17 @@ router.get(
                     });
                 }
 
-                candidates =
-                    data || [];
+                candidates = data || [];
             }
+
+            // -------------------------------------------------
+            // CREATE MAP
+            // -------------------------------------------------
+
+            const candidateMap =
+                createEmployeeMap(
+                    candidates
+                );
 
             // -------------------------------------------------
             // FORMAT EMPLOYEES
@@ -365,14 +381,10 @@ router.get(
                     .map(
                         (deployment) => {
                             const candidate =
-                                candidates.find(
-                                    (item) =>
-                                        String(
-                                            item.id
-                                        ) ===
-                                        String(
-                                            deployment.candidate_id
-                                        )
+                                candidateMap.get(
+                                    String(
+                                        deployment.candidate_id
+                                    )
                                 );
 
                             if (!candidate) {
@@ -592,11 +604,25 @@ router.get(
                 });
             }
 
-            const records =
-                data || [];
+            const records = data || [];
 
             // -------------------------------------------------
-            // FETCH EMPLOYEE DETAILS
+            // NO ATTENDANCE
+            // -------------------------------------------------
+
+            if (records.length === 0) {
+                return res.json({
+                    success: true,
+                    client_id: clientId,
+                    attendance_date,
+                    count: 0,
+                    data: [],
+                    attendance: [],
+                });
+            }
+
+            // -------------------------------------------------
+            // GET EMPLOYEE IDS
             // -------------------------------------------------
 
             const employeeIds = [
@@ -614,11 +640,13 @@ router.get(
                 ),
             ];
 
-            let employeesMap = {};
+            // -------------------------------------------------
+            // FETCH EMPLOYEE DETAILS
+            // -------------------------------------------------
 
-            if (
-                employeeIds.length > 0
-            ) {
+            let employeesMap = new Map();
+
+            if (employeeIds.length > 0) {
                 const {
                     data: employees,
                     error:
@@ -644,18 +672,8 @@ router.get(
                     );
                 } else {
                     employeesMap =
-                        Object.fromEntries(
-                            (
-                                employees ||
-                                []
-                            ).map(
-                                (employee) => [
-                                    String(
-                                        employee.id
-                                    ),
-                                    employee,
-                                ]
-                            )
+                        createEmployeeMap(
+                            employees
                         );
                 }
             }
@@ -668,44 +686,39 @@ router.get(
                 records.map(
                     (record) => {
                         const employee =
-                            employeesMap[
+                            employeesMap.get(
                                 String(
                                     record.employee_id
                                 )
-                            ];
+                            );
+
+                        const fallbackName =
+                            `Employee ${
+                                record.employee_id ??
+                                ""
+                            }`;
 
                         return {
                             ...record,
 
                             employee_name:
-                                employee
-                                    ?.full_name ??
-                                `Employee ${
-                                    record.employee_id ??
-                                    ""
-                                }`,
+                                employee?.full_name ??
+                                fallbackName,
 
                             full_name:
-                                employee
-                                    ?.full_name ??
-                                `Employee ${
-                                    record.employee_id ??
-                                    ""
-                                }`,
+                                employee?.full_name ??
+                                fallbackName,
 
                             employee_email:
-                                employee
-                                    ?.email ??
+                                employee?.email ??
                                 null,
 
                             employee_phone:
-                                employee
-                                    ?.phone ??
+                                employee?.phone ??
                                 null,
 
                             designation:
-                                employee
-                                    ?.designation ??
+                                employee?.designation ??
                                 null,
                         };
                     }
@@ -729,6 +742,7 @@ router.get(
                 data:
                     attendance,
 
+                // Kept for frontend compatibility
                 attendance:
                     attendance,
             });
@@ -833,7 +847,7 @@ router.get(
             );
 
             // -------------------------------------------------
-            // FETCH DAILY RECORDS
+            // FETCH MONTHLY DAILY RECORDS
             // -------------------------------------------------
 
             const {
@@ -897,8 +911,7 @@ router.get(
                 });
             }
 
-            const records =
-                data || [];
+            const records = data || [];
 
             // -------------------------------------------------
             // CALCULATE SUMMARY
@@ -910,7 +923,7 @@ router.get(
                 );
 
             // -------------------------------------------------
-            // EMPLOYEE DETAILS
+            // FETCH EMPLOYEE DETAILS
             // -------------------------------------------------
 
             let employee = null;
@@ -979,8 +992,7 @@ router.get(
                     null,
 
                 employment_status:
-                    employee
-                        ?.employment_status ??
+                    employee?.employment_status ??
                     null,
 
                 billing_month,
@@ -1144,8 +1156,34 @@ router.get(
                 });
             }
 
-            const records =
-                data || [];
+            const records = data || [];
+
+            // -------------------------------------------------
+            // NO RECORDS
+            // -------------------------------------------------
+
+            if (records.length === 0) {
+                return res.json({
+                    success: true,
+
+                    client_id:
+                        clientId,
+
+                    billing_month,
+
+                    date_range: {
+                        first_date:
+                            firstDate,
+
+                        last_date:
+                            lastDate,
+                    },
+
+                    total_employees: 0,
+
+                    data: [],
+                });
+            }
 
             // -------------------------------------------------
             // GET EMPLOYEE IDS
@@ -1170,11 +1208,9 @@ router.get(
             // FETCH EMPLOYEE DETAILS
             // -------------------------------------------------
 
-            let employeesMap = {};
+            let employeesMap = new Map();
 
-            if (
-                employeeIds.length > 0
-            ) {
+            if (employeeIds.length > 0) {
                 const {
                     data: candidates,
                     error:
@@ -1210,18 +1246,8 @@ router.get(
                 }
 
                 employeesMap =
-                    Object.fromEntries(
-                        (
-                            candidates ||
-                            []
-                        ).map(
-                            (candidate) => [
-                                String(
-                                    candidate.id
-                                ),
-                                candidate,
-                            ]
-                        )
+                    createEmployeeMap(
+                        candidates
                     );
             }
 
@@ -1230,38 +1256,37 @@ router.get(
             // -------------------------------------------------
 
             const employeeGroups =
-                {};
+                new Map();
 
-            records.forEach(
-                (record) => {
-                    const employeeId =
-                        String(
-                            record.employee_id
-                        );
+            for (const record of records) {
+                const employeeId =
+                    String(
+                        record.employee_id
+                    );
 
-                    if (
-                        !employeeGroups[
-                            employeeId
-                        ]
-                    ) {
-                        employeeGroups[
-                            employeeId
-                        ] = [];
-                    }
-
-                    employeeGroups[
+                if (
+                    !employeeGroups.has(
                         employeeId
-                    ].push(record);
+                    )
+                ) {
+                    employeeGroups.set(
+                        employeeId,
+                        []
+                    );
                 }
-            );
+
+                employeeGroups
+                    .get(employeeId)
+                    .push(record);
+            }
 
             // -------------------------------------------------
             // BUILD MONTHLY DATA
             // -------------------------------------------------
 
             const monthlyData =
-                Object.entries(
-                    employeeGroups
+                Array.from(
+                    employeeGroups.entries()
                 ).map(
                     ([
                         employeeId,
@@ -1273,11 +1298,11 @@ router.get(
                             );
 
                         const employee =
-                            employeesMap[
+                            employeesMap.get(
                                 String(
                                     employeeId
                                 )
-                            ];
+                            );
 
                         return {
                             employee_id:
@@ -1286,33 +1311,27 @@ router.get(
                                 ),
 
                             employee_name:
-                                employee
-                                    ?.full_name ??
+                                employee?.full_name ??
                                 `Employee ${employeeId}`,
 
                             full_name:
-                                employee
-                                    ?.full_name ??
+                                employee?.full_name ??
                                 `Employee ${employeeId}`,
 
                             email:
-                                employee
-                                    ?.email ??
+                                employee?.email ??
                                 null,
 
                             phone:
-                                employee
-                                    ?.phone ??
+                                employee?.phone ??
                                 null,
 
                             designation:
-                                employee
-                                    ?.designation ??
+                                employee?.designation ??
                                 null,
 
                             employment_status:
-                                employee
-                                    ?.employment_status ??
+                                employee?.employment_status ??
                                 null,
 
                             deployment_id:

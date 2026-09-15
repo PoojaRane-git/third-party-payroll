@@ -20,6 +20,7 @@ import {
 
 import Sidebar from "../Layout/Sidebar";
 import api from "../../../services/api";
+import { useAuth } from "../../../auth/AuthProvider";
 
 // ============================================================
 // HELPERS
@@ -114,6 +115,17 @@ const getStatus = (record) => {
 const ClientAttendance = () => {
 
     // ========================================================
+    // AUTH SESSION
+    // ========================================================
+
+    const {
+        session,
+        user,
+        loading: authLoading,
+        logout,
+    } = useAuth();
+
+    // ========================================================
     // STATE
     // ========================================================
 
@@ -150,167 +162,99 @@ const ClientAttendance = () => {
     // ========================================================
     // CLIENT SESSION
     // ========================================================
+    // IMPORTANT:
+    // Authentication comes from AuthProvider / Supabase session.
+    //
+    // Your /auth/me response contains:
+    //
+    // user = {
+    //     supabase_user_id,
+    //     email,
+    //     profile_id,
+    //     role,
+    //     status,
+    //     ...
+    // }
+    //
+    // Therefore profile_id is used as the client ID.
+    // ========================================================
 
-    const clientSession = useMemo(() => {
-        let id = null;
-        let companyName = "";
+    const clientId = useMemo(() => {
 
-        // ----------------------------------------------------
-        // 1. client_id
-        // ----------------------------------------------------
+        const numericId = Number(
+            user?.profile_id
+        );
 
-        const directClientId =
-            localStorage.getItem("client_id");
-
-        if (directClientId) {
-            id = directClientId;
+        if (
+            Number.isFinite(numericId) &&
+            numericId > 0
+        ) {
+            return numericId;
         }
 
-        // ----------------------------------------------------
-        // 2. clientId
-        // ----------------------------------------------------
+        return null;
 
-        if (!id) {
-            const clientId =
-                localStorage.getItem("clientId");
+    }, [user]);
 
-            if (clientId) {
-                id = clientId;
+    const clientName = useMemo(() => {
+
+        return (
+            user?.company_name ||
+            user?.companyName ||
+            user?.company ||
+            user?.name ||
+            ""
+        );
+
+    }, [user]);
+
+    // ========================================================
+    // AUTH DEBUG
+    // ========================================================
+
+    useEffect(() => {
+
+        console.log(
+            "CLIENT ATTENDANCE AUTH:",
+            {
+                authLoading,
+                hasSession: !!session,
+                user,
+                clientId,
+                role: user?.role,
+                status: user?.status,
             }
-        }
+        );
 
-        // ----------------------------------------------------
-        // 3. user
-        // ----------------------------------------------------
-
-        if (!id) {
-            try {
-                const storedUser =
-                    JSON.parse(
-                        localStorage.getItem("user") || "null"
-                    );
-
-                if (storedUser) {
-                    id =
-                        storedUser.client_id ??
-                        storedUser.clientId ??
-                        storedUser.profile?.client_id ??
-                        storedUser.profile?.clientId ??
-                        null;
-
-                    companyName =
-                        storedUser.company_name ??
-                        storedUser.companyName ??
-                        storedUser.profile?.company_name ??
-                        storedUser.profile?.companyName ??
-                        storedUser.name ??
-                        "";
-                }
-            } catch (parseError) {
-                console.error(
-                    "Failed to parse stored user:",
-                    parseError
-                );
-            }
-        }
-
-        // ----------------------------------------------------
-        // 4. client
-        // ----------------------------------------------------
-
-        if (!id) {
-            try {
-                const storedClient =
-                    JSON.parse(
-                        localStorage.getItem("client") || "null"
-                    );
-
-                if (storedClient) {
-                    id =
-                        storedClient.id ??
-                        storedClient.client_id ??
-                        storedClient.clientId ??
-                        null;
-
-                    companyName =
-                        storedClient.company_name ??
-                        storedClient.companyName ??
-                        "";
-                }
-            } catch (parseError) {
-                console.error(
-                    "Failed to parse stored client:",
-                    parseError
-                );
-            }
-        }
-
-        // ----------------------------------------------------
-        // 5. profile
-        // ----------------------------------------------------
-
-        if (!id) {
-            try {
-                const profile =
-                    JSON.parse(
-                        localStorage.getItem("profile") || "null"
-                    );
-
-                if (profile) {
-                    id =
-                        profile.client_id ??
-                        profile.clientId ??
-                        null;
-
-                    companyName =
-                        profile.company_name ??
-                        profile.companyName ??
-                        profile.name ??
-                        "";
-                }
-            } catch (parseError) {
-                console.error(
-                    "Failed to parse stored profile:",
-                    parseError
-                );
-            }
-        }
-
-        // ----------------------------------------------------
-        // 6. Company name fallback
-        // ----------------------------------------------------
-
-        if (!companyName) {
-            companyName =
-                localStorage.getItem("company_name") ||
-                localStorage.getItem("companyName") ||
-                "";
-        }
-
-        const numericId = Number(id);
-
-        return {
-            clientId:
-                Number.isFinite(numericId) &&
-                numericId > 0
-                    ? numericId
-                    : null,
-
-            companyName,
-        };
-    }, []);
-
-    const clientId = clientSession.clientId;
-
-    const clientName = clientSession.companyName;
+    }, [
+        authLoading,
+        session,
+        user,
+        clientId,
+    ]);
 
     // ========================================================
     // LOGOUT
     // ========================================================
 
-    const handleLogout = () => {
-        localStorage.clear();
-        window.location.href = "/login";
+    const handleLogout = async () => {
+
+        try {
+
+            await logout();
+
+            window.location.href = "/login";
+
+        } catch (error) {
+
+            console.error(
+                "Client attendance logout error:",
+                error
+            );
+
+            window.location.href = "/login";
+
+        }
     };
 
     // ========================================================
@@ -320,13 +264,26 @@ const ClientAttendance = () => {
     const fetchDailyAttendance = useCallback(
         async (showLoader = true) => {
 
+            if (
+                authLoading ||
+                !session ||
+                !user
+            ) {
+                return;
+            }
+
             if (!clientId) {
+
                 setError(
                     "Client ID not found for the logged-in user."
                 );
 
                 setDailyAttendance([]);
 
+                return;
+            }
+
+            if (!attendanceDate) {
                 return;
             }
 
@@ -337,6 +294,15 @@ const ClientAttendance = () => {
                 }
 
                 setError("");
+
+                console.log(
+                    "FETCH DAILY ATTENDANCE:",
+                    {
+                        client_id: clientId,
+                        attendance_date:
+                            attendanceDate,
+                    }
+                );
 
                 const response =
                     await api.get(
@@ -355,8 +321,15 @@ const ClientAttendance = () => {
                 const result =
                     response?.data || {};
 
+                console.log(
+                    "DAILY ATTENDANCE RESPONSE:",
+                    result
+                );
+
                 const records =
-                    Array.isArray(result.data)
+                    Array.isArray(
+                        result.data
+                    )
                         ? result.data
                         : Array.isArray(
                             result.attendance
@@ -377,23 +350,29 @@ const ClientAttendance = () => {
                     err?.response?.status ===
                     401
                 ) {
+
                     setError(
                         "Your session has expired. Please login again."
                     );
+
                 } else if (
                     err?.response?.status ===
                     403
                 ) {
+
                     setError(
                         "You do not have permission to view this attendance."
                     );
+
                 } else {
+
                     setError(
                         err?.response?.data?.error ||
                         err?.response?.data?.message ||
                         err?.message ||
                         "Failed to load attendance."
                     );
+
                 }
 
                 setDailyAttendance([]);
@@ -405,8 +384,12 @@ const ClientAttendance = () => {
                 }
 
             }
+
         },
         [
+            authLoading,
+            session,
+            user,
             clientId,
             attendanceDate,
         ]
@@ -419,13 +402,26 @@ const ClientAttendance = () => {
     const fetchMonthlyAttendance = useCallback(
         async (showLoader = true) => {
 
+            if (
+                authLoading ||
+                !session ||
+                !user
+            ) {
+                return;
+            }
+
             if (!clientId) {
+
                 setError(
                     "Client ID not found for the logged-in user."
                 );
 
                 setMonthlyAttendance([]);
 
+                return;
+            }
+
+            if (!billingMonth) {
                 return;
             }
 
@@ -436,6 +432,15 @@ const ClientAttendance = () => {
                 }
 
                 setError("");
+
+                console.log(
+                    "FETCH MONTHLY ATTENDANCE:",
+                    {
+                        client_id: clientId,
+                        billing_month:
+                            billingMonth,
+                    }
+                );
 
                 const response =
                     await api.get(
@@ -454,8 +459,15 @@ const ClientAttendance = () => {
                 const result =
                     response?.data || {};
 
+                console.log(
+                    "MONTHLY ATTENDANCE RESPONSE:",
+                    result
+                );
+
                 const records =
-                    Array.isArray(result.data)
+                    Array.isArray(
+                        result.data
+                    )
                         ? result.data
                         : [];
 
@@ -472,23 +484,29 @@ const ClientAttendance = () => {
                     err?.response?.status ===
                     401
                 ) {
+
                     setError(
                         "Your session has expired. Please login again."
                     );
+
                 } else if (
                     err?.response?.status ===
                     403
                 ) {
+
                     setError(
                         "You do not have permission to view this attendance."
                     );
+
                 } else {
+
                     setError(
                         err?.response?.data?.error ||
                         err?.response?.data?.message ||
                         err?.message ||
                         "Failed to load monthly attendance."
                     );
+
                 }
 
                 setMonthlyAttendance([]);
@@ -500,63 +518,73 @@ const ClientAttendance = () => {
                 }
 
             }
+
         },
         [
+            authLoading,
+            session,
+            user,
             clientId,
             billingMonth,
         ]
     );
 
     // ========================================================
-    // FETCH CURRENT TAB
-    // ========================================================
-
-    const fetchAttendance = useCallback(
-        async (showLoader = true) => {
-
-            if (activeTab === "daily") {
-
-                await fetchDailyAttendance(
-                    showLoader
-                );
-
-            } else {
-
-                await fetchMonthlyAttendance(
-                    showLoader
-                );
-
-            }
-        },
-        [
-            activeTab,
-            fetchDailyAttendance,
-            fetchMonthlyAttendance,
-        ]
-    );
-
-    // ========================================================
-    // INITIAL LOAD / FILTER CHANGE
+    // DAILY LOAD
     // ========================================================
 
     useEffect(() => {
 
-        if (!clientId) {
-            setError(
-                "Client ID not found for the logged-in user."
-            );
-
+        if (
+            authLoading ||
+            !session ||
+            !user ||
+            !clientId ||
+            user?.role !== "client" ||
+            activeTab !== "daily"
+        ) {
             return;
         }
 
-        fetchAttendance(true);
+        fetchDailyAttendance(true);
 
     }, [
+        authLoading,
+        session,
+        user,
         clientId,
         activeTab,
         attendanceDate,
+        fetchDailyAttendance,
+    ]);
+
+    // ========================================================
+    // MONTHLY LOAD
+    // ========================================================
+
+    useEffect(() => {
+
+        if (
+            authLoading ||
+            !session ||
+            !user ||
+            !clientId ||
+            user?.role !== "client" ||
+            activeTab !== "monthly"
+        ) {
+            return;
+        }
+
+        fetchMonthlyAttendance(true);
+
+    }, [
+        authLoading,
+        session,
+        user,
+        clientId,
+        activeTab,
         billingMonth,
-        fetchAttendance,
+        fetchMonthlyAttendance,
     ]);
 
     // ========================================================
@@ -569,7 +597,15 @@ const ClientAttendance = () => {
 
             setRefreshing(true);
 
-            await fetchAttendance(false);
+            if (activeTab === "daily") {
+
+                await fetchDailyAttendance(false);
+
+            } else {
+
+                await fetchMonthlyAttendance(false);
+
+            }
 
         } finally {
 
@@ -841,6 +877,68 @@ const ClientAttendance = () => {
             </span>
         );
     };
+
+    // ========================================================
+    // AUTH LOADING
+    // ========================================================
+
+    if (authLoading) {
+
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-slate-50">
+
+                <div className="flex flex-col items-center gap-3">
+
+                    <RefreshCw
+                        size={26}
+                        className="animate-spin text-indigo-600"
+                    />
+
+                    <p className="text-sm text-slate-500">
+                        Loading attendance...
+                    </p>
+
+                </div>
+
+            </div>
+        );
+    }
+
+    // ========================================================
+    // INVALID SESSION / USER
+    // ========================================================
+
+    if (!session || !user) {
+
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+
+                <div className="rounded-2xl border border-red-200 bg-white p-8 text-center shadow-sm">
+
+                    <h2 className="text-lg font-bold text-slate-900">
+                        Session not found
+                    </h2>
+
+                    <p className="mt-2 text-sm text-slate-500">
+                        Please login again to view attendance.
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            (window.location.href =
+                                "/login")
+                        }
+                        className="mt-5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                    >
+                        Login Again
+                    </button>
+
+                </div>
+
+            </div>
+        );
+    }
 
     // ========================================================
     // RENDER
@@ -1346,10 +1444,6 @@ const ClientAttendance = () => {
 
                     ) : activeTab === "daily" ? (
 
-                        /* ==================================================
-                           DAILY TABLE / EMPTY STATE
-                           ================================================== */
-
                         filteredDailyAttendance.length === 0 ? (
 
                             <div className="flex min-h-[400px] flex-col items-center justify-center px-6 text-center">
@@ -1520,10 +1614,6 @@ const ClientAttendance = () => {
                         )
 
                     ) : (
-
-                        /* ==================================================
-                           MONTHLY TABLE / EMPTY STATE
-                           ================================================== */
 
                         filteredMonthlyAttendance.length === 0 ? (
 

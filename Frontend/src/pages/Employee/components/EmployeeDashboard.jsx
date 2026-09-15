@@ -289,10 +289,11 @@ const EmployeeDashboard = () => {
       }
 
     } catch (err) {
-      console.error(
-        "Check-in error:",
-        err
-      );
+       console.error("========== CHECK-IN ERROR ==========");
+  console.error("Status:", err.response?.status);
+  console.error("Backend response:", err.response?.data);
+  console.error("Full error:", err);
+  console.error("====================================")
 
       setError(
         err.response?.data?.error ||
