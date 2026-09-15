@@ -68,7 +68,9 @@ const getCurrentMonthIST = () => {
 // ------------------------------------------------------------
 
 const getDaysInMonth = (billingMonth) => {
-    const [year, month] = billingMonth.split("-").map(Number);
+    const [year, month] = billingMonth
+        .split("-")
+        .map(Number);
 
     return new Date(year, month, 0).getDate();
 };
@@ -78,6 +80,7 @@ const getDaysInMonth = (billingMonth) => {
 // ============================================================
 
 const getEmployeeId = async (req) => {
+
     // If authentication middleware already attached employee_id
     if (req.user?.employee_id) {
         return Number(req.user.employee_id);
@@ -91,10 +94,15 @@ const getEmployeeId = async (req) => {
     const authUserId = req.user?.id;
 
     if (!authUserId) {
-        throw new Error("Authenticated user ID is missing.");
+        throw new Error(
+            "Authenticated user ID is missing."
+        );
     }
 
-    console.log("Finding employee for auth user:", authUserId);
+    console.log(
+        "Finding employee for auth user:",
+        authUserId
+    );
 
     const { data, error } = await supabase
         .from("third_party_users")
@@ -131,6 +139,7 @@ const recalculateMonthlySummary = async (
     employeeId,
     billingMonth
 ) => {
+
     console.log(
         `Recalculating summary: employee=${employeeId}, month=${billingMonth}`
     );
@@ -139,49 +148,72 @@ const recalculateMonthlySummary = async (
     // Get daily attendance
     // --------------------------------------------------------
 
-    const monthStart = `${billingMonth}-01`;
+    const monthStart =
+        `${billingMonth}-01`;
 
-    const [year, month] = billingMonth.split("-").map(Number);
+    const [year, month] =
+        billingMonth
+            .split("-")
+            .map(Number);
 
-    const nextMonthDate = new Date(
-        Date.UTC(year, month, 1)
-    );
+    const nextMonthDate =
+        new Date(
+            Date.UTC(year, month, 1)
+        );
 
-    const nextMonth = nextMonthDate
-        .toISOString()
-        .substring(0, 10);
+    const nextMonth =
+        nextMonthDate
+            .toISOString()
+            .substring(0, 10);
 
-    const { data: dailyRows, error: dailyError } =
-        await supabase
-            .from("third_party_emp_daily_attendance")
-            .select(`
-                id,
-                employee_id,
-                deployment_id,
-                client_id,
-                attendance_date,
-                check_in,
-                check_out,
-                working_hours,
-                overtime_hours,
-                status,
-                work_mode,
-                remarks,
-                created_at,
-                updated_at
-            `)
-            .eq("employee_id", employeeId)
-            .gte("attendance_date", monthStart)
-            .lt("attendance_date", nextMonth)
-            .order("attendance_date", {
+    const {
+        data: dailyRows,
+        error: dailyError,
+    } = await supabase
+        .from(
+            "third_party_emp_daily_attendance"
+        )
+        .select(`
+            id,
+            candidates_id,
+            deployment_id,
+            client_id,
+            attendance_date,
+            check_in,
+            check_out,
+            working_hours,
+            overtime_hours,
+            status,
+            work_mode,
+            remarks,
+            created_at,
+            updated_at
+        `)
+        .eq(
+            "candidates_id",
+            employeeId
+        )
+        .gte(
+            "attendance_date",
+            monthStart
+        )
+        .lt(
+            "attendance_date",
+            nextMonth
+        )
+        .order(
+            "attendance_date",
+            {
                 ascending: true,
-            });
+            }
+        );
 
     if (dailyError) {
         throw dailyError;
     }
 
-    const rows = dailyRows || [];
+    const rows =
+        dailyRows || [];
 
     // --------------------------------------------------------
     // Calculate
@@ -194,20 +226,35 @@ const recalculateMonthlySummary = async (
     let overtimeHours = 0;
 
     rows.forEach((row) => {
-        const status = String(
-            row.status || ""
-        ).toLowerCase();
+
+        const status =
+            String(
+                row.status || ""
+            )
+                .toLowerCase()
+                .trim();
 
         if (status === "present") {
+
             presentDays += 1;
-        } else if (status === "absent") {
+
+        } else if (
+            status === "absent"
+        ) {
+
             absentDays += 1;
-        } else if (status === "leave") {
+
+        } else if (
+            status === "leave"
+        ) {
+
             leaveDays += 1;
+
         } else if (
             status === "half day" ||
             status === "halfday"
         ) {
+
             halfDays += 1;
         }
 
@@ -222,7 +269,8 @@ const recalculateMonthlySummary = async (
     // Absent days are LOP.
     // --------------------------------------------------------
 
-    const lopDays = absentDays;
+    const lopDays =
+        absentDays;
 
     // --------------------------------------------------------
     // PAYABLE DAYS
@@ -242,9 +290,10 @@ const recalculateMonthlySummary = async (
     // TOTAL CALENDAR DAYS
     // --------------------------------------------------------
 
-    const totalDays = getDaysInMonth(
-        billingMonth
-    );
+    const totalDays =
+        getDaysInMonth(
+            billingMonth
+        );
 
     // --------------------------------------------------------
     // Get client/deployment
@@ -254,10 +303,15 @@ const recalculateMonthlySummary = async (
     let deploymentId = null;
 
     if (rows.length > 0) {
-        const latestRow = rows[rows.length - 1];
 
-        clientId = latestRow.client_id;
-        deploymentId = latestRow.deployment_id;
+        const latestRow =
+            rows[rows.length - 1];
+
+        clientId =
+            latestRow.client_id;
+
+        deploymentId =
+            latestRow.deployment_id;
     }
 
     // --------------------------------------------------------
@@ -268,117 +322,17 @@ const recalculateMonthlySummary = async (
     // NO "status" HERE.
     // --------------------------------------------------------
 
-    if (!clientId || !deploymentId) {
-        const { data: existingSummary, error: existingError } =
-            await supabase
-                .from("third_party_attendance_summary")
-                .select(`
-                    id,
-                    employee_id,
-                    client_id,
-                    deployment_id,
-                    billing_month,
-                    total_days,
-                    present_days,
-                    absent_days,
-                    leave_days,
-                    half_days,
-                    lop_days,
-                    payable_days,
-                    overtime_hours,
-                    created_at,
-                    updated_at
-                `)
-                .eq("employee_id", employeeId)
-                .eq("billing_month", billingMonth)
-                .maybeSingle();
+    if (
+        !clientId ||
+        !deploymentId
+    ) {
 
-        if (existingError) {
-            throw existingError;
-        }
-
-        if (existingSummary) {
-            clientId = existingSummary.client_id;
-            deploymentId = existingSummary.deployment_id;
-        }
-    }
-
-    // --------------------------------------------------------
-    // Last fallback: active deployment
-    // --------------------------------------------------------
-
-    if (!clientId || !deploymentId) {
-        const { data: deployment, error: deploymentError } =
-            await supabase
-                .from("deployments")
-                .select(`
-                    id,
-                    client_id
-                `)
-                .eq("employee_id", employeeId)
-                .eq("status", "Active")
-                .limit(1)
-                .maybeSingle();
-
-        if (deploymentError) {
-            throw deploymentError;
-        }
-
-        if (deployment) {
-            deploymentId = deployment.id;
-            clientId = deployment.client_id;
-        }
-    }
-
-    // --------------------------------------------------------
-    // Summary requires client + deployment
-    // --------------------------------------------------------
-
-    if (!clientId || !deploymentId) {
-        throw new Error(
-            "Client/deployment information not found for employee."
-        );
-    }
-
-    // --------------------------------------------------------
-    // UPSERT MONTHLY SUMMARY
-    //
-    // IMPORTANT:
-    // There is NO status column.
-    // --------------------------------------------------------
-
-    const summaryPayload = {
-        employee_id: employeeId,
-        client_id: clientId,
-        deployment_id: deploymentId,
-        billing_month: billingMonth,
-
-        total_days: totalDays,
-
-        present_days: presentDays,
-        absent_days: absentDays,
-        leave_days: leaveDays,
-        half_days: halfDays,
-
-        lop_days: lopDays,
-        payable_days: payableDays,
-
-        overtime_hours: Number(
-            overtimeHours.toFixed(2)
-        ),
-
-        updated_at: new Date().toISOString(),
-    };
-
-    const { data: summary, error: summaryError } =
-        await supabase
-            .from("third_party_attendance_summary")
-            .upsert(
-                summaryPayload,
-                {
-                    onConflict:
-                        "employee_id,billing_month",
-                }
+        const {
+            data: existingSummary,
+            error: existingError,
+        } = await supabase
+            .from(
+                "third_party_attendance_summary"
             )
             .select(`
                 id,
@@ -397,7 +351,175 @@ const recalculateMonthlySummary = async (
                 created_at,
                 updated_at
             `)
-            .single();
+            .eq(
+                "employee_id",
+                employeeId
+            )
+            .eq(
+                "billing_month",
+                billingMonth
+            )
+            .maybeSingle();
+
+        if (existingError) {
+            throw existingError;
+        }
+
+        if (existingSummary) {
+
+            clientId =
+                existingSummary.client_id;
+
+            deploymentId =
+                existingSummary.deployment_id;
+        }
+    }
+
+    // --------------------------------------------------------
+    // Last fallback: active deployment
+    //
+    // IMPORTANT:
+    // deployments uses candidate_id
+    // NOT employee_id
+    // --------------------------------------------------------
+
+    if (
+        !clientId ||
+        !deploymentId
+    ) {
+
+        const {
+            data: deployment,
+            error: deploymentError,
+        } = await supabase
+            .from("deployments")
+            .select(`
+                id,
+                client_id,
+                candidate_id
+            `)
+            .eq(
+                "candidate_id",
+                employeeId
+            )
+            .eq(
+                "status",
+                "Active"
+            )
+            .limit(1)
+            .maybeSingle();
+
+        if (deploymentError) {
+            throw deploymentError;
+        }
+
+        if (deployment) {
+
+            deploymentId =
+                deployment.id;
+
+            clientId =
+                deployment.client_id;
+        }
+    }
+
+    // --------------------------------------------------------
+    // Summary requires client + deployment
+    // --------------------------------------------------------
+
+    if (
+        !clientId ||
+        !deploymentId
+    ) {
+
+        throw new Error(
+            "Client/deployment information not found for employee."
+        );
+    }
+
+    // --------------------------------------------------------
+    // UPSERT MONTHLY SUMMARY
+    //
+    // IMPORTANT:
+    // There is NO status column.
+    // --------------------------------------------------------
+
+    const summaryPayload = {
+
+        employee_id:
+            employeeId,
+
+        client_id:
+            clientId,
+
+        deployment_id:
+            deploymentId,
+
+        billing_month:
+            billingMonth,
+
+        total_days:
+            totalDays,
+
+        present_days:
+            presentDays,
+
+        absent_days:
+            absentDays,
+
+        leave_days:
+            leaveDays,
+
+        half_days:
+            halfDays,
+
+        lop_days:
+            lopDays,
+
+        payable_days:
+            payableDays,
+
+        overtime_hours:
+            Number(
+                overtimeHours.toFixed(2)
+            ),
+
+        updated_at:
+            new Date().toISOString(),
+    };
+
+    const {
+        data: summary,
+        error: summaryError,
+    } = await supabase
+        .from(
+            "third_party_attendance_summary"
+        )
+        .upsert(
+            summaryPayload,
+            {
+                onConflict:
+                    "employee_id,billing_month",
+            }
+        )
+        .select(`
+            id,
+            employee_id,
+            client_id,
+            deployment_id,
+            billing_month,
+            total_days,
+            present_days,
+            absent_days,
+            leave_days,
+            half_days,
+            lop_days,
+            payable_days,
+            overtime_hours,
+            created_at,
+            updated_at
+        `)
+        .single();
 
     if (summaryError) {
         throw summaryError;
@@ -418,16 +540,23 @@ const recalculateMonthlySummary = async (
 // GET DAILY ATTENDANCE
 //
 // GET /employee/attendance
+//
+// Supports:
 // ?billing_month=2026-09
+// ?month=2026-09
 // ============================================================
 
 router.get("/", async (req, res) => {
+
     try {
+
         const employeeId =
             await getEmployeeId(req);
 
+        // Support both frontend parameter names
         const billingMonth =
             req.query.billing_month ||
+            req.query.month ||
             getCurrentMonthIST();
 
         const monthStart =
@@ -445,47 +574,50 @@ router.get("/", async (req, res) => {
                 .toISOString()
                 .substring(0, 10);
 
-        const { data, error } =
-            await supabase
-                .from(
-                    "third_party_emp_daily_attendance"
-                )
-                .select(`
-                    id,
-                    employee_id,
-                    deployment_id,
-                    client_id,
-                    attendance_date,
-                    check_in,
-                    check_out,
-                    working_hours,
-                    overtime_hours,
-                    status,
-                    work_mode,
-                    remarks,
-                    created_at,
-                    updated_at
-                `)
-                .eq(
-                    "employee_id",
-                    employeeId
-                )
-                .gte(
-                    "attendance_date",
-                    monthStart
-                )
-                .lt(
-                    "attendance_date",
-                    nextMonth
-                )
-                .order(
-                    "attendance_date",
-                    {
-                        ascending: false,
-                    }
-                );
+        const {
+            data,
+            error,
+        } = await supabase
+            .from(
+                "third_party_emp_daily_attendance"
+            )
+            .select(`
+                id,
+                candidates_id,
+                deployment_id,
+                client_id,
+                attendance_date,
+                check_in,
+                check_out,
+                working_hours,
+                overtime_hours,
+                status,
+                work_mode,
+                remarks,
+                created_at,
+                updated_at
+            `)
+            .eq(
+                "candidates_id",
+                employeeId
+            )
+            .gte(
+                "attendance_date",
+                monthStart
+            )
+            .lt(
+                "attendance_date",
+                nextMonth
+            )
+            .order(
+                "attendance_date",
+                {
+                    ascending: false,
+                }
+            );
 
         if (error) {
+
             return sendError(
                 res,
                 500,
@@ -495,10 +627,15 @@ router.get("/", async (req, res) => {
         }
 
         return res.json({
+
             success: true,
-            attendance: data || [],
+
+            attendance:
+                data || [],
         });
+
     } catch (error) {
+
         return sendError(
             res,
             500,
@@ -514,92 +651,43 @@ router.get("/", async (req, res) => {
 // GET /employee/attendance/today
 // ============================================================
 
-router.get("/today", async (req, res) => {
-    try {
-        const employeeId =
-            await getEmployeeId(req);
+router.get(
+    "/today",
+    async (req, res) => {
 
-        const today = getTodayIST();
+        try {
 
-        const { data, error } = await supabase
-    .from("third_party_emp_daily_attendance")
-    .select(`
-        id,
-        employee_id,
-        deployment_id,
-        client_id,
-        attendance_date,
-        check_in,
-        check_out,
-        working_hours,
-        overtime_hours,
-        status,
-        work_mode,
-        remarks,
-        created_at,
-        updated_at
-    `)
-    .eq("employee_id", employeeId)
-    .eq("attendance_date", today)
-    .maybeSingle();
+            const employeeId =
+                await getEmployeeId(req);
 
-        if (error) {
-            return sendError(
-                res,
-                500,
-                "Failed to fetch today's attendance.",
-                error
-            );
-        }
+            const today =
+                getTodayIST();
 
-        return res.json({
-            success: true,
-            attendance: data || null,
-        });
-    } catch (error) {
-        return sendError(
-            res,
-            500,
-            "Failed to fetch today's attendance.",
-            error
-        );
-    }
-});
-
-// ============================================================
-// CHECK IN
-//
-// POST /employee/attendance/check-in
-// ============================================================
-
-router.post("/check-in", async (req, res) => {
-    try {
-        const employeeId =
-            await getEmployeeId(req);
-
-        const today = getTodayIST();
-
-        // ----------------------------------------------------
-        // Check existing row
-        // ----------------------------------------------------
-
-        const { data: existing, error: existingError } =
-            await supabase
+            const {
+                data,
+                error,
+            } = await supabase
                 .from(
                     "third_party_emp_daily_attendance"
                 )
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
+                    deployment_id,
+                    client_id,
                     attendance_date,
                     check_in,
                     check_out,
+                    working_hours,
+                    overtime_hours,
                     status,
                     work_mode,
-                    remarks
+                    remarks,
+                    created_at,
+                    updated_at
                 `)
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .eq(
@@ -608,37 +696,128 @@ router.post("/check-in", async (req, res) => {
                 )
                 .maybeSingle();
 
-        if (existingError) {
+            if (error) {
+
+                return sendError(
+                    res,
+                    500,
+                    "Failed to fetch today's attendance.",
+                    error
+                );
+            }
+
+            return res.json({
+
+                success: true,
+
+                attendance:
+                    data || null,
+            });
+
+        } catch (error) {
+
             return sendError(
                 res,
                 500,
-                "Failed to check existing attendance.",
-                existingError
+                "Failed to fetch today's attendance.",
+                error
             );
         }
+    }
+);
 
-        if (existing?.check_in) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "You have already checked in today.",
-                attendance: existing,
-            });
-        }
+// ============================================================
+// CHECK IN
+//
+// POST /employee/attendance/check-in
+// ============================================================
 
-        // ----------------------------------------------------
-        // Find active deployment
-        // ----------------------------------------------------
+router.post(
+    "/check-in",
+    async (req, res) => {
 
-        const { data: deployment, error: deploymentError } =
-            await supabase
+        try {
+
+            const employeeId =
+                await getEmployeeId(req);
+
+            const today =
+                getTodayIST();
+
+            // ------------------------------------------------
+            // Check existing row
+            // ------------------------------------------------
+
+            const {
+                data: existing,
+                error: existingError,
+            } = await supabase
+                .from(
+                    "third_party_emp_daily_attendance"
+                )
+                .select(`
+                    id,
+                    candidates_id,
+                    attendance_date,
+                    check_in,
+                    check_out,
+                    status,
+                    work_mode,
+                    remarks
+                `)
+                .eq(
+                    "candidates_id",
+                    employeeId
+                )
+                .eq(
+                    "attendance_date",
+                    today
+                )
+                .maybeSingle();
+
+            if (existingError) {
+
+                return sendError(
+                    res,
+                    500,
+                    "Failed to check existing attendance.",
+                    existingError
+                );
+            }
+
+            if (existing?.check_in) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        "You have already checked in today.",
+
+                    attendance:
+                        existing,
+                });
+            }
+
+            // ------------------------------------------------
+            // Find active deployment
+            //
+            // IMPORTANT:
+            // deployments.candidate_id
+            // ------------------------------------------------
+
+            const {
+                data: deployment,
+                error: deploymentError,
+            } = await supabase
                 .from("deployments")
                 .select(`
                     id,
-                    client_id
+                    client_id,
+                    candidate_id
                 `)
                 .eq(
-                    "employee_id",
+                    "candidate_id",
                     employeeId
                 )
                 .eq(
@@ -648,210 +827,246 @@ router.post("/check-in", async (req, res) => {
                 .limit(1)
                 .maybeSingle();
 
-        if (deploymentError) {
-            return sendError(
-                res,
-                500,
-                "Failed to find employee deployment.",
-                deploymentError
-            );
-        }
+            if (deploymentError) {
 
-        if (!deployment) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "No active deployment found for this employee.",
-            });
-        }
-
-        // ----------------------------------------------------
-        // Request values
-        // ----------------------------------------------------
-
-        const workMode =
-            req.body?.work_mode ||
-            "Office";
-
-        const remarks =
-            req.body?.remarks ||
-            "";
-
-        const now =
-            new Date().toISOString();
-
-        // ----------------------------------------------------
-        // If row exists without check-in, update it.
-        // Otherwise create it.
-        // ----------------------------------------------------
-
-        let attendance;
-        let attendanceError;
-
-        if (existing) {
-            const result = await supabase
-                .from(
-                    "third_party_emp_daily_attendance"
-                )
-                .update({
-                    deployment_id:
-                        deployment.id,
-
-                    client_id:
-                        deployment.client_id,
-
-                    check_in: now,
-
-                    check_out: null,
-
-                    working_hours: 0,
-
-                    overtime_hours: 0,
-
-                    status: "Present",
-
-                    work_mode:
-                        workMode,
-
-                    remarks,
-
-                    updated_at: now,
-                })
-                .eq(
-                    "id",
-                    existing.id
-                )
-                .select(`
-                    id,
-                    employee_id,
-                    deployment_id,
-                    client_id,
-                    attendance_date,
-                    check_in,
-                    check_out,
-                    working_hours,
-                    overtime_hours,
-                    status,
-                    work_mode,
-                    remarks,
-                    created_at,
-                    updated_at
-                `)
-                .single();
-
-            attendance =
-                result.data;
-
-            attendanceError =
-                result.error;
-        } else {
-            const result = await supabase
-                .from(
-                    "third_party_emp_daily_attendance"
-                )
-                .insert({
-                    employee_id:
-                        employeeId,
-
-                    deployment_id:
-                        deployment.id,
-
-                    client_id:
-                        deployment.client_id,
-
-                    attendance_date:
-                        today,
-
-                    check_in: now,
-
-                    check_out: null,
-
-                    working_hours: 0,
-
-                    overtime_hours: 0,
-
-                    status: "Present",
-
-                    work_mode:
-                        workMode,
-
-                    remarks,
-                })
-                .select(`
-                    id,
-                    employee_id,
-                    deployment_id,
-                    client_id,
-                    attendance_date,
-                    check_in,
-                    check_out,
-                    working_hours,
-                    overtime_hours,
-                    status,
-                    work_mode,
-                    remarks,
-                    created_at,
-                    updated_at
-                `)
-                .single();
-
-            attendance =
-                result.data;
-
-            attendanceError =
-                result.error;
-        }
-
-        if (attendanceError) {
-            return sendError(
-                res,
-                500,
-                "Failed to check in.",
-                attendanceError
-            );
-        }
-
-        // ----------------------------------------------------
-        // Immediately update monthly summary
-        // ----------------------------------------------------
-
-        const billingMonth =
-            today.substring(0, 7);
-
-        let summary = null;
-
-        try {
-            summary =
-                await recalculateMonthlySummary(
-                    employeeId,
-                    billingMonth
+                return sendError(
+                    res,
+                    500,
+                    "Failed to find employee deployment.",
+                    deploymentError
                 );
-        } catch (summaryError) {
-            console.error(
-                "Monthly summary database error:",
-                summaryError
+            }
+
+            if (!deployment) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        "No active deployment found for this employee.",
+                });
+            }
+
+            // ------------------------------------------------
+            // Request values
+            // ------------------------------------------------
+
+            const workMode =
+                req.body?.work_mode ||
+                "Office";
+
+            const remarks =
+                req.body?.remarks ||
+                "";
+
+            const now =
+                new Date().toISOString();
+
+            // ------------------------------------------------
+            // If row exists without check-in, update it.
+            // Otherwise create it.
+            // ------------------------------------------------
+
+            let attendance;
+            let attendanceError;
+
+            if (existing) {
+
+                const result =
+                    await supabase
+                        .from(
+                            "third_party_emp_daily_attendance"
+                        )
+                        .update({
+
+                            candidates_id:
+                                employeeId,
+
+                            deployment_id:
+                                deployment.id,
+
+                            client_id:
+                                deployment.client_id,
+
+                            check_in:
+                                now,
+
+                            check_out:
+                                null,
+
+                            working_hours:
+                                0,
+
+                            overtime_hours:
+                                0,
+
+                            status:
+                                "Present",
+
+                            work_mode:
+                                workMode,
+
+                            remarks,
+
+                            updated_at:
+                                now,
+                        })
+                        .eq(
+                            "id",
+                            existing.id
+                        )
+                        .select(`
+                            id,
+                            candidates_id,
+                            deployment_id,
+                            client_id,
+                            attendance_date,
+                            check_in,
+                            check_out,
+                            working_hours,
+                            overtime_hours,
+                            status,
+                            work_mode,
+                            remarks,
+                            created_at,
+                            updated_at
+                        `)
+                        .single();
+
+                attendance =
+                    result.data;
+
+                attendanceError =
+                    result.error;
+
+            } else {
+
+                const result =
+                    await supabase
+                        .from(
+                            "third_party_emp_daily_attendance"
+                        )
+                        .insert({
+
+                            candidates_id:
+                                employeeId,
+
+                            deployment_id:
+                                deployment.id,
+
+                            client_id:
+                                deployment.client_id,
+
+                            attendance_date:
+                                today,
+
+                            check_in:
+                                now,
+
+                            check_out:
+                                null,
+
+                            working_hours:
+                                0,
+
+                            overtime_hours:
+                                0,
+
+                            status:
+                                "Present",
+
+                            work_mode:
+                                workMode,
+
+                            remarks,
+                        })
+                        .select(`
+                            id,
+                            candidates_id,
+                            deployment_id,
+                            client_id,
+                            attendance_date,
+                            check_in,
+                            check_out,
+                            working_hours,
+                            overtime_hours,
+                            status,
+                            work_mode,
+                            remarks,
+                            created_at,
+                            updated_at
+                        `)
+                        .single();
+
+                attendance =
+                    result.data;
+
+                attendanceError =
+                    result.error;
+            }
+
+            if (attendanceError) {
+
+                return sendError(
+                    res,
+                    500,
+                    "Failed to check in.",
+                    attendanceError
+                );
+            }
+
+            // ------------------------------------------------
+            // Immediately update monthly summary
+            // ------------------------------------------------
+
+            const billingMonth =
+                today.substring(0, 7);
+
+            let summary = null;
+
+            try {
+
+                summary =
+                    await recalculateMonthlySummary(
+                        employeeId,
+                        billingMonth
+                    );
+
+            } catch (summaryError) {
+
+                console.error(
+                    "Monthly summary database error:",
+                    summaryError
+                );
+
+                // Attendance is already successfully saved.
+                // Do not fail check-in because summary failed.
+            }
+
+            return res.status(201).json({
+
+                success: true,
+
+                message:
+                    "Attendance checked in successfully.",
+
+                attendance,
+
+                summary,
+            });
+
+        } catch (error) {
+
+            return sendError(
+                res,
+                500,
+                "Check-in failed.",
+                error
             );
-
-            // Attendance is already successfully saved.
-            // Do not fail check-in because summary failed.
         }
-
-        return res.status(201).json({
-            success: true,
-            message:
-                "Attendance checked in successfully.",
-            attendance,
-            summary,
-        });
-    } catch (error) {
-        return sendError(
-            res,
-            500,
-            "Check-in failed.",
-            error
-        );
     }
-});
+);
 
 // ============================================================
 // CHECK OUT
@@ -859,34 +1074,43 @@ router.post("/check-in", async (req, res) => {
 // PATCH /employee/attendance/:id/check-out
 // ============================================================
 
-router.patch("/:id/check-out", async (req, res) => {
-    try {
-        const employeeId =
-            await getEmployeeId(req);
+router.patch(
+    "/:id/check-out",
+    async (req, res) => {
 
-        const attendanceId =
-            Number(req.params.id);
+        try {
 
-        if (!attendanceId) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Invalid attendance ID.",
-            });
-        }
+            const employeeId =
+                await getEmployeeId(req);
 
-        // ----------------------------------------------------
-        // Get today's attendance
-        // ----------------------------------------------------
+            const attendanceId =
+                Number(req.params.id);
 
-        const { data: attendance, error: fetchError } =
-            await supabase
+            if (!attendanceId) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        "Invalid attendance ID.",
+                });
+            }
+
+            // ------------------------------------------------
+            // Get today's attendance
+            // ------------------------------------------------
+
+            const {
+                data: attendance,
+                error: fetchError,
+            } = await supabase
                 .from(
                     "third_party_emp_daily_attendance"
                 )
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     attendance_date,
@@ -905,105 +1129,122 @@ router.patch("/:id/check-out", async (req, res) => {
                     attendanceId
                 )
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .maybeSingle();
 
-        if (fetchError) {
-            return sendError(
-                res,
-                500,
-                "Failed to fetch attendance.",
-                fetchError
-            );
-        }
+            if (fetchError) {
 
-        if (!attendance) {
-            return res.status(404).json({
-                success: false,
-                message:
-                    "Attendance record not found.",
-            });
-        }
+                return sendError(
+                    res,
+                    500,
+                    "Failed to fetch attendance.",
+                    fetchError
+                );
+            }
 
-        if (!attendance.check_in) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "You must check in before checking out.",
-            });
-        }
+            if (!attendance) {
 
-        if (attendance.check_out) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "You have already checked out.",
-                attendance,
-            });
-        }
+                return res.status(404).json({
 
-        // ----------------------------------------------------
-        // Calculate working hours
-        // ----------------------------------------------------
+                    success: false,
 
-        const checkIn =
-            new Date(
-                attendance.check_in
-            );
+                    message:
+                        "Attendance record not found.",
+                });
+            }
 
-        const checkOut =
-            new Date();
+            if (!attendance.check_in) {
 
-        const milliseconds =
-            checkOut.getTime() -
-            checkIn.getTime();
+                return res.status(400).json({
 
-        const hours =
-            milliseconds /
-            (1000 * 60 * 60);
+                    success: false,
 
-        const workingHours =
-            Math.max(
-                0,
-                Number(hours.toFixed(2))
-            );
+                    message:
+                        "You must check in before checking out.",
+                });
+            }
 
-        // ----------------------------------------------------
-        // Attendance status
-        //
-        // >= 8 hours = Present
-        // < 8 hours  = Half Day
-        // ----------------------------------------------------
+            if (attendance.check_out) {
 
-        const status =
-            workingHours >= 8
-                ? "Present"
-                : "Half Day";
+                return res.status(400).json({
 
-        // ----------------------------------------------------
-        // Overtime
-        // ----------------------------------------------------
+                    success: false,
 
-        const overtimeHours =
-            workingHours > 8
-                ? Number(
-                    (workingHours - 8)
-                        .toFixed(2)
-                )
-                : 0;
+                    message:
+                        "You have already checked out.",
 
-        // ----------------------------------------------------
-        // Update daily attendance
-        // ----------------------------------------------------
+                    attendance,
+                });
+            }
 
-        const { data: updatedAttendance, error: updateError } =
-            await supabase
+            // ------------------------------------------------
+            // Calculate working hours
+            // ------------------------------------------------
+
+            const checkIn =
+                new Date(
+                    attendance.check_in
+                );
+
+            const checkOut =
+                new Date();
+
+            const milliseconds =
+                checkOut.getTime() -
+                checkIn.getTime();
+
+            const hours =
+                milliseconds /
+                (1000 * 60 * 60);
+
+            const workingHours =
+                Math.max(
+                    0,
+                    Number(
+                        hours.toFixed(2)
+                    )
+                );
+
+            // ------------------------------------------------
+            // Attendance status
+            //
+            // >= 8 hours = Present
+            // < 8 hours  = Half Day
+            // ------------------------------------------------
+
+            const status =
+                workingHours >= 8
+                    ? "Present"
+                    : "Half Day";
+
+            // ------------------------------------------------
+            // Overtime
+            // ------------------------------------------------
+
+            const overtimeHours =
+                workingHours > 8
+                    ? Number(
+                        (
+                            workingHours - 8
+                        ).toFixed(2)
+                    )
+                    : 0;
+
+            // ------------------------------------------------
+            // Update daily attendance
+            // ------------------------------------------------
+
+            const {
+                data: updatedAttendance,
+                error: updateError,
+            } = await supabase
                 .from(
                     "third_party_emp_daily_attendance"
                 )
                 .update({
+
                     check_out:
                         checkOut.toISOString(),
 
@@ -1023,12 +1264,12 @@ router.patch("/:id/check-out", async (req, res) => {
                     attendanceId
                 )
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     attendance_date,
@@ -1044,100 +1285,125 @@ router.patch("/:id/check-out", async (req, res) => {
                 `)
                 .single();
 
-        if (updateError) {
+            if (updateError) {
+
+                return sendError(
+                    res,
+                    500,
+                    "Failed to check out.",
+                    updateError
+                );
+            }
+
+            // ------------------------------------------------
+            // Recalculate monthly summary immediately
+            // ------------------------------------------------
+
+            const billingMonth =
+                String(
+                    attendance.attendance_date
+                ).substring(0, 7);
+
+            let summary = null;
+
+            try {
+
+                summary =
+                    await recalculateMonthlySummary(
+                        employeeId,
+                        billingMonth
+                    );
+
+            } catch (summaryError) {
+
+                console.error(
+                    "Monthly summary database error:",
+                    summaryError
+                );
+            }
+
+            return res.json({
+
+                success: true,
+
+                message:
+                    "Attendance checked out successfully.",
+
+                attendance:
+                    updatedAttendance,
+
+                summary,
+            });
+
+        } catch (error) {
+
             return sendError(
                 res,
                 500,
-                "Failed to check out.",
-                updateError
+                "Check-out failed.",
+                error
             );
         }
-
-        // ----------------------------------------------------
-        // Recalculate monthly summary immediately
-        // ----------------------------------------------------
-
-        const billingMonth =
-            String(
-                attendance.attendance_date
-            ).substring(0, 7);
-
-        let summary = null;
-
-        try {
-            summary =
-                await recalculateMonthlySummary(
-                    employeeId,
-                    billingMonth
-                );
-        } catch (summaryError) {
-            console.error(
-                "Monthly summary database error:",
-                summaryError
-            );
-        }
-
-        return res.json({
-            success: true,
-            message:
-                "Attendance checked out successfully.",
-            attendance:
-                updatedAttendance,
-            summary,
-        });
-    } catch (error) {
-        return sendError(
-            res,
-            500,
-            "Check-out failed.",
-            error
-        );
     }
-});
+);
 
 // ============================================================
 // GET MONTHLY SUMMARY
 //
 // GET /employee/attendance/monthly
+//
+// Supports:
 // ?billing_month=2026-09
+// ?month=2026-09
 //
 // IMPORTANT:
 // NO status field.
 // ============================================================
 
-router.get("/monthly", async (req, res) => {
-    try {
-        const employeeId =
-            await getEmployeeId(req);
-
-        const billingMonth =
-            req.query.billing_month ||
-            getCurrentMonthIST();
-
-        // ----------------------------------------------------
-        // Recalculate first so summary is always current
-        // ----------------------------------------------------
-
-        let summary;
+router.get(
+    "/monthly",
+    async (req, res) => {
 
         try {
-            summary =
-                await recalculateMonthlySummary(
-                    employeeId,
-                    billingMonth
+
+            const employeeId =
+                await getEmployeeId(req);
+
+            // Support both frontend parameters
+            const billingMonth =
+                req.query.billing_month ||
+                req.query.month ||
+                getCurrentMonthIST();
+
+            // ------------------------------------------------
+            // Recalculate first so summary is always current
+            // ------------------------------------------------
+
+            let summary;
+
+            try {
+
+                summary =
+                    await recalculateMonthlySummary(
+                        employeeId,
+                        billingMonth
+                    );
+
+            } catch (summaryError) {
+
+                console.error(
+                    "Monthly summary recalculation failed:",
+                    summaryError
                 );
-        } catch (summaryError) {
-            console.error(
-                "Monthly summary recalculation failed:",
-                summaryError
-            );
 
-            // ------------------------------------------------
-            // Fallback: read existing summary
-            // ------------------------------------------------
+                // ------------------------------------------------
+                // Fallback: read existing summary
+                // ------------------------------------------------
 
-            const { data, error } =
-                await supabase
+                const {
+                    data,
+                    error,
+                } = await supabase
                     .from(
                         "third_party_attendance_summary"
                     )
@@ -1168,45 +1434,49 @@ router.get("/monthly", async (req, res) => {
                     )
                     .maybeSingle();
 
-            if (error) {
-                return sendError(
-                    res,
-                    500,
-                    "Failed to fetch monthly summary.",
-                    error
-                );
+                if (error) {
+
+                    return sendError(
+                        res,
+                        500,
+                        "Failed to fetch monthly summary.",
+                        error
+                    );
+                }
+
+                summary =
+                    data;
             }
 
-            summary = data;
-        }
+            // ------------------------------------------------
+            // Get daily records for this month
+            // ------------------------------------------------
 
-        // ----------------------------------------------------
-        // Get daily records for this month
-        // ----------------------------------------------------
+            const monthStart =
+                `${billingMonth}-01`;
 
-        const monthStart =
-            `${billingMonth}-01`;
+            const [year, month] =
+                billingMonth
+                    .split("-")
+                    .map(Number);
 
-        const [year, month] =
-            billingMonth
-                .split("-")
-                .map(Number);
+            const nextMonth =
+                new Date(
+                    Date.UTC(year, month, 1)
+                )
+                    .toISOString()
+                    .substring(0, 10);
 
-        const nextMonth =
-            new Date(
-                Date.UTC(year, month, 1)
-            )
-                .toISOString()
-                .substring(0, 10);
-
-        const { data: dailyAttendance, error: dailyError } =
-            await supabase
+            const {
+                data: dailyAttendance,
+                error: dailyError,
+            } = await supabase
                 .from(
                     "third_party_emp_daily_attendance"
                 )
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     attendance_date,
@@ -1221,7 +1491,7 @@ router.get("/monthly", async (req, res) => {
                     updated_at
                 `)
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .gte(
@@ -1239,40 +1509,45 @@ router.get("/monthly", async (req, res) => {
                     }
                 );
 
-        if (dailyError) {
+            if (dailyError) {
+
+                return sendError(
+                    res,
+                    500,
+                    "Failed to fetch monthly attendance.",
+                    dailyError
+                );
+            }
+
+            return res.json({
+
+                success: true,
+
+                billing_month:
+                    billingMonth,
+
+                summary:
+                    summary || null,
+
+                attendance:
+                    dailyAttendance || [],
+
+                // Convenient frontend aliases
+                daily_attendance:
+                    dailyAttendance || [],
+            });
+
+        } catch (error) {
+
             return sendError(
                 res,
                 500,
                 "Failed to fetch monthly attendance.",
-                dailyError
+                error
             );
         }
-
-        return res.json({
-            success: true,
-
-            billing_month:
-                billingMonth,
-
-            summary:
-                summary || null,
-
-            attendance:
-                dailyAttendance || [],
-
-            // Convenient frontend aliases
-            daily_attendance:
-                dailyAttendance || [],
-        });
-    } catch (error) {
-        return sendError(
-            res,
-            500,
-            "Failed to fetch monthly attendance.",
-            error
-        );
     }
-});
+);
 
 // ============================================================
 // EXPORT
