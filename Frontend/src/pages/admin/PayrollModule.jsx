@@ -315,10 +315,10 @@ export default function PayrollModule({
           )
             ? responseData.data
             : Array.isArray(
-                responseData
-              )
-            ? responseData
-            : [];
+              responseData
+            )
+              ? responseData
+              : [];
 
         if (!mounted) return;
 
@@ -405,7 +405,7 @@ export default function PayrollModule({
 
         if (
           databaseTotal !==
-            undefined &&
+          undefined &&
           databaseTotal !== null
         ) {
           return getNumericValue(
@@ -443,7 +443,7 @@ export default function PayrollModule({
       (record) => {
         return getNumericValue(
           record?.employer_pf ??
-            record?.employerPF
+          record?.employerPF
         );
       },
       []
@@ -458,7 +458,7 @@ export default function PayrollModule({
       (record) => {
         return getNumericValue(
           record?.employer_esic ??
-            record?.employerESIC
+          record?.employerESIC
         );
       },
       []
@@ -477,7 +477,7 @@ export default function PayrollModule({
 
         if (
           databaseTotal !==
-            undefined &&
+          undefined &&
           databaseTotal !== null
         ) {
           return getNumericValue(
@@ -509,7 +509,7 @@ export default function PayrollModule({
 
         if (
           databaseTotal !==
-            undefined &&
+          undefined &&
           databaseTotal !== null
         ) {
           return getNumericValue(
@@ -595,8 +595,8 @@ export default function PayrollModule({
           ) {
             throw new Error(
               json?.message ||
-                json?.error ||
-                "Payroll request failed."
+              json?.error ||
+              "Payroll request failed."
             );
           }
 
@@ -606,10 +606,10 @@ export default function PayrollModule({
             )
               ? json.data
               : Array.isArray(
-                  json
-                )
-              ? json
-              : [];
+                json
+              )
+                ? json
+                : [];
 
           console.log(
             "PAYROLL RECORDS:",
@@ -708,7 +708,7 @@ export default function PayrollModule({
           const clientMatches =
             String(
               record.client_id ??
-                ""
+              ""
             ) ===
             String(
               selectedClient
@@ -866,8 +866,8 @@ export default function PayrollModule({
         ) {
           throw new Error(
             json?.message ||
-              json?.error ||
-              "Failed to update payroll status."
+            json?.error ||
+            "Failed to update payroll status."
           );
         }
 
@@ -957,16 +957,16 @@ export default function PayrollModule({
         ) {
           throw new Error(
             json?.message ||
-              json?.error ||
-              "Payroll generation failed."
+            json?.error ||
+            "Payroll generation failed."
           );
         }
 
         alert(
           json?.message ||
-            `Payroll generated successfully for ${formatSalaryMonth(
-              payrollMonth
-            )}.`
+          `Payroll generated successfully for ${formatSalaryMonth(
+            payrollMonth
+          )}.`
         );
 
         await fetchPayroll();
@@ -1167,8 +1167,8 @@ export default function PayrollModule({
         ) {
           throw new Error(
             json?.message ||
-              json?.error ||
-              "Failed to update payroll details."
+            json?.error ||
+            "Failed to update payroll details."
           );
         }
 
@@ -1179,7 +1179,7 @@ export default function PayrollModule({
 
         alert(
           json?.message ||
-            "Payroll details updated successfully."
+          "Payroll details updated successfully."
         );
       } catch (err) {
         console.error(
@@ -1353,7 +1353,7 @@ export default function PayrollModule({
         ) {
           throw new Error(
             json?.message ||
-              "Failed to load employee data."
+            "Failed to load employee data."
           );
         }
 
@@ -1404,9 +1404,8 @@ export default function PayrollModule({
           info?.already_exists
         ) {
           setCreateError(
-            `A payroll record already exists for this employee this month (status: ${
-              info.existing_payroll_status ||
-              "Unknown"
+            `A payroll record already exists for this employee this month (status: ${info.existing_payroll_status ||
+            "Unknown"
             }).`
           );
         }
@@ -1549,8 +1548,8 @@ export default function PayrollModule({
         ) {
           throw new Error(
             json?.message ||
-              json?.error ||
-              "Failed to create payroll record."
+            json?.error ||
+            "Failed to create payroll record."
           );
         }
 
@@ -1574,7 +1573,7 @@ export default function PayrollModule({
 
         alert(
           json?.message ||
-            "Payroll created successfully."
+          "Payroll created successfully."
         );
       } catch (err) {
         console.error(
@@ -2073,7 +2072,7 @@ export default function PayrollModule({
         const employeeName =
           String(
             selectedSlip.employee_name ||
-              "Employee"
+            "Employee"
           )
             .trim()
             .replace(
@@ -2115,89 +2114,59 @@ export default function PayrollModule({
   // =====================================================
   // EMAIL PAYSLIP
   // =====================================================
+  const handleEmail = async () => {
+    if (!selectedSlip?.id) {
+      alert("Invalid payroll ID.");
+      return;
+    }
 
-  const handleEmail =
-    async () => {
-      if (!selectedSlip?.id) {
-        alert(
-          "Invalid payroll ID."
-        );
-        return;
-      }
+    const status = normalizeStatus(selectedSlip.status);
 
-      const status =
-        normalizeStatus(
-          selectedSlip.status
-        );
+    if (!ELIGIBLE_PAYSLIP_STATUSES.includes(status)) {
+      alert(
+        "Payslip can be emailed only after payroll is Approved or Locked."
+      );
+      return;
+    }
 
-      if (
-        !ELIGIBLE_PAYSLIP_STATUSES.includes(
-          status
-        )
-      ) {
-        alert(
-          "Payslip can be emailed only after payroll is Approved or Locked."
-        );
-        return;
-      }
+    try {
+      setEmailLoading(true);
 
-      if (!selectedSlip.email) {
-        alert(
-          "Employee email address is not available."
-        );
-        return;
-      }
+      const response = await api.post(
+        `/payroll/${selectedSlip.id}/email`
+      );
 
-      try {
-        setEmailLoading(
-          true
-        );
+      const data = response?.data;
 
-        const response =
-          await api.post(
-            `/payroll/${selectedSlip.id}/email`
-          );
-
-        const data =
-          response?.data;
-
-        if (
-          data?.success ===
-          false
-        ) {
-          throw new Error(
-            data?.message ||
-              data?.error ||
-              "Failed to email payslip."
-          );
-        }
-
-        alert(
+      if (data?.success === false) {
+        throw new Error(
           data?.message ||
-            "Payslip emailed successfully."
-        );
-      } catch (error) {
-        console.error(
-          "EMAIL PAYSLIP ERROR:",
-          error
-        );
-
-        const message =
-          error?.response
-            ?.data?.error ||
-          error?.response
-            ?.data?.message ||
-          error?.message ||
-          "Failed to send payslip.";
-
-        alert(message);
-      } finally {
-        setEmailLoading(
-          false
+          data?.error ||
+          "Failed to email payslip."
         );
       }
-    };
 
+      alert(
+        data?.message ||
+        "Payslip emailed successfully."
+      );
+    } catch (error) {
+      console.error(
+        "EMAIL PAYSLIP ERROR:",
+        error
+      );
+
+      const message =
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to send payslip.";
+
+      alert(message);
+    } finally {
+      setEmailLoading(false);
+    }
+  };
   // =====================================================
   // CSV ESCAPE
   // =====================================================
@@ -2264,13 +2233,13 @@ export default function PayrollModule({
             (record) =>
               [
                 record.employee_name ||
-                  "",
+                "",
 
                 record.account_number ||
-                  "",
+                "",
 
                 record.ifsc_code ||
-                  "",
+                "",
 
                 getNumericValue(
                   record.net_salary
@@ -2281,7 +2250,7 @@ export default function PayrollModule({
                 ),
 
                 record.bank_name ||
-                  "",
+                "",
 
                 getClientName(
                   record
@@ -2298,7 +2267,7 @@ export default function PayrollModule({
         new Blob(
           [
             csvHeader +
-              csvRows,
+            csvRows,
           ],
           {
             type:
@@ -2393,12 +2362,11 @@ export default function PayrollModule({
                   "payroll"
                 )
               }
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                activeSubTab ===
-                "payroll"
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition ${activeSubTab ===
+                  "payroll"
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               Payroll Processing
             </button>
@@ -2409,12 +2377,11 @@ export default function PayrollModule({
                   "payslip"
                 )
               }
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                activeSubTab ===
-                "payslip"
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition ${activeSubTab ===
+                  "payslip"
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               Payslip Generator & Viewer
             </button>
@@ -2452,694 +2419,694 @@ export default function PayrollModule({
 
         {activeSubTab ===
           "payroll" && (
-          <div className="space-y-6">
+            <div className="space-y-6">
 
-            {/* INFO */}
+              {/* INFO */}
 
-            <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-indigo-900">
+              <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-indigo-900">
 
-              <div>
-                <span className="font-bold block mb-1">
-                  Attendance Traceability
-                </span>
+                <div>
+                  <span className="font-bold block mb-1">
+                    Attendance Traceability
+                  </span>
 
-                <p className="text-indigo-700">
-                  Bulk payroll uses approved attendance records.
-                </p>
-              </div>
+                  <p className="text-indigo-700">
+                    Bulk payroll uses approved attendance records.
+                  </p>
+                </div>
 
-              <div>
-                <span className="font-bold block mb-1">
-                  Deployment Based Payroll
-                </span>
+                <div>
+                  <span className="font-bold block mb-1">
+                    Deployment Based Payroll
+                  </span>
 
-                <p className="text-indigo-700">
-                  Payroll remains linked to employee, deployment and client.
-                </p>
-              </div>
+                  <p className="text-indigo-700">
+                    Payroll remains linked to employee, deployment and client.
+                  </p>
+                </div>
 
-              <div>
-                <span className="font-bold block mb-1">
-                  Manual Control
-                </span>
+                <div>
+                  <span className="font-bold block mb-1">
+                    Manual Control
+                  </span>
 
-                <p className="text-indigo-700">
-                  Admin can correct Pending or Approved payroll before locking.
-                </p>
-              </div>
-
-            </div>
-
-            {/* RUN PAYROLL */}
-
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                  Run Bulk Payroll by Client
-                </h3>
-
-                <div className="flex flex-wrap gap-2">
-
-                  <button
-                    onClick={
-                      openCreateModal
-                    }
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center gap-1.5"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Create Payroll Manually
-                  </button>
-
-                  <button
-                    onClick={
-                      handleExportBankFile
-                    }
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center gap-1.5"
-                  >
-                    <Download className="h-4 w-4" />
-                    Export Bank File (.csv)
-                  </button>
-
+                  <p className="text-indigo-700">
+                    Admin can correct Pending or Approved payroll before locking.
+                  </p>
                 </div>
 
               </div>
 
-              <form
-                onSubmit={
-                  handleRunBulkPayroll
-                }
-                className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-2"
-              >
+              {/* RUN PAYROLL */}
 
-                {/* CLIENT */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
 
-                <div>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
 
-                  <label className="block font-bold text-slate-600 mb-1">
-                    Select Client Company
-                  </label>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                    Run Bulk Payroll by Client
+                  </h3>
 
-                  <select
-                    value={
-                      selectedClient
-                    }
-                    onChange={(e) =>
-                      setSelectedClient(
-                        e.target.value
-                      )
-                    }
-                    className="w-full border border-slate-200 p-2.5 rounded-xl bg-white font-medium text-slate-800"
-                  >
+                  <div className="flex flex-wrap gap-2">
 
-                    {clients.length ===
-                    0 ? (
-                      <option value="">
-                        No clients available
-                      </option>
-                    ) : (
-                      clients.map(
-                        (client) => (
-                          <option
-                            key={
-                              client.id
-                            }
-                            value={
-                              client.id
-                            }
-                          >
-                            {
-                              client.company_name
-                            }{" "}
-                            (ID:{" "}
-                            {
-                              client.id
-                            }
-                            )
-                          </option>
-                        )
-                      )
-                    )}
-
-                  </select>
-
-                </div>
-
-                {/* MONTH */}
-
-                <div>
-
-                  <label className="block font-bold text-slate-600 mb-1">
-                    Salary Month
-                  </label>
-
-                  <div className="relative">
-
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-
-                    <input
-                      type="month"
-                      required
-                      value={
-                        salaryMonth
+                    <button
+                      onClick={
+                        openCreateModal
                       }
-                      onChange={(e) =>
-                        setSalaryMonth(
-                          e.target.value
-                        )
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center gap-1.5"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      Create Payroll Manually
+                    </button>
+
+                    <button
+                      onClick={
+                        handleExportBankFile
                       }
-                      className="w-full border border-slate-200 p-2.5 pl-10 rounded-xl font-medium text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
-                    />
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center gap-1.5"
+                    >
+                      <Download className="h-4 w-4" />
+                      Export Bank File (.csv)
+                    </button>
 
                   </div>
 
-                  <p className="text-[10px] text-slate-400 mt-1">
+                </div>
 
-                    Selected:{" "}
+                <form
+                  onSubmit={
+                    handleRunBulkPayroll
+                  }
+                  className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-2"
+                >
 
-                    <span className="font-semibold text-slate-600">
-                      {
-                        formatSalaryMonth(
-                          salaryMonth
+                  {/* CLIENT */}
+
+                  <div>
+
+                    <label className="block font-bold text-slate-600 mb-1">
+                      Select Client Company
+                    </label>
+
+                    <select
+                      value={
+                        selectedClient
+                      }
+                      onChange={(e) =>
+                        setSelectedClient(
+                          e.target.value
                         )
                       }
-                    </span>
+                      className="w-full border border-slate-200 p-2.5 rounded-xl bg-white font-medium text-slate-800"
+                    >
 
-                    <span className="ml-2 text-slate-400">
-                      (
-                      {
-                        getCalendarDaysInMonth(
-                          salaryMonth
+                      {clients.length ===
+                        0 ? (
+                        <option value="">
+                          No clients available
+                        </option>
+                      ) : (
+                        clients.map(
+                          (client) => (
+                            <option
+                              key={
+                                client.id
+                              }
+                              value={
+                                client.id
+                              }
+                            >
+                              {
+                                client.company_name
+                              }{" "}
+                              (ID:{" "}
+                              {
+                                client.id
+                              }
+                              )
+                            </option>
+                          )
                         )
-                      }{" "}
-                      calendar days)
-                    </span>
+                      )}
 
-                  </p>
+                    </select>
+
+                  </div>
+
+                  {/* MONTH */}
+
+                  <div>
+
+                    <label className="block font-bold text-slate-600 mb-1">
+                      Salary Month
+                    </label>
+
+                    <div className="relative">
+
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+
+                      <input
+                        type="month"
+                        required
+                        value={
+                          salaryMonth
+                        }
+                        onChange={(e) =>
+                          setSalaryMonth(
+                            e.target.value
+                          )
+                        }
+                        className="w-full border border-slate-200 p-2.5 pl-10 rounded-xl font-medium text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                      />
+
+                    </div>
+
+                    <p className="text-[10px] text-slate-400 mt-1">
+
+                      Selected:{" "}
+
+                      <span className="font-semibold text-slate-600">
+                        {
+                          formatSalaryMonth(
+                            salaryMonth
+                          )
+                        }
+                      </span>
+
+                      <span className="ml-2 text-slate-400">
+                        (
+                        {
+                          getCalendarDaysInMonth(
+                            salaryMonth
+                          )
+                        }{" "}
+                        calendar days)
+                      </span>
+
+                    </p>
+
+                  </div>
+
+                  {/* RUN */}
+
+                  <div className="flex items-end">
+
+                    <button
+                      type="submit"
+                      disabled={
+                        generating ||
+                        !selectedClient
+                      }
+                      className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center justify-center gap-1.5"
+                    >
+
+                      {generating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generating Payroll...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4" />
+                          Run Payroll from Attendance
+                        </>
+                      )}
+
+                    </button>
+
+                  </div>
+
+                </form>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+
+                  <strong>
+                    Important:
+                  </strong>{" "}
+                  Only Approved attendance can generate payroll.
 
                 </div>
 
-                {/* RUN */}
+              </div>
 
-                <div className="flex items-end">
+              {/* PAYROLL TABLE */}
 
-                  <button
-                    type="submit"
-                    disabled={
-                      generating ||
-                      !selectedClient
-                    }
-                    className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center justify-center gap-1.5"
-                  >
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
 
-                    {generating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Generating Payroll...
-                      </>
+                <table className="w-full text-left border-collapse">
+
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
+
+                      <th className="p-4">
+                        Client / Employee
+                      </th>
+
+                      <th className="p-4">
+                        Month
+                      </th>
+
+                      <th className="p-4">
+                        Attendance
+                      </th>
+
+                      <th className="p-4">
+                        Gross Salary
+                      </th>
+
+                      <th className="p-4">
+                        Employee Deductions
+                      </th>
+
+                      <th className="p-4">
+                        Net Salary
+                      </th>
+
+                      <th className="p-4">
+                        Employer Contributions
+                      </th>
+
+                      <th className="p-4">
+                        Employer Cost
+                      </th>
+
+                      <th className="p-4">
+                        Status
+                      </th>
+
+                      <th className="p-4 text-right">
+                        Actions
+                      </th>
+
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 text-sm">
+
+                    {filteredPayrollRecords.length ===
+                      0 ? (
+
+                      <tr>
+                        <td
+                          colSpan="10"
+                          className="p-10 text-center"
+                        >
+
+                          <FileText className="h-8 w-8 mx-auto mb-2 opacity-50 text-slate-400" />
+
+                          <p className="text-sm font-semibold text-slate-600">
+                            No payroll records found
+                          </p>
+
+                          <p className="text-xs mt-1 text-slate-400">
+
+                            No payroll exists for{" "}
+
+                            <strong>
+                              {
+                                formatSalaryMonth(
+                                  salaryMonth
+                                )
+                              }
+                            </strong>{" "}
+
+                            for the selected client.
+
+                          </p>
+
+                        </td>
+                      </tr>
+
                     ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4" />
-                        Run Payroll from Attendance
-                      </>
+
+                      filteredPayrollRecords.map(
+                        (rec) => {
+
+                          const status =
+                            normalizeStatus(
+                              rec.status
+                            );
+
+                          const totalDeductions =
+                            getTotalDeductions(
+                              rec
+                            );
+
+                          const employerPF =
+                            getEmployerPF(
+                              rec
+                            );
+
+                          const employerESIC =
+                            getEmployerESIC(
+                              rec
+                            );
+
+                          const totalEmployerContribution =
+                            getTotalEmployerContribution(
+                              rec
+                            );
+
+                          const totalEmployerCost =
+                            getTotalEmployerCost(
+                              rec
+                            );
+
+                          return (
+                            <tr
+                              key={
+                                rec.id
+                              }
+                              className="hover:bg-slate-50 transition"
+                            >
+
+                              <td className="p-4">
+
+                                <p className="font-bold text-slate-900">
+                                  {
+                                    rec.employee_name ||
+                                    "N/A"
+                                  }
+                                </p>
+
+                                <p className="text-[11px] text-indigo-600 font-semibold">
+                                  {
+                                    getClientName(
+                                      rec
+                                    )
+                                  }
+                                </p>
+
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                  Client ID:{" "}
+                                  {
+                                    rec.client_id ??
+                                    "-"
+                                  }
+
+                                  {" • "}
+
+                                  Deployment ID:{" "}
+                                  {
+                                    rec.deployment_id ??
+                                    "-"
+                                  }
+                                </p>
+
+                              </td>
+
+                              <td className="p-4 text-slate-600 text-xs">
+                                {
+                                  formatSalaryMonth(
+                                    rec.salary_month
+                                  )
+                                }
+                              </td>
+
+                              <td className="p-4 text-xs">
+
+                                <div className="flex items-center gap-1 font-semibold text-slate-800">
+
+                                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
+
+                                  Present:{" "}
+                                  {
+                                    rec.present_days ??
+                                    "-"
+                                  }
+
+                                  {" / "}
+
+                                  {
+                                    rec.total_days ??
+                                    getCalendarDaysInMonth(
+                                      rec.salary_month
+                                    )
+                                  }
+
+                                </div>
+
+                                <span className="text-rose-600 font-medium">
+                                  LOP Days:{" "}
+                                  {
+                                    rec.lop_days ??
+                                    "-"
+                                  }
+                                </span>
+
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                  Attendance ID:{" "}
+                                  {
+                                    rec.attendance_id ??
+                                    "-"
+                                  }
+                                </p>
+
+                              </td>
+
+                              <td className="p-4 font-semibold text-slate-800">
+                                ₹
+                                {
+                                  formatMoney(
+                                    rec.gross_salary
+                                  )
+                                }
+                              </td>
+
+                              <td className="p-4 text-rose-600 font-medium text-xs">
+
+                                <div>
+                                  PF: ₹
+                                  {
+                                    formatMoney(
+                                      rec.pf
+                                    )
+                                  }
+                                </div>
+
+                                <div>
+                                  ESIC: ₹
+                                  {
+                                    formatMoney(
+                                      rec.esic
+                                    )
+                                  }
+                                </div>
+
+                                <div>
+                                  TDS: ₹
+                                  {
+                                    formatMoney(
+                                      rec.tax
+                                    )
+                                  }
+                                </div>
+
+                                <div>
+                                  PT: ₹
+                                  {
+                                    formatMoney(
+                                      rec.professional_tax
+                                    )
+                                  }
+                                </div>
+
+                                <div>
+                                  LOP: ₹
+                                  {
+                                    formatMoney(
+                                      rec.lop
+                                    )
+                                  }
+                                </div>
+
+                                <div className="font-bold border-t border-rose-100 mt-1 pt-1">
+                                  Total: ₹
+                                  {
+                                    formatMoney(
+                                      totalDeductions
+                                    )
+                                  }
+                                </div>
+
+                              </td>
+
+                              <td className="p-4 font-bold text-emerald-600">
+                                ₹
+                                {
+                                  formatMoney(
+                                    rec.net_salary
+                                  )
+                                }
+                              </td>
+
+                              <td className="p-4 text-xs">
+
+                                <div className="text-slate-600">
+                                  Employer PF:{" "}
+                                  <span className="font-semibold text-slate-800">
+                                    ₹
+                                    {
+                                      formatMoney(
+                                        employerPF
+                                      )
+                                    }
+                                  </span>
+                                </div>
+
+                                <div className="text-slate-600 mt-1">
+                                  Employer ESIC:{" "}
+                                  <span className="font-semibold text-slate-800">
+                                    ₹
+                                    {
+                                      formatMoney(
+                                        employerESIC
+                                      )
+                                    }
+                                  </span>
+                                </div>
+
+                                <div className="border-t border-indigo-100 mt-2 pt-2">
+                                  <span className="font-bold text-indigo-700">
+                                    Total: ₹
+                                    {
+                                      formatMoney(
+                                        totalEmployerContribution
+                                      )
+                                    }
+                                  </span>
+                                </div>
+
+                              </td>
+
+                              <td className="p-4">
+
+                                <div className="font-bold text-slate-900">
+                                  ₹
+                                  {
+                                    formatMoney(
+                                      totalEmployerCost
+                                    )
+                                  }
+                                </div>
+
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                  Gross + Contributions
+                                </p>
+
+                              </td>
+
+                              <td className="p-4">
+
+                                <span
+                                  className={`px-2.5 py-1 text-xs font-bold rounded-full ${getStatusClass(
+                                    status
+                                  )}`}
+                                >
+                                  {status ||
+                                    "Unknown"}
+                                </span>
+
+                              </td>
+
+                              <td className="p-4 text-right">
+
+                                <div className="flex justify-end gap-2 flex-wrap">
+
+                                  {/* APPROVE / LOCK */}
+
+                                  {status !==
+                                    PAYROLL_STATUSES.LOCKED && (
+                                      <button
+                                        onClick={() =>
+                                          handleUpdateStatus(
+                                            rec.id,
+                                            status
+                                          )
+                                        }
+                                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition inline-flex items-center gap-1 shadow-sm"
+                                      >
+
+                                        {status ===
+                                          PAYROLL_STATUSES.APPROVED ? (
+                                          <>
+                                            <Lock className="h-3.5 w-3.5" />
+                                            Lock
+                                          </>
+                                        ) : (
+                                          <>
+                                            <CheckCircle2 className="h-3.5 w-3.5" />
+                                            Approve
+                                          </>
+                                        )}
+
+                                      </button>
+                                    )}
+
+                                  {/* EDIT */}
+
+                                  {(
+                                    status ===
+                                    PAYROLL_STATUSES.PENDING ||
+                                    status ===
+                                    PAYROLL_STATUSES.APPROVED
+                                  ) && (
+                                      <button
+                                        onClick={() =>
+                                          openEditModal(
+                                            rec
+                                          )
+                                        }
+                                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                        Edit
+                                      </button>
+                                    )}
+
+                                  {/* VIEW SLIP */}
+
+                                  {ELIGIBLE_PAYSLIP_STATUSES.includes(
+                                    status
+                                  ) && (
+                                      <button
+                                        onClick={() => {
+                                          setSelectedSlip(
+                                            rec
+                                          );
+
+                                          setActiveSubTab(
+                                            "payslip"
+                                          );
+                                        }}
+                                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
+                                      >
+
+                                        <FileText className="h-3.5 w-3.5" />
+
+                                        View Slip
+
+                                      </button>
+                                    )}
+
+                                </div>
+
+                              </td>
+
+                            </tr>
+                          );
+                        }
+                      )
                     )}
 
-                  </button>
+                  </tbody>
 
-                </div>
-
-              </form>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
-
-                <strong>
-                  Important:
-                </strong>{" "}
-                Only Approved attendance can generate payroll.
+                </table>
 
               </div>
 
             </div>
-
-            {/* PAYROLL TABLE */}
-
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
-
-              <table className="w-full text-left border-collapse">
-
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
-
-                    <th className="p-4">
-                      Client / Employee
-                    </th>
-
-                    <th className="p-4">
-                      Month
-                    </th>
-
-                    <th className="p-4">
-                      Attendance
-                    </th>
-
-                    <th className="p-4">
-                      Gross Salary
-                    </th>
-
-                    <th className="p-4">
-                      Employee Deductions
-                    </th>
-
-                    <th className="p-4">
-                      Net Salary
-                    </th>
-
-                    <th className="p-4">
-                      Employer Contributions
-                    </th>
-
-                    <th className="p-4">
-                      Employer Cost
-                    </th>
-
-                    <th className="p-4">
-                      Status
-                    </th>
-
-                    <th className="p-4 text-right">
-                      Actions
-                    </th>
-
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100 text-sm">
-
-                  {filteredPayrollRecords.length ===
-                  0 ? (
-
-                    <tr>
-                      <td
-                        colSpan="10"
-                        className="p-10 text-center"
-                      >
-
-                        <FileText className="h-8 w-8 mx-auto mb-2 opacity-50 text-slate-400" />
-
-                        <p className="text-sm font-semibold text-slate-600">
-                          No payroll records found
-                        </p>
-
-                        <p className="text-xs mt-1 text-slate-400">
-
-                          No payroll exists for{" "}
-
-                          <strong>
-                            {
-                              formatSalaryMonth(
-                                salaryMonth
-                              )
-                            }
-                          </strong>{" "}
-
-                          for the selected client.
-
-                        </p>
-
-                      </td>
-                    </tr>
-
-                  ) : (
-
-                    filteredPayrollRecords.map(
-                      (rec) => {
-
-                        const status =
-                          normalizeStatus(
-                            rec.status
-                          );
-
-                        const totalDeductions =
-                          getTotalDeductions(
-                            rec
-                          );
-
-                        const employerPF =
-                          getEmployerPF(
-                            rec
-                          );
-
-                        const employerESIC =
-                          getEmployerESIC(
-                            rec
-                          );
-
-                        const totalEmployerContribution =
-                          getTotalEmployerContribution(
-                            rec
-                          );
-
-                        const totalEmployerCost =
-                          getTotalEmployerCost(
-                            rec
-                          );
-
-                        return (
-                          <tr
-                            key={
-                              rec.id
-                            }
-                            className="hover:bg-slate-50 transition"
-                          >
-
-                            <td className="p-4">
-
-                              <p className="font-bold text-slate-900">
-                                {
-                                  rec.employee_name ||
-                                  "N/A"
-                                }
-                              </p>
-
-                              <p className="text-[11px] text-indigo-600 font-semibold">
-                                {
-                                  getClientName(
-                                    rec
-                                  )
-                                }
-                              </p>
-
-                              <p className="text-[10px] text-slate-400 mt-1">
-                                Client ID:{" "}
-                                {
-                                  rec.client_id ??
-                                  "-"
-                                }
-
-                                {" • "}
-
-                                Deployment ID:{" "}
-                                {
-                                  rec.deployment_id ??
-                                  "-"
-                                }
-                              </p>
-
-                            </td>
-
-                            <td className="p-4 text-slate-600 text-xs">
-                              {
-                                formatSalaryMonth(
-                                  rec.salary_month
-                                )
-                              }
-                            </td>
-
-                            <td className="p-4 text-xs">
-
-                              <div className="flex items-center gap-1 font-semibold text-slate-800">
-
-                                <Calendar className="h-3.5 w-3.5 text-slate-400" />
-
-                                Present:{" "}
-                                {
-                                  rec.present_days ??
-                                  "-"
-                                }
-
-                                {" / "}
-
-                                {
-                                  rec.total_days ??
-                                  getCalendarDaysInMonth(
-                                    rec.salary_month
-                                  )
-                                }
-
-                              </div>
-
-                              <span className="text-rose-600 font-medium">
-                                LOP Days:{" "}
-                                {
-                                  rec.lop_days ??
-                                  "-"
-                                }
-                              </span>
-
-                              <p className="text-[10px] text-slate-400 mt-1">
-                                Attendance ID:{" "}
-                                {
-                                  rec.attendance_id ??
-                                  "-"
-                                }
-                              </p>
-
-                            </td>
-
-                            <td className="p-4 font-semibold text-slate-800">
-                              ₹
-                              {
-                                formatMoney(
-                                  rec.gross_salary
-                                )
-                              }
-                            </td>
-
-                            <td className="p-4 text-rose-600 font-medium text-xs">
-
-                              <div>
-                                PF: ₹
-                                {
-                                  formatMoney(
-                                    rec.pf
-                                  )
-                                }
-                              </div>
-
-                              <div>
-                                ESIC: ₹
-                                {
-                                  formatMoney(
-                                    rec.esic
-                                  )
-                                }
-                              </div>
-
-                              <div>
-                                TDS: ₹
-                                {
-                                  formatMoney(
-                                    rec.tax
-                                  )
-                                }
-                              </div>
-
-                              <div>
-                                PT: ₹
-                                {
-                                  formatMoney(
-                                    rec.professional_tax
-                                  )
-                                }
-                              </div>
-
-                              <div>
-                                LOP: ₹
-                                {
-                                  formatMoney(
-                                    rec.lop
-                                  )
-                                }
-                              </div>
-
-                              <div className="font-bold border-t border-rose-100 mt-1 pt-1">
-                                Total: ₹
-                                {
-                                  formatMoney(
-                                    totalDeductions
-                                  )
-                                }
-                              </div>
-
-                            </td>
-
-                            <td className="p-4 font-bold text-emerald-600">
-                              ₹
-                              {
-                                formatMoney(
-                                  rec.net_salary
-                                )
-                              }
-                            </td>
-
-                            <td className="p-4 text-xs">
-
-                              <div className="text-slate-600">
-                                Employer PF:{" "}
-                                <span className="font-semibold text-slate-800">
-                                  ₹
-                                  {
-                                    formatMoney(
-                                      employerPF
-                                    )
-                                  }
-                                </span>
-                              </div>
-
-                              <div className="text-slate-600 mt-1">
-                                Employer ESIC:{" "}
-                                <span className="font-semibold text-slate-800">
-                                  ₹
-                                  {
-                                    formatMoney(
-                                      employerESIC
-                                    )
-                                  }
-                                </span>
-                              </div>
-
-                              <div className="border-t border-indigo-100 mt-2 pt-2">
-                                <span className="font-bold text-indigo-700">
-                                  Total: ₹
-                                  {
-                                    formatMoney(
-                                      totalEmployerContribution
-                                    )
-                                  }
-                                </span>
-                              </div>
-
-                            </td>
-
-                            <td className="p-4">
-
-                              <div className="font-bold text-slate-900">
-                                ₹
-                                {
-                                  formatMoney(
-                                    totalEmployerCost
-                                  )
-                                }
-                              </div>
-
-                              <p className="text-[10px] text-slate-400 mt-1">
-                                Gross + Contributions
-                              </p>
-
-                            </td>
-
-                            <td className="p-4">
-
-                              <span
-                                className={`px-2.5 py-1 text-xs font-bold rounded-full ${getStatusClass(
-                                  status
-                                )}`}
-                              >
-                                {status ||
-                                  "Unknown"}
-                              </span>
-
-                            </td>
-
-                            <td className="p-4 text-right">
-
-                              <div className="flex justify-end gap-2 flex-wrap">
-
-                                {/* APPROVE / LOCK */}
-
-                                {status !==
-                                  PAYROLL_STATUSES.LOCKED && (
-                                  <button
-                                    onClick={() =>
-                                      handleUpdateStatus(
-                                        rec.id,
-                                        status
-                                      )
-                                    }
-                                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition inline-flex items-center gap-1 shadow-sm"
-                                  >
-
-                                    {status ===
-                                    PAYROLL_STATUSES.APPROVED ? (
-                                      <>
-                                        <Lock className="h-3.5 w-3.5" />
-                                        Lock
-                                      </>
-                                    ) : (
-                                      <>
-                                        <CheckCircle2 className="h-3.5 w-3.5" />
-                                        Approve
-                                      </>
-                                    )}
-
-                                  </button>
-                                )}
-
-                                {/* EDIT */}
-
-                                {(
-                                  status ===
-                                    PAYROLL_STATUSES.PENDING ||
-                                  status ===
-                                    PAYROLL_STATUSES.APPROVED
-                                ) && (
-                                  <button
-                                    onClick={() =>
-                                      openEditModal(
-                                        rec
-                                      )
-                                    }
-                                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                    Edit
-                                  </button>
-                                )}
-
-                                {/* VIEW SLIP */}
-
-                                {ELIGIBLE_PAYSLIP_STATUSES.includes(
-                                  status
-                                ) && (
-                                  <button
-                                    onClick={() => {
-                                      setSelectedSlip(
-                                        rec
-                                      );
-
-                                      setActiveSubTab(
-                                        "payslip"
-                                      );
-                                    }}
-                                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition inline-flex items-center gap-1"
-                                  >
-
-                                    <FileText className="h-3.5 w-3.5" />
-
-                                    View Slip
-
-                                  </button>
-                                )}
-
-                              </div>
-
-                            </td>
-
-                          </tr>
-                        );
-                      }
-                    )
-                  )}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          </div>
-        )}
+          )}
 
         {/* =====================================================
             PAYSLIP TAB
@@ -3148,836 +3115,827 @@ export default function PayrollModule({
         {activeSubTab ===
           "payslip" && (
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            {/* EMPLOYEE LIST */}
+              {/* EMPLOYEE LIST */}
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3 h-fit">
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3 h-fit">
 
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Select Employee Slip
-              </h3>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Select Employee Slip
+                </h3>
 
-              <p className="text-[10px] text-slate-400 pb-2 border-b border-slate-100">
+                <p className="text-[10px] text-slate-400 pb-2 border-b border-slate-100">
 
-                {
-                  getClientName({
-                    client_id:
-                      selectedClient,
-                  })
-                }
+                  {
+                    getClientName({
+                      client_id:
+                        selectedClient,
+                    })
+                  }
 
-                {" • "}
+                  {" • "}
 
-                {
-                  formatSalaryMonth(
-                    salaryMonth
-                  )
-                }
+                  {
+                    formatSalaryMonth(
+                      salaryMonth
+                    )
+                  }
 
-              </p>
+                </p>
 
-              {payslipRecords.length ===
-              0 ? (
+                {payslipRecords.length ===
+                  0 ? (
 
-                <div className="p-4 text-center">
+                  <div className="p-4 text-center">
 
-                  <p className="text-xs font-semibold text-slate-600">
-                    No payslips available.
-                  </p>
+                    <p className="text-xs font-semibold text-slate-600">
+                      No payslips available.
+                    </p>
 
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Payslips are available only after payroll is Approved or Locked.
-                  </p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Payslips are available only after payroll is Approved or Locked.
+                    </p>
 
-                </div>
+                  </div>
 
-              ) : (
+                ) : (
 
-                payslipRecords.map(
-                  (rec) => {
+                  payslipRecords.map(
+                    (rec) => {
 
-                    const status =
-                      normalizeStatus(
-                        rec.status
-                      );
+                      const status =
+                        normalizeStatus(
+                          rec.status
+                        );
 
-                    return (
-                      <div
-                        key={
-                          rec.id
-                        }
-                        onClick={() =>
-                          setSelectedSlip(
-                            rec
-                          )
-                        }
-                        className={`p-3 rounded-xl cursor-pointer border transition ${
-                          String(
+                      return (
+                        <div
+                          key={
+                            rec.id
+                          }
+                          onClick={() =>
+                            setSelectedSlip(
+                              rec
+                            )
+                          }
+                          className={`p-3 rounded-xl cursor-pointer border transition ${String(
                             selectedSlip?.id
                           ) ===
-                          String(
-                            rec.id
-                          )
-                            ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
-                            : "border-slate-200 hover:bg-slate-50"
-                        }`}
-                      >
+                              String(
+                                rec.id
+                              )
+                              ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
+                              : "border-slate-200 hover:bg-slate-50"
+                            }`}
+                        >
 
-                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex justify-between items-start gap-2">
 
-                          <div>
+                            <div>
 
-                            <p className="text-xs font-bold text-slate-900">
+                              <p className="text-xs font-bold text-slate-900">
+                                {
+                                  rec.employee_name ||
+                                  "Employee"
+                                }
+                              </p>
+
+                              <p className="text-[10px] text-indigo-600 font-semibold">
+                                {
+                                  getClientName(
+                                    rec
+                                  )
+                                }
+                              </p>
+
+                            </div>
+
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${getStatusClass(
+                                status
+                              )}`}
+                            >
                               {
-                                rec.employee_name ||
-                                "Employee"
+                                status
                               }
-                            </p>
-
-                            <p className="text-[10px] text-indigo-600 font-semibold">
-                              {
-                                getClientName(
-                                  rec
-                                )
-                              }
-                            </p>
+                            </span>
 
                           </div>
 
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${getStatusClass(
-                              status
-                            )}`}
-                          >
-                            {
-                              status
-                            }
-                          </span>
-
-                        </div>
-
-                        <div className="flex justify-between items-center mt-2 text-[11px] text-slate-500">
-
-                          <span>
-                            {
-                              formatSalaryMonth(
-                                rec.salary_month
-                              )
-                            }
-                          </span>
-
-                          <span className="font-semibold text-emerald-600">
-                            ₹
-                            {
-                              formatMoney(
-                                rec.net_salary
-                              )
-                            }
-                          </span>
-
-                        </div>
-
-                      </div>
-                    );
-                  }
-                )
-
-              )}
-
-            </div>
-
-            {/* PAYSLIP */}
-
-            <div
-              ref={payslipRef}
-              className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-8 shadow-sm space-y-6"
-            >
-
-              {!selectedSlip ? (
-
-                <div className="text-center py-12">
-
-                  <FileText className="h-10 w-10 mx-auto text-slate-300 mb-3" />
-
-                  <p className="text-sm font-semibold text-slate-600">
-                    No payslip available
-                  </p>
-
-                  <p className="text-xs text-slate-400 mt-1">
-                    Payroll must be Approved or Locked before a payslip can be viewed.
-                  </p>
-
-                </div>
-
-              ) : (
-
-                <>
-
-                  {/* HEADER */}
-
-                  <div className="flex justify-between items-start border-b border-slate-100 pb-6">
-
-                    <div>
-
-                      <h2 className="text-xl font-extrabold text-slate-900">
-                        Talent Corner HR Services
-                      </h2>
-
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Client:{" "}
-                        <span className="font-semibold text-slate-700">
-                          {
-                            getClientName(
-                              selectedSlip
-                            )
-                          }
-                        </span>
-                      </p>
-
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        Client ID:{" "}
-                        {
-                          selectedSlip.client_id ??
-                          "-"
-                        }
-
-                        {" • "}
-
-                        Deployment ID:{" "}
-                        {
-                          selectedSlip.deployment_id ??
-                          "-"
-                        }
-                      </p>
-
-                    </div>
-
-                    <div className="text-right">
-
-                      <span className="bg-slate-100 text-slate-800 text-xs font-bold px-3 py-1 rounded-full">
-
-                        Payslip:{" "}
-                        {
-                          formatSalaryMonth(
-                            selectedSlip.salary_month
-                          )
-                        }
-
-                      </span>
-
-                      <p className="text-[11px] text-slate-400 mt-1">
-
-                        Status:{" "}
-
-                        <span className="font-semibold text-slate-700">
-                          {
-                            normalizeStatus(
-                              selectedSlip.status
-                            )
-                          }
-                        </span>
-
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                  {/* EMPLOYEE SUMMARY */}
-
-                  <div className="bg-slate-50 p-4 rounded-xl grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
-
-                    <div>
-                      <p className="text-slate-400 font-medium">
-                        Employee Name
-                      </p>
-
-                      <p className="font-bold text-slate-900 text-sm mt-0.5">
-                        {
-                          selectedSlip.employee_name ||
-                          "Employee"
-                        }
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-slate-400 font-medium">
-                        Present
-                      </p>
-
-                      <p className="font-bold text-slate-900 text-sm mt-0.5">
-                        {
-                          selectedSlip.present_days ??
-                          "-"
-                        }
-                        {" / "}
-                        {
-                          selectedSlip.total_days ??
-                          getCalendarDaysInMonth(
-                            selectedSlip.salary_month
-                          )
-                        }
-                        {" Days"}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-slate-400 font-medium">
-                        LOP Days
-                      </p>
-
-                      <p className="font-bold text-rose-600 text-sm mt-0.5">
-                        {
-                          selectedSlip.lop_days ??
-                          0
-                        }
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-slate-400 font-medium">
-                        Leave
-                      </p>
-
-                      <p className="font-bold text-slate-900 text-sm mt-0.5">
-                        {
-                          selectedSlip.leave_days ??
-                          0
-                        }
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-slate-400 font-medium">
-                        Overtime
-                      </p>
-
-                      <p className="font-bold text-slate-900 text-sm mt-0.5">
-                        {
-                          selectedSlip.overtime_hours ??
-                          0
-                        }{" "}
-                        hrs
-                      </p>
-                    </div>
-
-                  </div>
-
-                  {/* EARNINGS + DEDUCTIONS */}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-
-                    {/* EARNINGS */}
-
-                    <div className="border border-slate-200 rounded-xl overflow-hidden">
-
-                      <div className="bg-slate-100 p-3 font-bold text-slate-700 uppercase tracking-wider">
-                        Earnings
-                      </div>
-
-                      <div className="p-4 space-y-3">
-
-                        <div className="flex justify-between">
-                          <span>
-                            Basic Salary
-                          </span>
-
-                          <span className="font-semibold">
-                            ₹
-                            {
-                              formatMoney(
-                                selectedSlip.basic_salary
-                              )
-                            }
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <span>
-                            Allowances
-                          </span>
-
-                          <span className="font-semibold">
-                            ₹
-                            {
-                              formatMoney(
-                                selectedSlip.allowances
-                              )
-                            }
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <span>
-                            Overtime
-                          </span>
-
-                          <span className="font-semibold">
-                            ₹
-                            {
-                              formatMoney(
-                                selectedSlip.overtime ??
-                                selectedSlip.overtime_amount
-                              )
-                            }
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <span>
-                            Bonus
-                          </span>
-
-                          <span className="font-semibold">
-                            ₹
-                            {
-                              formatMoney(
-                                selectedSlip.bonus
-                              )
-                            }
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between pt-3 border-t border-slate-200 font-bold text-slate-900">
-                          <span>
-                            Gross Earnings
-                          </span>
-
-                          <span>
-                            ₹
-                            {
-                              formatMoney(
-                                selectedSlip.gross_salary
-                              )
-                            }
-                          </span>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    {/* DEDUCTIONS */}
-
-                    <div className="border border-slate-200 rounded-xl overflow-hidden">
-
-                      <div className="bg-slate-100 p-3 font-bold text-slate-700 uppercase tracking-wider">
-                        Employee Deductions
-                      </div>
-
-                      <div className="p-4 space-y-3">
-
-                        <div className="flex justify-between">
-                          <span>
-                            Provident Fund (PF)
-                          </span>
-
-                          <span className="font-semibold text-rose-600">
-                            ₹
-                            {
-                              formatMoney(
-                                selectedSlip.pf ??
-                                selectedSlip.employee_pf
-                              )
-                            }
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <span>
-                            ESIC
-                          </span>
-
-                          <span className="font-semibold text-rose-600">
-                            ₹
-                            {
-                              formatMoney(
-                                selectedSlip.esic ??
-                                selectedSlip.employee_esic
-                              )
-                            }
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <span>
-                            Tax (TDS)
-                          </span>
-
-                          <span className="font-semibold text-rose-600">
-                            ₹
-                            {
-                              formatMoney(
-                                selectedSlip.tax ??
-                                selectedSlip.tds
-                              )
-                            }
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <span>
-                            Professional Tax
-                          </span>
-
-                          <span className="font-semibold text-rose-600">
-                            ₹
-                            {
-                              formatMoney(
-                                selectedSlip.professional_tax
-                              )
-                            }
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between">
-                          <span>
-                            Loss of Pay (LOP)
-                          </span>
-
-                          <span className="font-semibold text-rose-600">
-                            ₹
-                            {
-                              formatMoney(
-                                selectedSlip.lop ??
-                                selectedSlip.lop_deduction
-                              )
-                            }
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between pt-3 border-t border-slate-200 font-bold text-slate-900">
-                          <span>
-                            Total Deductions
-                          </span>
-
-                          <span>
-                            ₹
-                            {
-                              formatMoney(
-                                getTotalDeductions(
-                                  selectedSlip
+                          <div className="flex justify-between items-center mt-2 text-[11px] text-slate-500">
+
+                            <span>
+                              {
+                                formatSalaryMonth(
+                                  rec.salary_month
                                 )
-                              )
-                            }
-                          </span>
+                              }
+                            </span>
+
+                            <span className="font-semibold text-emerald-600">
+                              ₹
+                              {
+                                formatMoney(
+                                  rec.net_salary
+                                )
+                              }
+                            </span>
+
+                          </div>
+
                         </div>
+                      );
+                    }
+                  )
 
-                      </div>
+                )}
 
-                    </div>
+              </div>
 
-                  </div>
+              {/* PAYSLIP */}
 
-                  {/* EMPLOYER CONTRIBUTIONS */}
+              <div
+                ref={payslipRef}
+                className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-8 shadow-sm space-y-6"
+              >
 
-                  <div className="border border-indigo-100 bg-indigo-50/50 rounded-xl overflow-hidden">
+                {!selectedSlip ? (
 
-                    <div className="bg-indigo-100/70 p-3 font-bold text-indigo-900 uppercase tracking-wider text-xs">
-                      Employer Contributions
-                    </div>
+                  <div className="text-center py-12">
 
-                    <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <FileText className="h-10 w-10 mx-auto text-slate-300 mb-3" />
 
-                      <div>
-                        <p className="text-slate-500">
-                          Employer PF
-                        </p>
-
-                        <p className="font-bold text-slate-900 mt-1">
-                          ₹
-                          {
-                            formatMoney(
-                              getEmployerPF(
-                                selectedSlip
-                              )
-                            )
-                          }
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-slate-500">
-                          Employer ESIC
-                        </p>
-
-                        <p className="font-bold text-slate-900 mt-1">
-                          ₹
-                          {
-                            formatMoney(
-                              getEmployerESIC(
-                                selectedSlip
-                              )
-                            )
-                          }
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-slate-500">
-                          Total Employer Contribution
-                        </p>
-
-                        <p className="font-bold text-indigo-700 mt-1">
-                          ₹
-                          {
-                            formatMoney(
-                              getTotalEmployerContribution(
-                                selectedSlip
-                              )
-                            )
-                          }
-                        </p>
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                  {/* NET SALARY */}
-
-                  <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex justify-between items-center text-emerald-900">
-
-                    <div>
-
-                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                        Net Salary Payable
-                      </p>
-
-                      <p className="text-2xl font-extrabold mt-0.5">
-                        ₹
-                        {
-                          formatMoney(
-                            selectedSlip.net_salary
-                          )
-                        }
-                      </p>
-
-                    </div>
-
-                    <span className="text-xs font-medium bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg">
-                      Account:{" "}
-                      {
-                        selectedSlip.account_number ||
-                        "-"
-                      }
-                    </span>
-
-                  </div>
-
-                  {/* EMPLOYER COST */}
-
-                  <div className="bg-slate-900 text-white p-4 rounded-xl flex justify-between items-center">
-
-                    <div>
-                      <p className="text-xs text-slate-300 uppercase tracking-wider">
-                        Total Employer Cost
-                      </p>
-
-                      <p className="text-xl font-extrabold mt-1">
-                        ₹
-                        {
-                          formatMoney(
-                            getTotalEmployerCost(
-                              selectedSlip
-                            )
-                          )
-                        }
-                      </p>
-                    </div>
-
-                    <div className="text-right text-xs text-slate-300">
-                      Gross Salary + Employer Contributions
-                    </div>
-
-                  </div>
-
-                  {/* TRACEABILITY */}
-
-                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
-
-                    <p className="text-xs font-bold text-slate-700 mb-2">
-                      Payroll Traceability
+                    <p className="text-sm font-semibold text-slate-600">
+                      No payslip available
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                    <p className="text-xs text-slate-400 mt-1">
+                      Payroll must be Approved or Locked before a payslip can be viewed.
+                    </p>
+
+                  </div>
+
+                ) : (
+
+                  <>
+
+                    {/* HEADER */}
+
+                    <div className="flex justify-between items-start border-b border-slate-100 pb-6">
 
                       <div>
-                        <span className="text-slate-400">
-                          Client ID
-                        </span>
 
-                        <p className="font-semibold">
+                        <h2 className="text-xl font-extrabold text-slate-900">
+                          Talent Corner HR Services
+                        </h2>
+
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Client:{" "}
+                          <span className="font-semibold text-slate-700">
+                            {
+                              getClientName(
+                                selectedSlip
+                              )
+                            }
+                          </span>
+                        </p>
+
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Client ID:{" "}
                           {
                             selectedSlip.client_id ??
                             "-"
                           }
-                        </p>
-                      </div>
 
-                      <div>
-                        <span className="text-slate-400">
-                          Deployment ID
-                        </span>
+                          {" • "}
 
-                        <p className="font-semibold">
+                          Deployment ID:{" "}
                           {
                             selectedSlip.deployment_id ??
                             "-"
                           }
                         </p>
+
                       </div>
 
-                      <div>
-                        <span className="text-slate-400">
-                          Attendance ID
+                      <div className="text-right">
+
+                        <span className="bg-slate-100 text-slate-800 text-xs font-bold px-3 py-1 rounded-full">
+
+                          Payslip:{" "}
+                          {
+                            formatSalaryMonth(
+                              selectedSlip.salary_month
+                            )
+                          }
+
                         </span>
 
-                        <p className="font-semibold">
+                        <p className="text-[11px] text-slate-400 mt-1">
+
+                          Status:{" "}
+
+                          <span className="font-semibold text-slate-700">
+                            {
+                              normalizeStatus(
+                                selectedSlip.status
+                              )
+                            }
+                          </span>
+
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    {/* EMPLOYEE SUMMARY */}
+
+                    <div className="bg-slate-50 p-4 rounded-xl grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
+
+                      <div>
+                        <p className="text-slate-400 font-medium">
+                          Employee Name
+                        </p>
+
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">
                           {
-                            selectedSlip.attendance_id ??
-                            "-"
+                            selectedSlip.employee_name ||
+                            "Employee"
                           }
                         </p>
                       </div>
 
                       <div>
-                        <span className="text-slate-400">
-                          Employee ID
-                        </span>
+                        <p className="text-slate-400 font-medium">
+                          Present
+                        </p>
 
-                        <p className="font-semibold">
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">
                           {
-                            selectedSlip.employee_ref_id ??
-                            selectedSlip.employee_id ??
+                            selectedSlip.present_days ??
                             "-"
                           }
+                          {" / "}
+                          {
+                            selectedSlip.total_days ??
+                            getCalendarDaysInMonth(
+                              selectedSlip.salary_month
+                            )
+                          }
+                          {" Days"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-slate-400 font-medium">
+                          LOP Days
+                        </p>
+
+                        <p className="font-bold text-rose-600 text-sm mt-0.5">
+                          {
+                            selectedSlip.lop_days ??
+                            0
+                          }
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-slate-400 font-medium">
+                          Leave
+                        </p>
+
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">
+                          {
+                            selectedSlip.leave_days ??
+                            0
+                          }
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-slate-400 font-medium">
+                          Overtime
+                        </p>
+
+                        <p className="font-bold text-slate-900 text-sm mt-0.5">
+                          {
+                            selectedSlip.overtime_hours ??
+                            0
+                          }{" "}
+                          hrs
                         </p>
                       </div>
 
                     </div>
 
-                  </div>
+                    {/* EARNINGS + DEDUCTIONS */}
 
-                  {/* ACTIONS */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
 
-                  <div className="pdf-action-buttons flex flex-wrap gap-3 pt-4 border-t border-slate-100">
+                      {/* EARNINGS */}
 
-                    <button
-                      onClick={
-                        handleGeneratePDF
-                      }
-                      disabled={
-                        pdfLoading ||
-                        !selectedSlip
-                      }
-                      className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-                    >
+                      <div className="border border-slate-200 rounded-xl overflow-hidden">
 
-                      {pdfLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <FileText className="h-4 w-4" />
-                      )}
+                        <div className="bg-slate-100 p-3 font-bold text-slate-700 uppercase tracking-wider">
+                          Earnings
+                        </div>
 
-                      {pdfLoading
-                        ? "Generating..."
-                        : "Generate PDF"}
+                        <div className="p-4 space-y-3">
 
-                    </button>
+                          <div className="flex justify-between">
+                            <span>
+                              Basic Salary
+                            </span>
 
-                    <button
-                      onClick={
-                        handleDownload
-                      }
-                      disabled={
-                        pdfLoading ||
-                        !selectedSlip
-                      }
-                      className="bg-white hover:bg-slate-50 disabled:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2"
-                    >
+                            <span className="font-semibold">
+                              ₹
+                              {
+                                formatMoney(
+                                  selectedSlip.basic_salary
+                                )
+                              }
+                            </span>
+                          </div>
 
-                      {pdfLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
+                          <div className="flex justify-between">
+                            <span>
+                              Allowances
+                            </span>
 
-                      Download PDF
+                            <span className="font-semibold">
+                              ₹
+                              {
+                                formatMoney(
+                                  selectedSlip.allowances
+                                )
+                              }
+                            </span>
+                          </div>
 
-                    </button>
+                          <div className="flex justify-between">
+                            <span>
+                              Overtime
+                            </span>
 
-                    <button
-                      onClick={
-                        handleEmail
-                      }
-                      disabled={
-                        emailLoading ||
-                        !selectedSlip ||
-                        !selectedSlip.email ||
-                        !ELIGIBLE_PAYSLIP_STATUSES.includes(
-                          normalizeStatus(
-                            selectedSlip.status
-                          )
-                        )
-                      }
-                      className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-                    >
+                            <span className="font-semibold">
+                              ₹
+                              {
+                                formatMoney(
+                                  selectedSlip.overtime ??
+                                  selectedSlip.overtime_amount
+                                )
+                              }
+                            </span>
+                          </div>
 
-                      {emailLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Mail className="h-4 w-4" />
-                      )}
+                          <div className="flex justify-between">
+                            <span>
+                              Bonus
+                            </span>
 
-                      {emailLoading
-                        ? "Sending..."
-                        : "Email to Employee"}
+                            <span className="font-semibold">
+                              ₹
+                              {
+                                formatMoney(
+                                  selectedSlip.bonus
+                                )
+                              }
+                            </span>
+                          </div>
 
-                    </button>
+                          <div className="flex justify-between pt-3 border-t border-slate-200 font-bold text-slate-900">
+                            <span>
+                              Gross Earnings
+                            </span>
 
-                  </div>
+                            <span>
+                              ₹
+                              {
+                                formatMoney(
+                                  selectedSlip.gross_salary
+                                )
+                              }
+                            </span>
+                          </div>
 
-                  {/* EMAIL INFORMATION */}
+                        </div>
 
-                  <div className="pdf-email-information">
+                      </div>
 
-                    {selectedSlip.email ? (
+                      {/* DEDUCTIONS */}
 
-                      <div className="text-[11px] text-slate-400">
-                        Payslip email will be sent to:
+                      <div className="border border-slate-200 rounded-xl overflow-hidden">
 
-                        <span className="font-semibold text-slate-600 ml-1">
+                        <div className="bg-slate-100 p-3 font-bold text-slate-700 uppercase tracking-wider">
+                          Employee Deductions
+                        </div>
+
+                        <div className="p-4 space-y-3">
+
+                          <div className="flex justify-between">
+                            <span>
+                              Provident Fund (PF)
+                            </span>
+
+                            <span className="font-semibold text-rose-600">
+                              ₹
+                              {
+                                formatMoney(
+                                  selectedSlip.pf ??
+                                  selectedSlip.employee_pf
+                                )
+                              }
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between">
+                            <span>
+                              ESIC
+                            </span>
+
+                            <span className="font-semibold text-rose-600">
+                              ₹
+                              {
+                                formatMoney(
+                                  selectedSlip.esic ??
+                                  selectedSlip.employee_esic
+                                )
+                              }
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between">
+                            <span>
+                              Tax (TDS)
+                            </span>
+
+                            <span className="font-semibold text-rose-600">
+                              ₹
+                              {
+                                formatMoney(
+                                  selectedSlip.tax ??
+                                  selectedSlip.tds
+                                )
+                              }
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between">
+                            <span>
+                              Professional Tax
+                            </span>
+
+                            <span className="font-semibold text-rose-600">
+                              ₹
+                              {
+                                formatMoney(
+                                  selectedSlip.professional_tax
+                                )
+                              }
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between">
+                            <span>
+                              Loss of Pay (LOP)
+                            </span>
+
+                            <span className="font-semibold text-rose-600">
+                              ₹
+                              {
+                                formatMoney(
+                                  selectedSlip.lop ??
+                                  selectedSlip.lop_deduction
+                                )
+                              }
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between pt-3 border-t border-slate-200 font-bold text-slate-900">
+                            <span>
+                              Total Deductions
+                            </span>
+
+                            <span>
+                              ₹
+                              {
+                                formatMoney(
+                                  getTotalDeductions(
+                                    selectedSlip
+                                  )
+                                )
+                              }
+                            </span>
+                          </div>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    {/* EMPLOYER CONTRIBUTIONS */}
+
+                    <div className="border border-indigo-100 bg-indigo-50/50 rounded-xl overflow-hidden">
+
+                      <div className="bg-indigo-100/70 p-3 font-bold text-indigo-900 uppercase tracking-wider text-xs">
+                        Employer Contributions
+                      </div>
+
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+
+                        <div>
+                          <p className="text-slate-500">
+                            Employer PF
+                          </p>
+
+                          <p className="font-bold text-slate-900 mt-1">
+                            ₹
+                            {
+                              formatMoney(
+                                getEmployerPF(
+                                  selectedSlip
+                                )
+                              )
+                            }
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-slate-500">
+                            Employer ESIC
+                          </p>
+
+                          <p className="font-bold text-slate-900 mt-1">
+                            ₹
+                            {
+                              formatMoney(
+                                getEmployerESIC(
+                                  selectedSlip
+                                )
+                              )
+                            }
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-slate-500">
+                            Total Employer Contribution
+                          </p>
+
+                          <p className="font-bold text-indigo-700 mt-1">
+                            ₹
+                            {
+                              formatMoney(
+                                getTotalEmployerContribution(
+                                  selectedSlip
+                                )
+                              )
+                            }
+                          </p>
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    {/* NET SALARY */}
+
+                    <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex justify-between items-center text-emerald-900">
+
+                      <div>
+
+                        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                          Net Salary Payable
+                        </p>
+
+                        <p className="text-2xl font-extrabold mt-0.5">
+                          ₹
                           {
-                            selectedSlip.email
+                            formatMoney(
+                              selectedSlip.net_salary
+                            )
                           }
-                        </span>
+                        </p>
+
                       </div>
 
-                    ) : (
+                      <span className="text-xs font-medium bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg">
+                        Account:{" "}
+                        {
+                          selectedSlip.account_number ||
+                          "-"
+                        }
+                      </span>
 
-                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
-                        Employee email address is not available.
-                        Add an employee email before using{" "}
-                        <strong className="ml-1">
-                          Email to Employee
-                        </strong>.
+                    </div>
+
+                    {/* EMPLOYER COST */}
+
+                    <div className="bg-slate-900 text-white p-4 rounded-xl flex justify-between items-center">
+
+                      <div>
+                        <p className="text-xs text-slate-300 uppercase tracking-wider">
+                          Total Employer Cost
+                        </p>
+
+                        <p className="text-xl font-extrabold mt-1">
+                          ₹
+                          {
+                            formatMoney(
+                              getTotalEmployerCost(
+                                selectedSlip
+                              )
+                            )
+                          }
+                        </p>
                       </div>
 
-                    )}
+                      <div className="text-right text-xs text-slate-300">
+                        Gross Salary + Employer Contributions
+                      </div>
 
-                  </div>
+                    </div>
 
-                </>
+                    {/* TRACEABILITY */}
 
-              )}
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+
+                      <p className="text-xs font-bold text-slate-700 mb-2">
+                        Payroll Traceability
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+
+                        <div>
+                          <span className="text-slate-400">
+                            Client ID
+                          </span>
+
+                          <p className="font-semibold">
+                            {
+                              selectedSlip.client_id ??
+                              "-"
+                            }
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400">
+                            Deployment ID
+                          </span>
+
+                          <p className="font-semibold">
+                            {
+                              selectedSlip.deployment_id ??
+                              "-"
+                            }
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400">
+                            Attendance ID
+                          </span>
+
+                          <p className="font-semibold">
+                            {
+                              selectedSlip.attendance_id ??
+                              "-"
+                            }
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400">
+                            Employee ID
+                          </span>
+
+                          <p className="font-semibold">
+                            {
+                              selectedSlip.employee_ref_id ??
+                              selectedSlip.employee_id ??
+                              "-"
+                            }
+                          </p>
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    {/* ACTIONS */}
+
+                    <div className="pdf-action-buttons flex flex-wrap gap-3 pt-4 border-t border-slate-100">
+
+                      <button
+                        onClick={
+                          handleGeneratePDF
+                        }
+                        disabled={
+                          pdfLoading ||
+                          !selectedSlip
+                        }
+                        className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+                      >
+
+                        {pdfLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <FileText className="h-4 w-4" />
+                        )}
+
+                        {pdfLoading
+                          ? "Generating..."
+                          : "Generate PDF"}
+
+                      </button>
+
+                      <button
+                        onClick={
+                          handleDownload
+                        }
+                        disabled={
+                          pdfLoading ||
+                          !selectedSlip
+                        }
+                        className="bg-white hover:bg-slate-50 disabled:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2"
+                      >
+
+                        {pdfLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
+
+                        Download PDF
+
+                      </button>
+
+                      <button
+                        onClick={handleEmail}
+                        disabled={
+                          emailLoading ||
+                          !selectedSlip ||
+                          !ELIGIBLE_PAYSLIP_STATUSES.includes(
+                            normalizeStatus(selectedSlip.status)
+                          )
+                        }
+                        className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+                      >
+                        {emailLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Mail className="h-4 w-4" />
+                        )}
+
+                        {emailLoading
+                          ? "Sending..."
+                          : "Email to Employee"}
+                      </button>
+                    </div>
+
+                    {/* EMAIL INFORMATION */}
+
+                    <div className="pdf-email-information">
+
+                      {selectedSlip.email ? (
+
+                        <div className="text-[11px] text-slate-400">
+                          Payslip email will be sent to:
+
+                          <span className="font-semibold text-slate-600 ml-1">
+                            {
+                              selectedSlip.email
+                            }
+                          </span>
+                        </div>
+
+                      ) : (
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                          Employee email address is not available.
+                          Add an employee email before using{" "}
+                          <strong className="ml-1">
+                            Email to Employee
+                          </strong>.
+                        </div>
+
+                      )}
+
+                    </div>
+
+                  </>
+
+                )}
+
+              </div>
 
             </div>
 
-          </div>
-
-        )}
+          )}
 
         {/* =====================================================
             EDIT PAYROLL MODAL
@@ -3986,418 +3944,418 @@ export default function PayrollModule({
         {editModalOpen &&
           editRecord && (
 
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
 
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
 
-              {/* MODAL HEADER */}
+                {/* MODAL HEADER */}
 
-              <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
+                <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
 
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">
-                    Edit Payroll
-                  </h3>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Edit Payroll
+                    </h3>
 
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {
-                      editRecord.employee_name ||
-                      "Employee"
-                    }
-
-                    {" • "}
-
-                    {
-                      formatSalaryMonth(
-                        editRecord.salary_month
-                      )
-                    }
-
-                    {" • "}
-
-                    <span className="font-semibold">
+                    <p className="text-xs text-slate-500 mt-0.5">
                       {
-                        normalizeStatus(
-                          editRecord.status
+                        editRecord.employee_name ||
+                        "Employee"
+                      }
+
+                      {" • "}
+
+                      {
+                        formatSalaryMonth(
+                          editRecord.salary_month
                         )
                       }
-                    </span>
-                  </p>
-                </div>
 
-                <button
-                  onClick={() =>
-                    setEditModalOpen(
-                      false
-                    )
-                  }
-                  className="text-slate-400 hover:text-slate-700 text-xl font-bold"
-                >
-                  ×
-                </button>
+                      {" • "}
 
-              </div>
+                      <span className="font-semibold">
+                        {
+                          normalizeStatus(
+                            editRecord.status
+                          )
+                        }
+                      </span>
+                    </p>
+                  </div>
 
-              <div className="p-6 space-y-6">
-
-                {/* WARNING */}
-
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
-                  <strong>
-                    Manual Payroll Correction:
-                  </strong>{" "}
-                  These values will overwrite the current payroll values.
-                  Locked payroll cannot be edited.
-                </div>
-
-                {/* SALARY */}
-
-                <div>
-
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                    Salary & Earnings
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-
-                    {[
-                      [
-                        "basic_salary",
-                        "Basic Salary",
-                      ],
-                      [
-                        "allowances",
-                        "Allowances",
-                      ],
-                      [
-                        "overtime",
-                        "Overtime Amount",
-                      ],
-                      [
-                        "bonus",
-                        "Bonus",
-                      ],
-                    ].map(
-                      ([
-                        field,
-                        label,
-                      ]) => (
-                        <div
-                          key={
-                            field
-                          }
-                        >
-                          <label className="block font-bold text-slate-600 mb-1">
-                            {label}
-                          </label>
-
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={
-                              editForm[
-                                field
-                              ] ??
-                              0
-                            }
-                            onChange={(
-                              e
-                            ) =>
-                              handleEditFieldChange(
-                                field,
-                                e.target
-                                  .value
-                              )
-                            }
-                            className="w-full border border-slate-200 p-2.5 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                          />
-                        </div>
+                  <button
+                    onClick={() =>
+                      setEditModalOpen(
+                        false
                       )
+                    }
+                    className="text-slate-400 hover:text-slate-700 text-xl font-bold"
+                  >
+                    ×
+                  </button>
+
+                </div>
+
+                <div className="p-6 space-y-6">
+
+                  {/* WARNING */}
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+                    <strong>
+                      Manual Payroll Correction:
+                    </strong>{" "}
+                    These values will overwrite the current payroll values.
+                    Locked payroll cannot be edited.
+                  </div>
+
+                  {/* SALARY */}
+
+                  <div>
+
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                      Salary & Earnings
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+
+                      {[
+                        [
+                          "basic_salary",
+                          "Basic Salary",
+                        ],
+                        [
+                          "allowances",
+                          "Allowances",
+                        ],
+                        [
+                          "overtime",
+                          "Overtime Amount",
+                        ],
+                        [
+                          "bonus",
+                          "Bonus",
+                        ],
+                      ].map(
+                        ([
+                          field,
+                          label,
+                        ]) => (
+                          <div
+                            key={
+                              field
+                            }
+                          >
+                            <label className="block font-bold text-slate-600 mb-1">
+                              {label}
+                            </label>
+
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={
+                                editForm[
+                                field
+                                ] ??
+                                0
+                              }
+                              onChange={(
+                                e
+                              ) =>
+                                handleEditFieldChange(
+                                  field,
+                                  e.target
+                                    .value
+                                )
+                              }
+                              className="w-full border border-slate-200 p-2.5 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                            />
+                          </div>
+                        )
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  {/* DEDUCTIONS */}
+
+                  <div>
+
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                      Employee Deductions
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+
+                      {[
+                        [
+                          "pf",
+                          "Employee PF",
+                        ],
+                        [
+                          "esic",
+                          "Employee ESIC",
+                        ],
+                        [
+                          "tax",
+                          "Tax / TDS",
+                        ],
+                        [
+                          "professional_tax",
+                          "Professional Tax",
+                        ],
+                        [
+                          "lop",
+                          "LOP Deduction",
+                        ],
+                      ].map(
+                        ([
+                          field,
+                          label,
+                        ]) => (
+                          <div
+                            key={
+                              field
+                            }
+                          >
+                            <label className="block font-bold text-slate-600 mb-1">
+                              {label}
+                            </label>
+
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={
+                                editForm[
+                                field
+                                ] ??
+                                0
+                              }
+                              onChange={(
+                                e
+                              ) =>
+                                handleEditFieldChange(
+                                  field,
+                                  e.target
+                                    .value
+                                )
+                              }
+                              className="w-full border border-slate-200 p-2.5 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                            />
+                          </div>
+                        )
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  {/* EMPLOYER */}
+
+                  <div>
+
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                      Employer Contributions
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+
+                      <div>
+
+                        <label className="block font-bold text-slate-600 mb-1">
+                          Employer PF
+                        </label>
+
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={
+                            editForm.employer_pf ??
+                            0
+                          }
+                          onChange={(
+                            e
+                          ) =>
+                            handleEditFieldChange(
+                              "employer_pf",
+                              e.target.value
+                            )
+                          }
+                          className="w-full border border-slate-200 p-2.5 rounded-lg"
+                        />
+
+                      </div>
+
+                      <div>
+
+                        <label className="block font-bold text-slate-600 mb-1">
+                          Employer ESIC
+                        </label>
+
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={
+                            editForm.employer_esic ??
+                            0
+                          }
+                          onChange={(
+                            e
+                          ) =>
+                            handleEditFieldChange(
+                              "employer_esic",
+                              e.target.value
+                            )
+                          }
+                          className="w-full border border-slate-200 p-2.5 rounded-lg"
+                        />
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  {/* BANK */}
+
+                  <div>
+
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                      Bank Details
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+
+                      <div>
+
+                        <label className="block font-bold text-slate-600 mb-1">
+                          Bank Name
+                        </label>
+
+                        <input
+                          type="text"
+                          value={
+                            editForm.bank_name ??
+                            ""
+                          }
+                          onChange={(
+                            e
+                          ) =>
+                            handleEditFieldChange(
+                              "bank_name",
+                              e.target.value
+                            )
+                          }
+                          className="w-full border border-slate-200 p-2.5 rounded-lg"
+                        />
+
+                      </div>
+
+                      <div>
+
+                        <label className="block font-bold text-slate-600 mb-1">
+                          Account Number
+                        </label>
+
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={
+                            editForm.account_number ??
+                            ""
+                          }
+                          onChange={(
+                            e
+                          ) =>
+                            handleEditFieldChange(
+                              "account_number",
+                              e.target.value
+                            )
+                          }
+                          className="w-full border border-slate-200 p-2.5 rounded-lg"
+                        />
+
+                      </div>
+
+                      <div>
+
+                        <label className="block font-bold text-slate-600 mb-1">
+                          IFSC Code
+                        </label>
+
+                        <input
+                          type="text"
+                          value={
+                            editForm.ifsc_code ??
+                            ""
+                          }
+                          onChange={(
+                            e
+                          ) =>
+                            handleEditFieldChange(
+                              "ifsc_code",
+                              e.target.value.toUpperCase()
+                            )
+                          }
+                          className="w-full border border-slate-200 p-2.5 rounded-lg uppercase"
+                        />
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* FOOTER */}
+
+                <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
+
+                  <button
+                    onClick={() =>
+                      setEditModalOpen(
+                        false
+                      )
+                    }
+                    disabled={
+                      editSaving
+                    }
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    onClick={
+                      handleSaveEdit
+                    }
+                    disabled={
+                      editSaving
+                    }
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white inline-flex items-center gap-2"
+                  >
+
+                    {editSaving && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     )}
 
-                  </div>
+                    {editSaving
+                      ? "Saving..."
+                      : "Save Changes"}
+
+                  </button>
 
                 </div>
-
-                {/* DEDUCTIONS */}
-
-                <div>
-
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                    Employee Deductions
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-
-                    {[
-                      [
-                        "pf",
-                        "Employee PF",
-                      ],
-                      [
-                        "esic",
-                        "Employee ESIC",
-                      ],
-                      [
-                        "tax",
-                        "Tax / TDS",
-                      ],
-                      [
-                        "professional_tax",
-                        "Professional Tax",
-                      ],
-                      [
-                        "lop",
-                        "LOP Deduction",
-                      ],
-                    ].map(
-                      ([
-                        field,
-                        label,
-                      ]) => (
-                        <div
-                          key={
-                            field
-                          }
-                        >
-                          <label className="block font-bold text-slate-600 mb-1">
-                            {label}
-                          </label>
-
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={
-                              editForm[
-                                field
-                              ] ??
-                              0
-                            }
-                            onChange={(
-                              e
-                            ) =>
-                              handleEditFieldChange(
-                                field,
-                                e.target
-                                  .value
-                              )
-                            }
-                            className="w-full border border-slate-200 p-2.5 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                          />
-                        </div>
-                      )
-                    )}
-
-                  </div>
-
-                </div>
-
-                {/* EMPLOYER */}
-
-                <div>
-
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                    Employer Contributions
-                  </h4>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-
-                    <div>
-
-                      <label className="block font-bold text-slate-600 mb-1">
-                        Employer PF
-                      </label>
-
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={
-                          editForm.employer_pf ??
-                          0
-                        }
-                        onChange={(
-                          e
-                        ) =>
-                          handleEditFieldChange(
-                            "employer_pf",
-                            e.target.value
-                          )
-                        }
-                        className="w-full border border-slate-200 p-2.5 rounded-lg"
-                      />
-
-                    </div>
-
-                    <div>
-
-                      <label className="block font-bold text-slate-600 mb-1">
-                        Employer ESIC
-                      </label>
-
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={
-                          editForm.employer_esic ??
-                          0
-                        }
-                        onChange={(
-                          e
-                        ) =>
-                          handleEditFieldChange(
-                            "employer_esic",
-                            e.target.value
-                          )
-                        }
-                        className="w-full border border-slate-200 p-2.5 rounded-lg"
-                      />
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-                {/* BANK */}
-
-                <div>
-
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                    Bank Details
-                  </h4>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-
-                    <div>
-
-                      <label className="block font-bold text-slate-600 mb-1">
-                        Bank Name
-                      </label>
-
-                      <input
-                        type="text"
-                        value={
-                          editForm.bank_name ??
-                          ""
-                        }
-                        onChange={(
-                          e
-                        ) =>
-                          handleEditFieldChange(
-                            "bank_name",
-                            e.target.value
-                          )
-                        }
-                        className="w-full border border-slate-200 p-2.5 rounded-lg"
-                      />
-
-                    </div>
-
-                    <div>
-
-                      <label className="block font-bold text-slate-600 mb-1">
-                        Account Number
-                      </label>
-
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={
-                          editForm.account_number ??
-                          ""
-                        }
-                        onChange={(
-                          e
-                        ) =>
-                          handleEditFieldChange(
-                            "account_number",
-                            e.target.value
-                          )
-                        }
-                        className="w-full border border-slate-200 p-2.5 rounded-lg"
-                      />
-
-                    </div>
-
-                    <div>
-
-                      <label className="block font-bold text-slate-600 mb-1">
-                        IFSC Code
-                      </label>
-
-                      <input
-                        type="text"
-                        value={
-                          editForm.ifsc_code ??
-                          ""
-                        }
-                        onChange={(
-                          e
-                        ) =>
-                          handleEditFieldChange(
-                            "ifsc_code",
-                            e.target.value.toUpperCase()
-                          )
-                        }
-                        className="w-full border border-slate-200 p-2.5 rounded-lg uppercase"
-                      />
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-              {/* FOOTER */}
-
-              <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-
-                <button
-                  onClick={() =>
-                    setEditModalOpen(
-                      false
-                    )
-                  }
-                  disabled={
-                    editSaving
-                  }
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  onClick={
-                    handleSaveEdit
-                  }
-                  disabled={
-                    editSaving
-                  }
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white inline-flex items-center gap-2"
-                >
-
-                  {editSaving && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
-
-                  {editSaving
-                    ? "Saving..."
-                    : "Save Changes"}
-
-                </button>
 
               </div>
 
             </div>
-
-          </div>
-        )}
+          )}
 
         {/* =====================================================
             CREATE PAYROLL MODAL
@@ -4547,136 +4505,136 @@ export default function PayrollModule({
                 {prefillInfo &&
                   !prefillLoading && (
 
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
 
-                    <h4 className="text-xs font-bold text-slate-700 mb-3">
-                      Auto-Filled Employee Information
-                    </h4>
+                      <h4 className="text-xs font-bold text-slate-700 mb-3">
+                        Auto-Filled Employee Information
+                      </h4>
 
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
 
-                      <div>
-                        <span className="text-slate-400 block">
-                          Employee
-                        </span>
+                        <div>
+                          <span className="text-slate-400 block">
+                            Employee
+                          </span>
 
-                        <span className="font-bold text-slate-800">
-                          {
-                            prefillInfo.employee_name ||
-                            "Employee"
-                          }
-                        </span>
+                          <span className="font-bold text-slate-800">
+                            {
+                              prefillInfo.employee_name ||
+                              "Employee"
+                            }
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400 block">
+                            Pay Rate
+                          </span>
+
+                          <span className="font-bold text-slate-800">
+                            ₹
+                            {
+                              formatMoney(
+                                prefillInfo.pay_rate
+                              )
+                            }
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400 block">
+                            Present Days
+                          </span>
+
+                          <span className="font-bold text-slate-800">
+                            {
+                              prefillInfo.present_days ??
+                              0
+                            }
+
+                            {" / "}
+
+                            {
+                              prefillInfo.total_days ??
+                              getCalendarDaysInMonth(
+                                salaryMonth
+                              )
+                            }
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400 block">
+                            LOP Days
+                          </span>
+
+                          <span className="font-bold text-rose-600">
+                            {
+                              prefillInfo.lop_days ??
+                              0
+                            }
+                          </span>
+                        </div>
+
+                        <div>
+                          <span className="text-slate-400 block">
+                            OT Hours
+                          </span>
+
+                          <span className="font-bold text-slate-800">
+                            {
+                              prefillInfo.overtime_hours ??
+                              0
+                            }
+                          </span>
+                        </div>
+
                       </div>
 
-                      <div>
-                        <span className="text-slate-400 block">
-                          Pay Rate
+                      <div className="mt-4 pt-3 border-t border-slate-200">
+
+                        <span className="text-slate-400 block text-[11px]">
+                          Employee Email
                         </span>
 
-                        <span className="font-bold text-slate-800">
-                          ₹
+                        <span className="font-bold text-slate-800 text-xs">
                           {
-                            formatMoney(
-                              prefillInfo.pay_rate
-                            )
+                            prefillInfo.email ||
+                            "-"
                           }
                         </span>
+
                       </div>
 
-                      <div>
-                        <span className="text-slate-400 block">
-                          Present Days
-                        </span>
+                      {prefillInfo.already_exists && (
 
-                        <span className="font-bold text-slate-800">
-                          {
-                            prefillInfo.present_days ??
-                            0
-                          }
+                        <div className="mt-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2.5 text-xs">
 
-                          {" / "}
+                          A payroll record already exists for this employee for{" "}
+                          <strong>
+                            {
+                              formatSalaryMonth(
+                                salaryMonth
+                              )
+                            }
+                          </strong>
+                          .
 
-                          {
-                            prefillInfo.total_days ??
-                            getCalendarDaysInMonth(
-                              salaryMonth
-                            )
-                          }
-                        </span>
-                      </div>
+                          {" Status: "}
 
-                      <div>
-                        <span className="text-slate-400 block">
-                          LOP Days
-                        </span>
+                          <strong>
+                            {
+                              prefillInfo.existing_payroll_status ||
+                              "Unknown"
+                            }
+                          </strong>
 
-                        <span className="font-bold text-rose-600">
-                          {
-                            prefillInfo.lop_days ??
-                            0
-                          }
-                        </span>
-                      </div>
+                        </div>
 
-                      <div>
-                        <span className="text-slate-400 block">
-                          OT Hours
-                        </span>
-
-                        <span className="font-bold text-slate-800">
-                          {
-                            prefillInfo.overtime_hours ??
-                            0
-                          }
-                        </span>
-                      </div>
+                      )}
 
                     </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-200">
-
-                      <span className="text-slate-400 block text-[11px]">
-                        Employee Email
-                      </span>
-
-                      <span className="font-bold text-slate-800 text-xs">
-                        {
-                          prefillInfo.email ||
-                          "-"
-                        }
-                      </span>
-
-                    </div>
-
-                    {prefillInfo.already_exists && (
-
-                      <div className="mt-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2.5 text-xs">
-
-                        A payroll record already exists for this employee for{" "}
-                        <strong>
-                          {
-                            formatSalaryMonth(
-                              salaryMonth
-                            )
-                          }
-                        </strong>
-                        .
-
-                        {" Status: "}
-
-                        <strong>
-                          {
-                            prefillInfo.existing_payroll_status ||
-                            "Unknown"
-                          }
-                        </strong>
-
-                      </div>
-
-                    )}
-
-                  </div>
-                )}
+                  )}
 
                 {/* MANUAL FIELDS */}
 
@@ -4732,7 +4690,7 @@ export default function PayrollModule({
                                 step="0.01"
                                 value={
                                   createForm[
-                                    field
+                                  field
                                   ] ??
                                   0
                                 }
@@ -4808,7 +4766,7 @@ export default function PayrollModule({
                                 step="0.01"
                                 value={
                                   createForm[
-                                    field
+                                  field
                                   ] ??
                                   0
                                 }
