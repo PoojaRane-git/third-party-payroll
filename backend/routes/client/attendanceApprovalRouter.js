@@ -1418,6 +1418,193 @@ router.get(
 );
 
 // =====================================================
+// GET ALL ATTENDANCE (ALL DATES + ALL MONTHS)
+//
+// GET /api/attendance/all
+//
+// QUERY:
+// ?client_id=1
+// &employee_id=1   (optional — omit for all employees)
+//
+// =====================================================
+
+router.get(
+    "/attendance/all",
+    async (req, res) => {
+        try {
+            const { client_id, employee_id } = req.query;
+
+            if (!isValidPositiveInteger(client_id)) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Valid client_id is required",
+                });
+            }
+
+            const clientId = Number(client_id);
+
+            let query = supabase
+                .from(DAILY_ATTENDANCE_TABLE)
+                .select(`
+                    id,
+                    employee_id,
+                    deployment_id,
+                    client_id,
+                    attendance_date,
+                    check_in,
+                    check_out,
+                    working_hours,
+                    overtime_hours,
+                    status,
+                    work_mode,
+                    remarks,
+                    created_at,
+                    updated_at
+                `)
+                .eq("client_id", clientId)
+                .order("attendance_date", { ascending: true })
+                .order("employee_id", { ascending: true });
+
+            if (employee_id !== undefined) {
+                if (!isValidPositiveInteger(employee_id)) {
+                    return res.status(400).json({
+                        success: false,
+                        error: "Valid employee_id is required",
+                    });
+                }
+                query = query.eq("employee_id", Number(employee_id));
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error("GET /attendance/all query error:", error);
+                return res.status(500).json({
+                    success: false,
+                    error: "Failed to fetch attendance history",
+                    details: error.message,
+                });
+            }
+
+            const records = data || [];
+
+            if (records.length === 0) {
+                return res.json({
+                    success: true,
+                    client_id: clientId,
+                    total_records: 0,
+                    months: [],
+                    data: [],
+                });
+            }
+
+            // -------------------------------------------------
+            // ATTACH EMPLOYEE DETAILS
+            // -------------------------------------------------
+
+            const employeeIds = [
+                ...new Set(
+                    records
+                        .map((r) => r.employee_id)
+                        .filter((id) => id !== null && id !== undefined)
+                ),
+            ];
+
+            let employeesMap = new Map();
+
+            if (employeeIds.length > 0) {
+                const { data: candidates, error: candidateError } =
+                    await supabase
+                        .from("candidates")
+                        .select(`
+                            id,
+                            full_name,
+                            email,
+                            phone,
+                            designation
+                        `)
+                        .in("id", employeeIds);
+
+                if (candidateError) {
+                    console.error(
+                        "Employee lookup error:",
+                        candidateError
+                    );
+                } else {
+                    employeesMap = createEmployeeMap(candidates);
+                }
+            }
+
+            const enrichedRecords = records.map((record) => {
+                const employee = employeesMap.get(
+                    String(record.employee_id)
+                );
+
+                return {
+                    ...record,
+                    employee_name:
+                        employee?.full_name ??
+                        `Employee ${record.employee_id}`,
+                    full_name:
+                        employee?.full_name ??
+                        `Employee ${record.employee_id}`,
+                    employee_email: employee?.email ?? null,
+                    employee_phone: employee?.phone ?? null,
+                    designation: employee?.designation ?? null,
+                };
+            });
+
+            // -------------------------------------------------
+            // GROUP BY MONTH (YYYY-MM), WITH SUMMARY PER MONTH
+            // -------------------------------------------------
+
+            const monthGroups = new Map();
+
+            for (const record of enrichedRecords) {
+                const month = String(record.attendance_date).slice(0, 7);
+
+                if (!monthGroups.has(month)) {
+                    monthGroups.set(month, []);
+                }
+
+                monthGroups.get(month).push(record);
+            }
+
+            const months = Array.from(monthGroups.entries())
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([billing_month, monthRecords]) => {
+                    const summary =
+                        calculateAttendanceSummary(monthRecords);
+
+                    return {
+                        billing_month,
+                        ...summary,
+                        attendance: monthRecords,
+                    };
+                });
+
+            // -------------------------------------------------
+            // RESPONSE
+            // -------------------------------------------------
+
+            return res.json({
+                success: true,
+                client_id: clientId,
+                total_records: enrichedRecords.length,
+                months,
+                data: enrichedRecords,
+            });
+        } catch (error) {
+            console.error("GET /attendance/all error:", error);
+            return res.status(500).json({
+                success: false,
+                error: "Failed to fetch attendance history",
+                details: error.message,
+            });
+        }
+    }
+);
+// =====================================================
 // EXPORT
 // =====================================================
 

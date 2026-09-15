@@ -29,7 +29,7 @@ import { useAuth } from "../../../../auth/AuthProvider";
 const formatDateForDisplay = (dateString) => {
     if (!dateString) return "";
 
-    const [year, month, day] = dateString.split("-");
+    const [year, month, day] = String(dateString).split("-");
 
     if (!year || !month || !day) {
         return dateString;
@@ -104,8 +104,42 @@ const getOvertime = (record) => {
     return Number.isFinite(value) ? value : 0;
 };
 
+const getWorkingHours = (record) => {
+    const value = Number(
+        record?.working_hours ?? 0
+    );
+
+    return Number.isFinite(value) ? value : 0;
+};
+
 const getStatus = (record) => {
     return normalizeStatus(record?.status);
+};
+
+// ============================================================
+// MONTH DISPLAY
+// ============================================================
+
+const formatBillingMonth = (billingMonth) => {
+    if (!billingMonth) return "";
+
+    const [year, month] =
+        String(billingMonth).split("-");
+
+    if (!year || !month) {
+        return billingMonth;
+    }
+
+    const date = new Date(
+        Number(year),
+        Number(month) - 1,
+        1
+    );
+
+    return date.toLocaleDateString("en-IN", {
+        month: "long",
+        year: "numeric",
+    });
 };
 
 // ============================================================
@@ -115,7 +149,7 @@ const getStatus = (record) => {
 const ClientAttendance = () => {
 
     // ========================================================
-    // AUTH SESSION
+    // AUTH
     // ========================================================
 
     const {
@@ -144,11 +178,19 @@ const ClientAttendance = () => {
     const [activeTab, setActiveTab] =
         useState("daily");
 
-    const [dailyAttendance, setDailyAttendance] =
+    // ========================================================
+    // ALL ATTENDANCE DATA
+    // ========================================================
+
+    const [allAttendance, setAllAttendance] =
         useState([]);
 
-    const [monthlyAttendance, setMonthlyAttendance] =
+    const [allMonths, setAllMonths] =
         useState([]);
+
+    // ========================================================
+    // LOADING / ERROR
+    // ========================================================
 
     const [loading, setLoading] =
         useState(false);
@@ -160,32 +202,28 @@ const ClientAttendance = () => {
         useState(false);
 
     // ========================================================
-    // CLIENT SESSION
-    // ========================================================
-    // IMPORTANT:
-    // Authentication comes from AuthProvider / Supabase session.
-    //
-    // Your /auth/me response contains:
-    //
-    // user = {
-    //     supabase_user_id,
-    //     email,
-    //     profile_id,
-    //     role,
-    //     status,
-    //     ...
-    // }
-    //
-    // Therefore profile_id is used as the client ID.
+    // CLIENT ID
     // ========================================================
 
     const clientId = useMemo(() => {
-    const numericId = Number(user?.client_id); 
-    if (Number.isFinite(numericId) && numericId > 0) {
-        return numericId;
-    }
-    return null;
-}, [user]);
+
+        const numericId =
+            Number(user?.client_id);
+
+        if (
+            Number.isFinite(numericId) &&
+            numericId > 0
+        ) {
+            return numericId;
+        }
+
+        return null;
+
+    }, [user]);
+
+    // ========================================================
+    // CLIENT NAME
+    // ========================================================
 
     const clientName = useMemo(() => {
 
@@ -234,7 +272,8 @@ const ClientAttendance = () => {
 
             await logout();
 
-            window.location.href = "/login";
+            window.location.href =
+                "/login";
 
         } catch (error) {
 
@@ -243,285 +282,211 @@ const ClientAttendance = () => {
                 error
             );
 
-            window.location.href = "/login";
-
+            window.location.href =
+                "/login";
         }
     };
 
     // ========================================================
-    // FETCH DAILY ATTENDANCE
+    // FETCH ALL ATTENDANCE
+    //
+    // ONE API FOR:
+    // - ALL DAYS
+    // - ALL MONTHS
+    // - ALL EMPLOYEES
+    //
+    // GET /api/attendance/all?client_id=1
     // ========================================================
 
-    const fetchDailyAttendance = useCallback(
-        async (showLoader = true) => {
+    const fetchAllAttendance =
+        useCallback(
+            async (showLoader = true) => {
 
-            if (
-                authLoading ||
-                !session ||
-                !user
-            ) {
-                return;
-            }
-
-            if (!clientId) {
-
-                setError(
-                    "Client ID not found for the logged-in user."
-                );
-
-                setDailyAttendance([]);
-
-                return;
-            }
-
-            if (!attendanceDate) {
-                return;
-            }
-
-            try {
-
-                if (showLoader) {
-                    setLoading(true);
+                if (
+                    authLoading ||
+                    !session ||
+                    !user
+                ) {
+                    return;
                 }
 
-                setError("");
+                if (!clientId) {
 
-                console.log(
-                    "FETCH DAILY ATTENDANCE:",
-                    {
-                        client_id: clientId,
-                        attendance_date:
-                            attendanceDate,
+                    setError(
+                        "Client ID not found for the logged-in user."
+                    );
+
+                    setAllAttendance([]);
+                    setAllMonths([]);
+
+                    return;
+                }
+
+                try {
+
+                    if (showLoader) {
+                        setLoading(true);
                     }
-                );
 
-                const response =
-                    await api.get(
-                        "/attendance/daily",
+                    setError("");
+
+                    console.log(
+                        "FETCH ALL ATTENDANCE:",
                         {
-                            params: {
-                                client_id:
-                                    clientId,
-
-                                attendance_date:
-                                    attendanceDate,
-                            },
+                            client_id:
+                                clientId,
                         }
                     );
 
-                const result =
-                    response?.data || {};
+                    const response =
+                        await api.get(
+                            "/attendance/all",
+                            {
+                                params: {
+                                    client_id:
+                                        clientId,
+                                },
+                            }
+                        );
 
-                console.log(
-                    "DAILY ATTENDANCE RESPONSE:",
-                    result
-                );
+                    const result =
+                        response?.data || {};
 
-                const records =
-                    Array.isArray(
-                        result.data
-                    )
-                        ? result.data
-                        : Array.isArray(
-                            result.attendance
+                    console.log(
+                        "ALL ATTENDANCE RESPONSE:",
+                        result
+                    );
+
+                    if (
+                        result.success !== true
+                    ) {
+
+                        throw new Error(
+                            result.error ||
+                            result.message ||
+                            "Failed to load attendance."
+                        );
+                    }
+
+                    const records =
+                        Array.isArray(
+                            result.data
                         )
-                            ? result.attendance
+                            ? result.data
                             : [];
 
-                setDailyAttendance(records);
+                    const months =
+                        Array.isArray(
+                            result.months
+                        )
+                            ? result.months
+                            : [];
 
-            } catch (err) {
-
-                console.error(
-                    "Fetch daily attendance error:",
-                    err
-                );
-
-                if (
-                    err?.response?.status ===
-                    401
-                ) {
-
-                    setError(
-                        "Your session has expired. Please login again."
+                    setAllAttendance(
+                        records
                     );
 
-                } else if (
-                    err?.response?.status ===
-                    403
-                ) {
-
-                    setError(
-                        "You do not have permission to view this attendance."
+                    setAllMonths(
+                        months
                     );
 
-                } else {
+                    // -----------------------------------------
+                    // If current selected month does not exist,
+                    // select the latest month returned by API.
+                    // -----------------------------------------
 
-                    setError(
-                        err?.response?.data?.error ||
-                        err?.response?.data?.message ||
-                        err?.message ||
-                        "Failed to load attendance."
-                    );
+                    if (
+                        months.length > 0
+                    ) {
 
-                }
+                        const availableMonths =
+                            months
+                                .map(
+                                    (month) =>
+                                        month?.billing_month
+                                )
+                                .filter(Boolean);
 
-                setDailyAttendance([]);
+                        if (
+                            availableMonths.length >
+                            0
+                        ) {
 
-            } finally {
+                            const latestMonth =
+                                availableMonths[
+                                    availableMonths.length -
+                                    1
+                                ];
 
-                if (showLoader) {
-                    setLoading(false);
-                }
+                            if (
+                                !availableMonths.includes(
+                                    billingMonth
+                                )
+                            ) {
 
-            }
-
-        },
-        [
-            authLoading,
-            session,
-            user,
-            clientId,
-            attendanceDate,
-        ]
-    );
-
-    // ========================================================
-    // FETCH MONTHLY ATTENDANCE
-    // ========================================================
-
-    const fetchMonthlyAttendance = useCallback(
-        async (showLoader = true) => {
-
-            if (
-                authLoading ||
-                !session ||
-                !user
-            ) {
-                return;
-            }
-
-            if (!clientId) {
-
-                setError(
-                    "Client ID not found for the logged-in user."
-                );
-
-                setMonthlyAttendance([]);
-
-                return;
-            }
-
-            if (!billingMonth) {
-                return;
-            }
-
-            try {
-
-                if (showLoader) {
-                    setLoading(true);
-                }
-
-                setError("");
-
-                console.log(
-                    "FETCH MONTHLY ATTENDANCE:",
-                    {
-                        client_id: clientId,
-                        billing_month:
-                            billingMonth,
-                    }
-                );
-
-                const response =
-                    await api.get(
-                        "/attendance/monthly",
-                        {
-                            params: {
-                                client_id:
-                                    clientId,
-
-                                billing_month:
-                                    billingMonth,
-                            },
+                                setBillingMonth(
+                                    latestMonth
+                                );
+                            }
                         }
+                    }
+
+                } catch (err) {
+
+                    console.error(
+                        "Fetch all attendance error:",
+                        err
                     );
 
-                const result =
-                    response?.data || {};
+                    if (
+                        err?.response?.status ===
+                        401
+                    ) {
 
-                console.log(
-                    "MONTHLY ATTENDANCE RESPONSE:",
-                    result
-                );
+                        setError(
+                            "Your session has expired. Please login again."
+                        );
 
-                const records =
-                    Array.isArray(
-                        result.data
-                    )
-                        ? result.data
-                        : [];
+                    } else if (
+                        err?.response?.status ===
+                        403
+                    ) {
 
-                setMonthlyAttendance(records);
+                        setError(
+                            "You do not have permission to view this attendance."
+                        );
 
-            } catch (err) {
+                    } else {
 
-                console.error(
-                    "Fetch monthly attendance error:",
-                    err
-                );
+                        setError(
+                            err?.response?.data?.error ||
+                            err?.response?.data?.message ||
+                            err?.message ||
+                            "Failed to load attendance history."
+                        );
+                    }
 
-                if (
-                    err?.response?.status ===
-                    401
-                ) {
+                    setAllAttendance([]);
+                    setAllMonths([]);
 
-                    setError(
-                        "Your session has expired. Please login again."
-                    );
+                } finally {
 
-                } else if (
-                    err?.response?.status ===
-                    403
-                ) {
-
-                    setError(
-                        "You do not have permission to view this attendance."
-                    );
-
-                } else {
-
-                    setError(
-                        err?.response?.data?.error ||
-                        err?.response?.data?.message ||
-                        err?.message ||
-                        "Failed to load monthly attendance."
-                    );
-
+                    if (showLoader) {
+                        setLoading(false);
+                    }
                 }
-
-                setMonthlyAttendance([]);
-
-            } finally {
-
-                if (showLoader) {
-                    setLoading(false);
-                }
-
-            }
-
-        },
-        [
-            authLoading,
-            session,
-            user,
-            clientId,
-            billingMonth,
-        ]
-    );
+            },
+            [
+                authLoading,
+                session,
+                user,
+                clientId,
+                billingMonth,
+            ]
+        );
 
     // ========================================================
-    // DAILY LOAD
+    // LOAD ALL ATTENDANCE AFTER AUTH
     // ========================================================
 
     useEffect(() => {
@@ -531,51 +496,19 @@ const ClientAttendance = () => {
             !session ||
             !user ||
             !clientId ||
-            user?.role !== "client" ||
-            activeTab !== "daily"
+            user?.role !== "client"
         ) {
             return;
         }
 
-        fetchDailyAttendance(true);
+        fetchAllAttendance(true);
 
     }, [
         authLoading,
         session,
         user,
         clientId,
-        activeTab,
-        attendanceDate,
-        fetchDailyAttendance,
-    ]);
-
-    // ========================================================
-    // MONTHLY LOAD
-    // ========================================================
-
-    useEffect(() => {
-
-        if (
-            authLoading ||
-            !session ||
-            !user ||
-            !clientId ||
-            user?.role !== "client" ||
-            activeTab !== "monthly"
-        ) {
-            return;
-        }
-
-        fetchMonthlyAttendance(true);
-
-    }, [
-        authLoading,
-        session,
-        user,
-        clientId,
-        activeTab,
-        billingMonth,
-        fetchMonthlyAttendance,
+        fetchAllAttendance,
     ]);
 
     // ========================================================
@@ -588,25 +521,61 @@ const ClientAttendance = () => {
 
             setRefreshing(true);
 
-            if (activeTab === "daily") {
-
-                await fetchDailyAttendance(false);
-
-            } else {
-
-                await fetchMonthlyAttendance(false);
-
-            }
+            await fetchAllAttendance(false);
 
         } finally {
 
             setRefreshing(false);
-
         }
     };
 
     // ========================================================
-    // DAILY FILTERING
+    // AVAILABLE MONTHS
+    // ========================================================
+
+    const availableMonths = useMemo(() => {
+
+        return allMonths
+            .map(
+                (month) =>
+                    month?.billing_month
+            )
+            .filter(Boolean)
+            .sort();
+
+    }, [allMonths]);
+
+    // ========================================================
+    // DAILY ATTENDANCE
+    //
+    // FILTER ALL RECORDS BY SELECTED DATE
+    // ========================================================
+
+    const dailyAttendance =
+        useMemo(() => {
+
+            return allAttendance.filter(
+                (record) => {
+
+                    return (
+                        String(
+                            record?.attendance_date ||
+                            ""
+                        ) ===
+                        String(
+                            attendanceDate
+                        )
+                    );
+                }
+            );
+
+        }, [
+            allAttendance,
+            attendanceDate,
+        ]);
+
+    // ========================================================
+    // FILTERED DAILY ATTENDANCE
     // ========================================================
 
     const filteredDailyAttendance =
@@ -646,7 +615,8 @@ const ClientAttendance = () => {
 
                     const matchesStatus =
                         statusFilter === "all" ||
-                        status === statusFilter;
+                        status ===
+                            statusFilter;
 
                     return (
                         matchesSearch &&
@@ -662,7 +632,278 @@ const ClientAttendance = () => {
         ]);
 
     // ========================================================
-    // MONTHLY FILTERING
+    // MONTHLY RAW ATTENDANCE
+    // ========================================================
+
+    const selectedMonthAttendance =
+        useMemo(() => {
+
+            return allAttendance.filter(
+                (record) => {
+
+                    const date =
+                        String(
+                            record?.attendance_date ||
+                            ""
+                        );
+
+                    return (
+                        date.slice(0, 7) ===
+                        billingMonth
+                    );
+                }
+            );
+
+        }, [
+            allAttendance,
+            billingMonth,
+        ]);
+
+    // ========================================================
+    // MONTHLY EMPLOYEE SUMMARY
+    //
+    // Converts:
+    //
+    // Employee 1 - 01 Sep
+    // Employee 1 - 02 Sep
+    // Employee 1 - 03 Sep
+    //
+    // INTO:
+    //
+    // Employee 1
+    // Present: 20
+    // Absent: 7
+    // Leave: 3
+    // ...
+    // ========================================================
+
+    const monthlyAttendance =
+        useMemo(() => {
+
+            const employeeMap =
+                new Map();
+
+            for (
+                const record of
+                    selectedMonthAttendance
+            ) {
+
+                const employeeId =
+                    String(
+                        getEmployeeId(
+                            record
+                        )
+                    );
+
+                if (
+                    !employeeId ||
+                    employeeId ===
+                        "undefined"
+                ) {
+                    continue;
+                }
+
+                if (
+                    !employeeMap.has(
+                        employeeId
+                    )
+                ) {
+
+                    employeeMap.set(
+                        employeeId,
+                        {
+                            employee_id:
+                                getEmployeeId(
+                                    record
+                                ),
+
+                            employee_name:
+                                getEmployeeName(
+                                    record
+                                ),
+
+                            full_name:
+                                getEmployeeName(
+                                    record
+                                ),
+
+                            employee_email:
+                                record?.employee_email ??
+                                null,
+
+                            employee_phone:
+                                record?.employee_phone ??
+                                null,
+
+                            designation:
+                                record?.designation ??
+                                null,
+
+                            present_days: 0,
+
+                            absent_days: 0,
+
+                            leave_days: 0,
+
+                            half_days: 0,
+
+                            working_days: 0,
+
+                            lop_days: 0,
+
+                            overtime_hours: 0,
+
+                            total_records: 0,
+
+                            total_working_hours: 0,
+                        }
+                    );
+                }
+
+                const employee =
+                    employeeMap.get(
+                        employeeId
+                    );
+
+                const status =
+                    getStatus(record);
+
+                // ---------------------------------------------
+                // EVERY DAILY RECORD COUNTS
+                // ---------------------------------------------
+
+                employee.total_records++;
+
+                // ---------------------------------------------
+                // PRESENT
+                // ---------------------------------------------
+
+                if (
+                    status ===
+                    "present"
+                ) {
+
+                    employee.present_days++;
+                }
+
+                // ---------------------------------------------
+                // ABSENT
+                // ---------------------------------------------
+
+                if (
+                    status ===
+                    "absent"
+                ) {
+
+                    employee.absent_days++;
+                }
+
+                // ---------------------------------------------
+                // LEAVE
+                // ---------------------------------------------
+
+                if (
+                    status ===
+                        "leave" ||
+                    status ===
+                        "on_leave"
+                ) {
+
+                    employee.leave_days++;
+                }
+
+                // ---------------------------------------------
+                // HALF DAY
+                // ---------------------------------------------
+
+                if (
+                    status ===
+                        "half_day" ||
+                    status ===
+                        "halfday"
+                ) {
+
+                    employee.half_days++;
+                }
+
+                // ---------------------------------------------
+                // WORKING DAYS
+                //
+                // Present + Half Day
+                // ---------------------------------------------
+
+                if (
+                    status ===
+                    "present"
+                ) {
+
+                    employee.working_days++;
+                }
+
+                if (
+                    status ===
+                        "half_day" ||
+                    status ===
+                        "halfday"
+                ) {
+
+                    employee.working_days +=
+                        0.5;
+                }
+
+                // ---------------------------------------------
+                // LOP
+                // ---------------------------------------------
+
+                if (
+                    status ===
+                    "lop"
+                ) {
+
+                    employee.lop_days++;
+                }
+
+                // ---------------------------------------------
+                // OVERTIME
+                // ---------------------------------------------
+
+                employee.overtime_hours +=
+                    getOvertime(record);
+
+                // ---------------------------------------------
+                // WORKING HOURS
+                // ---------------------------------------------
+
+                employee.total_working_hours +=
+                    getWorkingHours(record);
+            }
+
+            return Array.from(
+                employeeMap.values()
+            ).map(
+                (employee) => ({
+                    ...employee,
+
+                    overtime_hours:
+                        Math.round(
+                            employee.overtime_hours *
+                                100
+                        ) / 100,
+
+                    total_working_hours:
+                        Math.round(
+                            employee.total_working_hours *
+                                100
+                        ) / 100,
+                })
+            );
+
+        }, [
+            selectedMonthAttendance,
+        ]);
+
+    // ========================================================
+    // FILTERED MONTHLY ATTENDANCE
     // ========================================================
 
     const filteredMonthlyAttendance =
@@ -706,7 +947,7 @@ const ClientAttendance = () => {
         ]);
 
     // ========================================================
-    // DAILY SUMMARY CARDS
+    // DAILY SUMMARY
     // ========================================================
 
     const dailyStats = useMemo(() => {
@@ -722,24 +963,38 @@ const ClientAttendance = () => {
                 const status =
                     getStatus(record);
 
-                if (status === "present") {
+                if (
+                    status ===
+                    "present"
+                ) {
                     present++;
                 }
 
-                if (status === "absent") {
+                if (
+                    status ===
+                    "absent"
+                ) {
                     absent++;
                 }
 
-                if (status === "leave") {
+                if (
+                    status ===
+                        "leave" ||
+                    status ===
+                        "on_leave"
+                ) {
                     leave++;
                 }
 
                 overtime +=
-                    getOvertime(record);
+                    getOvertime(
+                        record
+                    );
             }
         );
 
         return {
+
             employees:
                 dailyAttendance.length,
 
@@ -755,16 +1010,15 @@ const ClientAttendance = () => {
                 ) / 100,
         };
 
-    }, [dailyAttendance]);
+    }, [
+        dailyAttendance,
+    ]);
 
     // ========================================================
     // MONTHLY SUMMARY
     // ========================================================
 
     const monthlyStats = useMemo(() => {
-
-        const employees =
-            monthlyAttendance.length;
 
         let present = 0;
         let absent = 0;
@@ -775,35 +1029,47 @@ const ClientAttendance = () => {
             (record) => {
 
                 present += Number(
-                    record?.present_days || 0
+                    record?.present_days ||
+                    0
                 );
 
                 absent += Number(
-                    record?.absent_days || 0
+                    record?.absent_days ||
+                    0
                 );
 
                 leave += Number(
-                    record?.leave_days || 0
+                    record?.leave_days ||
+                    0
                 );
 
                 overtime += Number(
-                    record?.overtime_hours || 0
+                    record?.overtime_hours ||
+                    0
                 );
             }
         );
 
         return {
-            employees,
+
+            employees:
+                monthlyAttendance.length,
+
             present,
+
             absent,
+
             leave,
+
             overtime:
                 Math.round(
                     overtime * 100
                 ) / 100,
         };
 
-    }, [monthlyAttendance]);
+    }, [
+        monthlyAttendance,
+    ]);
 
     // ========================================================
     // DISPLAY STATS
@@ -818,7 +1084,9 @@ const ClientAttendance = () => {
     // STATUS BADGE
     // ========================================================
 
-    const getStatusBadge = (status) => {
+    const getStatusBadge = (
+        status
+    ) => {
 
         const normalized =
             normalizeStatus(status);
@@ -829,33 +1097,64 @@ const ClientAttendance = () => {
         let label =
             status || "Unknown";
 
-        if (normalized === "present") {
+        if (
+            normalized ===
+            "present"
+        ) {
 
             className =
                 "bg-emerald-50 text-emerald-700";
 
-            label = "Present";
+            label =
+                "Present";
 
-        } else if (normalized === "absent") {
+        } else if (
+            normalized ===
+            "absent"
+        ) {
 
             className =
                 "bg-red-50 text-red-600";
 
-            label = "Absent";
+            label =
+                "Absent";
 
-        } else if (normalized === "leave") {
+        } else if (
+            normalized ===
+                "leave" ||
+            normalized ===
+                "on_leave"
+        ) {
 
             className =
                 "bg-blue-50 text-blue-600";
 
-            label = "Leave";
+            label =
+                "Leave";
 
-        } else if (normalized === "half_day") {
+        } else if (
+            normalized ===
+                "half_day" ||
+            normalized ===
+                "halfday"
+        ) {
 
             className =
                 "bg-amber-50 text-amber-700";
 
-            label = "Half Day";
+            label =
+                "Half Day";
+
+        } else if (
+            normalized ===
+            "lop"
+        ) {
+
+            className =
+                "bg-red-50 text-red-600";
+
+            label =
+                "LOP";
         }
 
         return (
@@ -896,10 +1195,13 @@ const ClientAttendance = () => {
     }
 
     // ========================================================
-    // INVALID SESSION / USER
+    // INVALID SESSION
     // ========================================================
 
-    if (!session || !user) {
+    if (
+        !session ||
+        !user
+    ) {
 
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
@@ -1023,15 +1325,50 @@ const ClientAttendance = () => {
                                     className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                                 />
 
-                                <input
-                                    type="month"
+                                <select
                                     value={billingMonth}
                                     onChange={(e) =>
                                         setBillingMonth(
                                             e.target.value
                                         )
                                     }
-                                    className="h-[43px] w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                    className="h-[43px] w-full appearance-none rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                >
+
+                                    {availableMonths.length >
+                                    0 ? (
+
+                                        availableMonths.map(
+                                            (month) => (
+                                                <option
+                                                    key={month}
+                                                    value={month}
+                                                >
+                                                    {formatBillingMonth(
+                                                        month
+                                                    )}
+                                                </option>
+                                            )
+                                        )
+
+                                    ) : (
+
+                                        <option
+                                            value={
+                                                billingMonth
+                                            }
+                                        >
+                                            {formatBillingMonth(
+                                                billingMonth
+                                            )}
+                                        </option>
+                                    )}
+
+                                </select>
+
+                                <ChevronDown
+                                    size={16}
+                                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
                                 />
 
                             </div>
@@ -1055,7 +1392,9 @@ const ClientAttendance = () => {
 
                                 <input
                                     type="date"
-                                    value={attendanceDate}
+                                    value={
+                                        attendanceDate
+                                    }
                                     onChange={(e) =>
                                         setAttendanceDate(
                                             e.target.value
@@ -1085,7 +1424,9 @@ const ClientAttendance = () => {
 
                                 <input
                                     type="text"
-                                    value={searchEmployee}
+                                    value={
+                                        searchEmployee
+                                    }
                                     onChange={(e) =>
                                         setSearchEmployee(
                                             e.target.value
@@ -1126,8 +1467,9 @@ const ClientAttendance = () => {
                                 </p>
 
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {activeTab === "daily"
-                                        ? "Records today"
+                                    {activeTab ===
+                                    "daily"
+                                        ? "Employees today"
                                         : "Employees this month"}
                                 </p>
 
@@ -1163,7 +1505,8 @@ const ClientAttendance = () => {
                                 </p>
 
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {activeTab === "daily"
+                                    {activeTab ===
+                                    "daily"
                                         ? "Present today"
                                         : "Present days"}
                                 </p>
@@ -1200,7 +1543,8 @@ const ClientAttendance = () => {
                                 </p>
 
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {activeTab === "daily"
+                                    {activeTab ===
+                                    "daily"
                                         ? "Absent today"
                                         : "Absent days"}
                                 </p>
@@ -1237,7 +1581,8 @@ const ClientAttendance = () => {
                                 </p>
 
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {activeTab === "daily"
+                                    {activeTab ===
+                                    "daily"
                                         ? "On leave"
                                         : "Leave days"}
                                 </p>
@@ -1298,7 +1643,7 @@ const ClientAttendance = () => {
                 </div>
 
                 {/* ==================================================
-                    MAIN ATTENDANCE CARD
+                    MAIN CARD
                 ================================================== */}
 
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -1310,10 +1655,13 @@ const ClientAttendance = () => {
                         <button
                             type="button"
                             onClick={() =>
-                                setActiveTab("daily")
+                                setActiveTab(
+                                    "daily"
+                                )
                             }
                             className={`relative px-6 py-4 text-sm font-semibold transition ${
-                                activeTab === "daily"
+                                activeTab ===
+                                "daily"
                                     ? "text-indigo-600"
                                     : "text-slate-500 hover:text-slate-800"
                             }`}
@@ -1321,7 +1669,8 @@ const ClientAttendance = () => {
 
                             Daily Attendance
 
-                            {activeTab === "daily" && (
+                            {activeTab ===
+                                "daily" && (
                                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />
                             )}
 
@@ -1330,10 +1679,13 @@ const ClientAttendance = () => {
                         <button
                             type="button"
                             onClick={() =>
-                                setActiveTab("monthly")
+                                setActiveTab(
+                                    "monthly"
+                                )
                             }
                             className={`relative px-6 py-4 text-sm font-semibold transition ${
-                                activeTab === "monthly"
+                                activeTab ===
+                                "monthly"
                                     ? "text-indigo-600"
                                     : "text-slate-500 hover:text-slate-800"
                             }`}
@@ -1341,7 +1693,8 @@ const ClientAttendance = () => {
 
                             Monthly Attendance
 
-                            {activeTab === "monthly" && (
+                            {activeTab ===
+                                "monthly" && (
                                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />
                             )}
 
@@ -1360,16 +1713,19 @@ const ClientAttendance = () => {
                     )}
 
                     {/* ==================================================
-                        STATUS FILTER
+                        DAILY STATUS FILTER
                     ================================================== */}
 
-                    {activeTab === "daily" && (
+                    {activeTab ===
+                        "daily" && (
                         <div className="flex justify-end border-b border-slate-200 px-6 py-6">
 
                             <div className="relative">
 
                                 <select
-                                    value={statusFilter}
+                                    value={
+                                        statusFilter
+                                    }
                                     onChange={(e) =>
                                         setStatusFilter(
                                             e.target.value
@@ -1396,6 +1752,10 @@ const ClientAttendance = () => {
 
                                     <option value="half_day">
                                         Half Day
+                                    </option>
+
+                                    <option value="lop">
+                                        LOP
                                     </option>
 
                                 </select>
@@ -1433,9 +1793,15 @@ const ClientAttendance = () => {
 
                         </div>
 
-                    ) : activeTab === "daily" ? (
+                    ) : activeTab ===
+                        "daily" ? (
 
-                        filteredDailyAttendance.length === 0 ? (
+                        /* ==================================================
+                           DAILY TABLE
+                        ================================================== */
+
+                        filteredDailyAttendance.length ===
+                        0 ? (
 
                             <div className="flex min-h-[400px] flex-col items-center justify-center px-6 text-center">
 
@@ -1455,7 +1821,8 @@ const ClientAttendance = () => {
                                 <p className="mt-2 text-sm text-slate-500">
 
                                     {searchEmployee ||
-                                    statusFilter !== "all"
+                                    statusFilter !==
+                                        "all"
                                         ? "No attendance records match your current filters."
                                         : `No attendance records were found for ${formatDateLong(
                                             attendanceDate
@@ -1524,7 +1891,7 @@ const ClientAttendance = () => {
                                                         record?.id ??
                                                         `${getEmployeeId(
                                                             record
-                                                        )}-${index}`
+                                                        )}-${record?.attendance_date}-${index}`
                                                     }
                                                     className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
                                                 >
@@ -1543,7 +1910,8 @@ const ClientAttendance = () => {
                                                                 ID:{" "}
                                                                 {getEmployeeId(
                                                                     record
-                                                                ) || "—"}
+                                                                ) ||
+                                                                    "—"}
                                                             </p>
 
                                                         </div>
@@ -1551,37 +1919,55 @@ const ClientAttendance = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm text-slate-600">
+
                                                         {formatDateForDisplay(
                                                             record?.attendance_date
                                                         )}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm text-slate-600">
-                                                        {record?.check_in || "—"}
+
+                                                        {record?.check_in ||
+                                                            "—"}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm text-slate-600">
-                                                        {record?.check_out || "—"}
+
+                                                        {record?.check_out ||
+                                                            "—"}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm font-medium text-slate-700">
-                                                        {record?.working_hours ?? "—"}
+
+                                                        {record?.working_hours ??
+                                                            0}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm font-medium text-slate-700">
+
                                                         {getOvertime(
                                                             record
-                                                        ).toFixed(2)}{" "}
+                                                        ).toFixed(
+                                                            2
+                                                        )}{" "}
                                                         hrs
+
                                                     </td>
 
                                                     <td className="px-6 py-4">
+
                                                         {getStatusBadge(
                                                             record?.status
                                                         )}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-sm capitalize text-slate-600">
+
                                                         {String(
                                                             record?.work_mode ||
                                                             "—"
@@ -1589,6 +1975,7 @@ const ClientAttendance = () => {
                                                             /_/g,
                                                             " "
                                                         )}
+
                                                     </td>
 
                                                 </tr>
@@ -1606,7 +1993,12 @@ const ClientAttendance = () => {
 
                     ) : (
 
-                        filteredMonthlyAttendance.length === 0 ? (
+                        /* ==================================================
+                           MONTHLY TABLE
+                        ================================================== */
+
+                        filteredMonthlyAttendance.length ===
+                        0 ? (
 
                             <div className="flex min-h-[400px] flex-col items-center justify-center px-6 text-center">
 
@@ -1627,7 +2019,9 @@ const ClientAttendance = () => {
 
                                     {searchEmployee
                                         ? "No employees match your search."
-                                        : `No attendance records were found for ${billingMonth}.`}
+                                        : `No attendance records were found for ${formatBillingMonth(
+                                            billingMonth
+                                        )}.`}
 
                                 </p>
 
@@ -1693,8 +2087,9 @@ const ClientAttendance = () => {
 
                                                 <tr
                                                     key={
-                                                        record?.employee_id ??
-                                                        index
+                                                        `${getEmployeeId(
+                                                            record
+                                                        )}-${index}`
                                                     }
                                                     className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
                                                 >
@@ -1713,7 +2108,8 @@ const ClientAttendance = () => {
                                                                 ID:{" "}
                                                                 {getEmployeeId(
                                                                     record
-                                                                ) || "—"}
+                                                                ) ||
+                                                                    "—"}
                                                             </p>
 
                                                         </div>
@@ -1721,38 +2117,64 @@ const ClientAttendance = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-emerald-700">
-                                                        {record?.present_days ?? 0}
+
+                                                        {record?.present_days ??
+                                                            0}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-red-600">
-                                                        {record?.absent_days ?? 0}
+
+                                                        {record?.absent_days ??
+                                                            0}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-blue-600">
-                                                        {record?.leave_days ?? 0}
+
+                                                        {record?.leave_days ??
+                                                            0}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-amber-600">
-                                                        {record?.half_days ?? 0}
+
+                                                        {record?.half_days ??
+                                                            0}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-slate-700">
-                                                        {record?.working_days ?? 0}
+
+                                                        {record?.working_days ??
+                                                            0}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-red-600">
-                                                        {record?.lop_days ?? 0}
+
+                                                        {record?.lop_days ??
+                                                            0}
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm font-semibold text-indigo-600">
+
                                                         {Number(
-                                                            record?.overtime_hours ?? 0
-                                                        ).toFixed(2)}{" "}
+                                                            record?.overtime_hours ??
+                                                            0
+                                                        ).toFixed(
+                                                            2
+                                                        )}{" "}
                                                         hrs
+
                                                     </td>
 
                                                     <td className="px-6 py-4 text-center text-sm text-slate-600">
-                                                        {record?.total_records ?? 0}
+
+                                                        {record?.total_records ??
+                                                            0}
+
                                                     </td>
 
                                                 </tr>
