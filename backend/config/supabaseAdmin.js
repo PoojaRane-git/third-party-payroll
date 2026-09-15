@@ -19,13 +19,14 @@ if (!SUPABASE_SERVICE_ROLE_KEY) {
     );
 }
 
-const supabaseAdmin = createClient(
+export const supabase = createClient(
     SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_ANON_KEY,
     {
         auth: {
-            autoRefreshToken: false,
-            persistSession: false,
+            storageKey: "tc-admin-auth",
+            persistSession: true,
+            autoRefreshToken: true,
         },
     }
 );
