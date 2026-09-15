@@ -18,8 +18,7 @@ import {
     ChevronDown,
 } from "lucide-react";
 
-import { useAuth } from "../../auth/AuthProvider";
-import { supabase } from "../../../../lib/supabaseClient";
+import Sidebar from "../Layout/Sidebar";
 import api from "../../../services/api";
 
 // ============================================================
@@ -177,65 +176,6 @@ const ClientAttendance = () => {
             ""
         );
     }, [user]);
-
-    // ========================================================
-    // GET ACCESS TOKEN
-    // ========================================================
-
-    const getAccessToken = useCallback(
-        async () => {
-            if (session?.access_token) {
-                return session.access_token;
-            }
-
-            const {
-                data,
-                error: sessionError,
-            } = await supabase.auth.getSession();
-
-            if (sessionError) {
-                console.error(
-                    "Attendance session error:",
-                    sessionError
-                );
-
-                return null;
-            }
-
-            return (
-                data?.session?.access_token ||
-                null
-            );
-        },
-        [session]
-    );
-
-    // ========================================================
-    // API HEADERS
-    // ========================================================
-
-    const getAuthConfig = useCallback(
-        async () => {
-            const accessToken =
-                await getAccessToken();
-
-            if (!accessToken) {
-                throw new Error(
-                    "Authentication session not found. Please login again."
-                );
-            }
-
-            return {
-                headers: {
-                    Authorization:
-                        `Bearer ${accessToken}`,
-                    "Content-Type":
-                        "application/json",
-                },
-            };
-        },
-        [getAccessToken]
-    );
 
     // ========================================================
     // FETCH DAILY ATTENDANCE
@@ -821,6 +761,7 @@ const ClientAttendance = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 px-6 py-6">
+            <Sidebar/>
             <div className="mx-auto max-w-[1280px]">
 
                 {/* ==================================================

@@ -22,10 +22,7 @@ import {
 } from "lucide-react";
 
 import Sidebar from "../Layout/Sidebar";
-
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:5000/api";
+import api from "../../../services/api";
 
 function ClientCandidates({ activeTab, setActiveTab }) {
   // =====================================================
@@ -343,23 +340,11 @@ function ClientCandidates({ activeTab, setActiveTab }) {
       // API request
       // -------------------------------------------------
 
-      const response =
-        await axios.get(
-          `${API_BASE}/employees`,
-          {
-            params: {
-              client_id:
-                numericClientId,
-            },
-
-            headers: accessToken
-              ? {
-                  Authorization:
-                    `Bearer ${accessToken}`,
-                }
-              : {},
-          }
-        );
+    const response = await api.get("/employees", {
+    params: {
+        client_id: numericClientId,
+    },
+});
 
       console.log(
         "Employees API response:",
