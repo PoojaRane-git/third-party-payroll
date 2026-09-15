@@ -1233,21 +1233,27 @@ const ClientAttendance = () => {
         );
     }
 
-    // ========================================================
-    // RENDER
-    // ========================================================
+   return (
+    <div className="min-h-screen bg-slate-50">
 
-    return (
-        <div className="min-h-screen bg-slate-50 px-6 py-6">
+        {/* ==================================================
+            SIDEBAR
+        ================================================== */}
 
-            <Sidebar
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                clientName={clientName}
-                onLogout={handleLogout}
-            />
+        <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            clientName={clientName}
+            onLogout={handleLogout}
+        />
 
-            <div className="mx-auto max-w-[1280px]">
+        {/* ==================================================
+            MAIN CONTENT
+        ================================================== */}
+
+        <main className="min-h-screen pl-64">
+
+            <div className="mx-auto max-w-[1280px] px-6 py-6">
 
                 {/* ==================================================
                     HEADER
@@ -2195,6 +2201,7 @@ const ClientAttendance = () => {
                 </div>
 
             </div>
+            </main>
 
         </div>
     );
