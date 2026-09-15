@@ -212,40 +212,37 @@ const formatBillingMonth = (date) => {
 
 const fetchInvoices = async (forceRefresh = false) => {
     try {
-        setLoadingInvoices(true);
+        if (forceRefresh) {
+            setRefreshing(true);
+        } else {
+            setLoading(true);
+        }
 
-        const response = await api.get(
-            "/client-management/invoices"
-        );
-
+        const response = await api.get("/client-management/invoices");
         const data = response.data || {};
-
-        setInvoices(
-            data.invoices ||
-            data.data ||
-            []
-        );
-
+        setInvoices(data.invoices || data.data || []);
         return data;
     } catch (error) {
-        console.error(
-            "Fetch invoices error:",
-            error
-        );
-
+        console.error("Fetch invoices error:", error);
         alert(
             error.response?.data?.error ||
             error.response?.data?.message ||
             error.message ||
             "Failed to load invoices."
         );
-
         return null;
     } finally {
-        setLoadingInvoices(false);
+        if (forceRefresh) {
+            setRefreshing(false);
+        } else {
+            setLoading(false);
+        }
     }
 };
 
+useEffect(() => {
+    fetchInvoices();
+}, []);
 
 // =========================================================
 // NORMALIZE INVOICE
