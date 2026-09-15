@@ -110,10 +110,10 @@ function ClientPortalDashboard() {
     if (response.status === 401) {
       await supabase.auth.signOut();
 
-      localStorage.removeItem("client_id");
-      localStorage.removeItem("client_name");
-      localStorage.removeItem("company_name");
-      localStorage.removeItem("user_role");
+      sessionStorage.removeItem("client_id");
+      sessionStorage.removeItem("client_name");
+      sessionStorage.removeItem("company_name");
+      sessionStorage.removeItem("user_role");
 
       navigate("/login");
 
@@ -353,10 +353,10 @@ function ClientPortalDashboard() {
           error
         );
       } finally {
-        localStorage.removeItem("client_id");
-        localStorage.removeItem("client_name");
-        localStorage.removeItem("company_name");
-        localStorage.removeItem("user_role");
+        sessionStorage.removeItem("client_id");
+        sessionStorage.removeItem("client_name");
+        sessionStorage.removeItem("company_name");
+        sessionStorage.removeItem("user_role");
 
         navigate("/login");
       }

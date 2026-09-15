@@ -50,14 +50,14 @@ const EmployeeSidebar = () => {
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      // Remove old localStorage values if they exist
-      localStorage.removeItem("token");
-      localStorage.removeItem("employee_id");
-      localStorage.removeItem("employee_name");
-      localStorage.removeItem("employee_email");
-      localStorage.removeItem("deployment_id");
-      localStorage.removeItem("client_id");
-      localStorage.removeItem("user_role");
+      // Remove old sessionStorage values if they exist
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("employee_id");
+      sessionStorage.removeItem("employee_name");
+      sessionStorage.removeItem("employee_email");
+      sessionStorage.removeItem("deployment_id");
+      sessionStorage.removeItem("client_id");
+      sessionStorage.removeItem("user_role");
 
       // Redirect to login
       navigate("/login", { replace: true });

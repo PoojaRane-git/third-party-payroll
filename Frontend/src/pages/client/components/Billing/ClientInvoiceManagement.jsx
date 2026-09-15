@@ -142,8 +142,8 @@ function ClientInvoiceManagement({
     // =========================================================
 
     const clientId =
-        localStorage.getItem("client_id") ||
-        localStorage.getItem("clientId");
+        sessionStorage.getItem("client_id") ||
+        sessionStorage.getItem("clientId");
 
     // =========================================================
     // FORMAT CURRENCY

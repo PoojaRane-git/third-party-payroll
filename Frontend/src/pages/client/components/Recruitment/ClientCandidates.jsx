@@ -55,7 +55,7 @@ function ClientCandidates({ activeTab, setActiveTab }) {
     // -----------------------------------------------------
 
     storedClientId =
-      localStorage.getItem("client_id") || "";
+      sessionStorage.getItem("client_id") || "";
 
     // -----------------------------------------------------
     // 2. clientId fallback
@@ -63,7 +63,7 @@ function ClientCandidates({ activeTab, setActiveTab }) {
 
     if (!storedClientId) {
       storedClientId =
-        localStorage.getItem("clientId") || "";
+        sessionStorage.getItem("clientId") || "";
     }
 
     // -----------------------------------------------------
@@ -71,7 +71,7 @@ function ClientCandidates({ activeTab, setActiveTab }) {
     // -----------------------------------------------------
 
     const storedUser =
-      localStorage.getItem("user");
+      sessionStorage.getItem("user");
 
     if (storedUser) {
       try {
@@ -108,7 +108,7 @@ function ClientCandidates({ activeTab, setActiveTab }) {
 
     if (!storedClientId) {
       const storedClient =
-        localStorage.getItem("client");
+        sessionStorage.getItem("client");
 
       if (storedClient) {
         try {
@@ -142,7 +142,7 @@ function ClientCandidates({ activeTab, setActiveTab }) {
 
     if (!storedClientId) {
       const storedProfile =
-        localStorage.getItem("profile");
+        sessionStorage.getItem("profile");
 
       if (storedProfile) {
         try {
@@ -176,8 +176,8 @@ function ClientCandidates({ activeTab, setActiveTab }) {
 
     if (!storedCompanyName) {
       storedCompanyName =
-        localStorage.getItem("company_name") ||
-        localStorage.getItem("companyName") ||
+        sessionStorage.getItem("company_name") ||
+        sessionStorage.getItem("companyName") ||
         "";
     }
 
@@ -263,13 +263,13 @@ function ClientCandidates({ activeTab, setActiveTab }) {
             storedCompanyName
           );
 
-          localStorage.setItem(
+          sessionStorage.setItem(
             "company_name",
             storedCompanyName
           );
         }
 
-        localStorage.setItem(
+        sessionStorage.setItem(
           "client_id",
           normalizedClientId
         );
@@ -332,7 +332,7 @@ function ClientCandidates({ activeTab, setActiveTab }) {
       // -------------------------------------------------
 
       const accessToken =
-        localStorage.getItem(
+        sessionStorage.getItem(
           "access_token"
         );
 
@@ -418,7 +418,7 @@ function ClientCandidates({ activeTab, setActiveTab }) {
             firstEmployee.company_name
           );
 
-          localStorage.setItem(
+          sessionStorage.setItem(
             "company_name",
             firstEmployee.company_name
           );
@@ -783,7 +783,7 @@ function ClientCandidates({ activeTab, setActiveTab }) {
   // =====================================================
 
   const handleLogout = () => {
-    localStorage.clear();
+    sessionStorage.clear();
 
     window.location.href =
       "/login";

@@ -608,7 +608,7 @@ export default function ClientBilling({
 
   const getAuthHeaders = () => {
     const token =
-      localStorage.getItem("token");
+      sessionStorage.getItem("token");
 
     return {
       "Content-Type":

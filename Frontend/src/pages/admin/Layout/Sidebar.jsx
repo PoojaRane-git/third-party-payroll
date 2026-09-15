@@ -221,9 +221,9 @@ const handleLogout = async () => {
     }
 
     // Clear old locally stored authentication data
-    localStorage.removeItem("token");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("access_token");
+    sessionStorage.removeItem("user");
 
     // Close sidebar/dropdown
     setMobileSidebarOpen(false);

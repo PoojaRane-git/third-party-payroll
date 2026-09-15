@@ -43,8 +43,8 @@ function JobRequirementsClient() {
   // LOAD CLIENT + JOB REQUIREMENTS
   // -----------------------------------
   useEffect(() => {
-    const storedClientId = localStorage.getItem("client_id");
-    const storedCompany = localStorage.getItem("company_name");
+    const storedClientId = sessionStorage.getItem("client_id");
+    const storedCompany = sessionStorage.getItem("company_name");
 
     console.log("=================================");
     console.log("JOB REQUIREMENTS PAGE");
@@ -222,7 +222,7 @@ function JobRequirementsClient() {
 
   const handleLogout = () => {
 
-    localStorage.clear();
+    sessionStorage.clear();
 
     window.location.href = '/login';
 

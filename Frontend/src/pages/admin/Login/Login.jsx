@@ -131,14 +131,14 @@ function Login() {
     // =====================================================
 
     const clearLoginData = () => {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("client_id");
-        localStorage.removeItem("company_name");
-        localStorage.removeItem("employee_id");
-        localStorage.removeItem("pending_login_user");
-        localStorage.removeItem("pending_approval");
-        localStorage.removeItem("login_request_id");
+        sessionStorage.removeItem("access_token");
+        sessionStorage.removeItem("user");
+        sessionStorage.removeItem("client_id");
+        sessionStorage.removeItem("company_name");
+        sessionStorage.removeItem("employee_id");
+        sessionStorage.removeItem("pending_login_user");
+        sessionStorage.removeItem("pending_approval");
+        sessionStorage.removeItem("login_request_id");
     };
 
     // =====================================================
@@ -536,7 +536,7 @@ function Login() {
             // TEMPORARY USER
             // =================================================
 
-            localStorage.setItem(
+            sessionStorage.setItem(
                 "pending_login_user",
                 JSON.stringify(user)
             );
@@ -700,7 +700,7 @@ function Login() {
                         result.login_request_id
                     );
 
-                    localStorage.setItem(
+                    sessionStorage.setItem(
                         "login_request_id",
                         String(
                             result.login_request_id
@@ -865,19 +865,19 @@ function Login() {
                         authenticatedUser
                     );
 
-                    localStorage.setItem(
+                    sessionStorage.setItem(
                         "user",
                         JSON.stringify(
                             authenticatedUser
                         )
                     );
 
-                    localStorage.setItem(
+                    sessionStorage.setItem(
                         "access_token",
                         session.access_token
                     );
 
-                    localStorage.setItem(
+                    sessionStorage.setItem(
                         "pending_approval",
                         "true"
                     );
@@ -934,14 +934,14 @@ function Login() {
                         authenticatedUser
                     );
 
-                    localStorage.setItem(
+                    sessionStorage.setItem(
                         "user",
                         JSON.stringify(
                             authenticatedUser
                         )
                     );
 
-                    localStorage.setItem(
+                    sessionStorage.setItem(
                         "access_token",
                         session.access_token
                     );
@@ -970,7 +970,7 @@ function Login() {
 
                 clearLoginData();
 
-                localStorage.removeItem(
+                sessionStorage.removeItem(
                     "pending_approval"
                 );
 
@@ -978,12 +978,12 @@ function Login() {
                 // SAVE CURRENT SESSION
                 // =================================================
 
-                localStorage.setItem(
+                sessionStorage.setItem(
                     "access_token",
                     session.access_token
                 );
 
-                localStorage.setItem(
+                sessionStorage.setItem(
                     "user",
                     JSON.stringify(
                         authenticatedUser
@@ -994,7 +994,7 @@ function Login() {
                 // COMPANY
                 // =================================================
 
-                localStorage.setItem(
+                sessionStorage.setItem(
                     "company_name",
                     authenticatedUser.company_name ||
                         "Talent Corner"
@@ -1007,7 +1007,7 @@ function Login() {
                 if (
                     authenticatedUser.client_id
                 ) {
-                    localStorage.setItem(
+                    sessionStorage.setItem(
                         "client_id",
                         String(
                             authenticatedUser.client_id
@@ -1022,7 +1022,7 @@ function Login() {
                 if (
                     authenticatedUser.employee_id
                 ) {
-                    localStorage.setItem(
+                    sessionStorage.setItem(
                         "employee_id",
                         String(
                             authenticatedUser.employee_id
@@ -1280,19 +1280,19 @@ function Login() {
 
                             clearLoginData();
 
-                            localStorage.setItem(
+                            sessionStorage.setItem(
                                 "access_token",
                                 session.access_token
                             );
 
-                            localStorage.setItem(
+                            sessionStorage.setItem(
                                 "user",
                                 JSON.stringify(
                                     approvedUser
                                 )
                             );
 
-                            localStorage.setItem(
+                            sessionStorage.setItem(
                                 "company_name",
                                 approvedUser.company_name ||
                                     "Talent Corner"
@@ -1301,7 +1301,7 @@ function Login() {
                             if (
                                 approvedUser.client_id
                             ) {
-                                localStorage.setItem(
+                                sessionStorage.setItem(
                                     "client_id",
                                     String(
                                         approvedUser.client_id
@@ -1312,7 +1312,7 @@ function Login() {
                             if (
                                 approvedUser.employee_id
                             ) {
-                                localStorage.setItem(
+                                sessionStorage.setItem(
                                     "employee_id",
                                     String(
                                         approvedUser.employee_id
@@ -1336,7 +1336,7 @@ function Login() {
                                 null
                             );
 
-                            localStorage.removeItem(
+                            sessionStorage.removeItem(
                                 "login_request_id"
                             );
 
@@ -1433,7 +1433,7 @@ function Login() {
                                 null
                             );
 
-                            localStorage.removeItem(
+                            sessionStorage.removeItem(
                                 "login_request_id"
                             );
 
@@ -1464,7 +1464,7 @@ function Login() {
                                 null
                             );
 
-                            localStorage.removeItem(
+                            sessionStorage.removeItem(
                                 "login_request_id"
                             );
 
