@@ -20,7 +20,7 @@ import {
 
 import { useAuth } from "../../auth/AuthProvider";
 import { supabase } from "../../lib/supabaseClient";
-import api from "../../services/api";
+import api from "../../../services/api";
 
 // ============================================================
 // HELPERS
