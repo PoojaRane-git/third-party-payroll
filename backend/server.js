@@ -385,7 +385,7 @@ app.use(
   candidatesRouter
 );
 app.use(
-  "/api/client-job-requirements",
+  "/api/job-requirements",
   ClientjobRequirementRoutes
 )
 
