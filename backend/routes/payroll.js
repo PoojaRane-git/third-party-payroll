@@ -2387,9 +2387,1919 @@ router.patch(
 // third_party_emp_attendance ONLY
 // ============================================================
 
-router.post("/:id/email", async (req, res) => {
-    let browser = null;
+// router.post("/:id/email", async (req, res) => {
+//     let browser = null;
 
+//     try {
+//         // ========================================================
+//         // ID
+//         // ========================================================
+
+//         const payrollId = getId(req.params.id);
+
+//         if (!payrollId) {
+//             return sendError(
+//                 res,
+//                 400,
+//                 "Invalid payroll ID"
+//             );
+//         }
+
+//         // ========================================================
+//         // EMAIL CONFIG
+//         // ========================================================
+
+//         if (!EMAIL_USER || !EMAIL_PASS) {
+//             console.error(
+//                 "EMAIL_USER or EMAIL_PASS is missing"
+//             );
+
+//             return sendError(
+//                 res,
+//                 500,
+//                 "Email service is not configured. Please check EMAIL_USER and EMAIL_PASS."
+//             );
+//         }
+
+//         // ========================================================
+//         // GET PAYROLL
+//         // ========================================================
+
+//         const {
+//             data: payroll,
+//             error: payrollError
+//         } = await supabase
+//             .from("third_party_payroll")
+//             .select(`
+//                 id,
+//                 employee_name,
+//                 salary_month,
+
+//                 basic_salary,
+//                 allowances,
+//                 overtime,
+//                 bonus,
+//                 gross_salary,
+
+//                 pf,
+//                 esic,
+//                 tax,
+//                 professional_tax,
+//                 lop,
+
+//                 net_salary,
+
+//                 status,
+
+//                 employee_ref_id,
+//                 attendance_id,
+//                 deployment_id,
+//                 client_id,
+
+//                 bank_name,
+//                 account_number,
+//                 ifsc_code,
+
+//                 total_deductions,
+
+//                 employer_pf,
+//                 employer_esic,
+//                 total_employer_contribution,
+//                 total_employer_cost,
+
+//                 created_at
+//             `)
+//             .eq("id", payrollId)
+//             .maybeSingle();
+
+//         if (payrollError) {
+//             console.error(
+//                 "Payroll fetch error:",
+//                 payrollError
+//             );
+
+//             throw payrollError;
+//         }
+
+//         if (!payroll) {
+//             return sendError(
+//                 res,
+//                 404,
+//                 "Payroll record not found"
+//             );
+//         }
+
+//         // ========================================================
+//         // STATUS
+//         // ========================================================
+
+//         const payrollStatus = String(
+//             payroll.status || ""
+//         )
+//             .trim()
+//             .toLowerCase();
+
+//         if (
+//             payrollStatus !== "approved" &&
+//             payrollStatus !== "locked"
+//         ) {
+//             return sendError(
+//                 res,
+//                 400,
+//                 "Payslip can be emailed only after payroll is Approved or Locked."
+//             );
+//         }
+
+//         // ========================================================
+//         // CANDIDATE
+//         // ========================================================
+
+//         const candidateId =
+//             payroll.employee_ref_id;
+
+//         if (!candidateId) {
+//             return sendError(
+//                 res,
+//                 400,
+//                 "Candidate ID is missing"
+//             );
+//         }
+
+//         const {
+//             data: candidate,
+//             error: candidateError
+//         } = await supabase
+//             .from("candidates")
+//             .select(`
+//                 id,
+//                 full_name,
+//                 email,
+//                 designation,
+//                 employee_id,
+//                 date_of_joining,
+//                 location
+//             `)
+//             .eq("id", candidateId)
+//             .maybeSingle();
+
+//         if (candidateError) {
+//             console.error(
+//                 "Candidate fetch error:",
+//                 candidateError
+//             );
+
+//             throw candidateError;
+//         }
+
+//         if (!candidate) {
+//             return sendError(
+//                 res,
+//                 404,
+//                 "Candidate not found"
+//             );
+//         }
+
+//         // ========================================================
+//         // EMPLOYEE EMAIL
+//         // ========================================================
+
+//         const employeeEmail = String(
+//             candidate.email || ""
+//         ).trim();
+
+//         if (!employeeEmail) {
+//             return sendError(
+//                 res,
+//                 400,
+//                 "Employee email address is not available"
+//             );
+//         }
+
+//         const emailRegex =
+//             /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+//         if (!emailRegex.test(employeeEmail)) {
+//             return sendError(
+//                 res,
+//                 400,
+//                 `Invalid employee email address: ${employeeEmail}`
+//             );
+//         }
+
+//         // ========================================================
+//         // EMPLOYEE NAME
+//         // ========================================================
+
+//         const employeeName =
+//             candidate.full_name ||
+//             payroll.employee_name ||
+//             "Employee";
+
+//         // ========================================================
+//         // DEPLOYMENT
+//         // ========================================================
+
+//         let deployment = null;
+
+//         if (payroll.deployment_id) {
+//             const {
+//                 data: deploymentData,
+//                 error: deploymentError
+//             } = await supabase
+//                 .from("deployments")
+//                 .select(`
+//                     id,
+//                     employee_id,
+//                     client_id,
+//                     project_name,
+//                     pay_rate,
+//                     bill_rate,
+//                     start_date,
+//                     end_date,
+//                     status,
+//                     work_location
+//                 `)
+//                 .eq(
+//                     "id",
+//                     payroll.deployment_id
+//                 )
+//                 .maybeSingle();
+
+//             if (deploymentError) {
+//                 console.error(
+//                     "Deployment fetch error:",
+//                     deploymentError
+//                 );
+//             }
+
+//             deployment = deploymentData;
+//         }
+
+//         // ========================================================
+//         // CLIENT
+//         // ========================================================
+
+//         let client = null;
+
+//         if (payroll.client_id) {
+//             const {
+//                 data: clientData,
+//                 error: clientError
+//             } = await supabase
+//                 .from("clients")
+//                 .select(`
+//                     id,
+//                     company_name
+//                 `)
+//                 .eq(
+//                     "id",
+//                     payroll.client_id
+//                 )
+//                 .maybeSingle();
+
+//             if (clientError) {
+//                 console.error(
+//                     "Client fetch error:",
+//                     clientError
+//                 );
+//             }
+
+//             client = clientData;
+//         }
+
+//         // ========================================================
+//         // ATTENDANCE
+//         // ========================================================
+
+//         const {
+//             attendance
+//         } = await getAttendanceForPayroll(
+//             payroll
+//         );
+
+//         const totalDays =
+//             attendance?.billing_month
+//                 ? getDaysInMonth(
+//                       attendance.billing_month
+//                   )
+//                 : getDaysInMonth(
+//                       payroll.salary_month
+//                   );
+
+//         const presentDays = Number(
+//             attendance?.present_days || 0
+//         );
+
+//         const absentDays = Number(
+//             attendance?.absent_days || 0
+//         );
+
+//         const leaveDays = Number(
+//             attendance?.leave_days || 0
+//         );
+
+//         const halfDays = Number(
+//             attendance?.half_days || 0
+//         );
+
+//         const lopDays = Number(
+//             attendance?.lop_days || 0
+//         );
+
+//         const payableDays = Number(
+//             attendance?.payable_days ??
+//                 Math.max(
+//                     0,
+//                     presentDays +
+//                         leaveDays +
+//                         halfDays * 0.5
+//                 )
+//         );
+
+//         const overtimeHours = Number(
+//             attendance?.overtime_hours || 0
+//         );
+
+//         // ========================================================
+//         // MONEY
+//         // ========================================================
+
+//         const money = (value) => {
+//             return Number(value || 0).toLocaleString(
+//                 "en-IN",
+//                 {
+//                     minimumFractionDigits: 2,
+//                     maximumFractionDigits: 2
+//                 }
+//             );
+//         };
+
+//         // ========================================================
+//         // SAFE HTML
+//         // ========================================================
+
+//         const escapeHtml = (value) => {
+//             return String(value ?? "")
+//                 .replace(/&/g, "&amp;")
+//                 .replace(/</g, "&lt;")
+//                 .replace(/>/g, "&gt;")
+//                 .replace(/"/g, "&quot;")
+//                 .replace(/'/g, "&#039;");
+//         };
+
+//         const safe = (
+//             value,
+//             fallback = "N/A"
+//         ) => {
+//             if (
+//                 value === null ||
+//                 value === undefined ||
+//                 String(value).trim() === ""
+//             ) {
+//                 return fallback;
+//             }
+
+//             return String(value);
+//         };
+
+//         // ========================================================
+//         // MONTH / DATE
+//         // ========================================================
+
+//         const salaryMonth =
+//             payroll.salary_month || "";
+
+//         let monthStart = "N/A";
+//         let monthEnd = "N/A";
+//         let monthName = "N/A";
+
+//         if (/^\d{4}-\d{2}$/.test(salaryMonth)) {
+//             const [year, month] =
+//                 salaryMonth
+//                     .split("-")
+//                     .map(Number);
+
+//             const firstDay =
+//                 new Date(
+//                     year,
+//                     month - 1,
+//                     1
+//                 );
+
+//             const lastDay =
+//                 new Date(
+//                     year,
+//                     month,
+//                     0
+//                 );
+
+//             const formatDate = (date) => {
+//                 return date.toLocaleDateString(
+//                     "en-IN",
+//                     {
+//                         day: "numeric",
+//                         month: "short",
+//                         year: "numeric"
+//                     }
+//                 );
+//             };
+
+//             monthStart =
+//                 formatDate(firstDay);
+
+//             monthEnd =
+//                 formatDate(lastDay);
+
+//             monthName =
+//                 firstDay.toLocaleDateString(
+//                     "en-IN",
+//                     {
+//                         month: "long",
+//                         year: "numeric"
+//                     }
+//                 );
+//         }
+
+//         // ========================================================
+//         // DATE OF JOINING
+//         // ========================================================
+
+//         const dateOfJoining =
+//             candidate.date_of_joining
+//                 ? new Date(
+//                       candidate.date_of_joining
+//                   ).toLocaleDateString(
+//                       "en-IN",
+//                       {
+//                           day: "2-digit",
+//                           month: "2-digit",
+//                           year: "numeric"
+//                       }
+//                   )
+//                 : "N/A";
+
+//         // ========================================================
+//         // EMPLOYEE NUMBER
+//         // ========================================================
+
+//         const employeeNumber = safe(
+//             candidate.employee_id ||
+//                 deployment?.employee_id ||
+//                 candidate.id,
+//             "N/A"
+//         );
+
+//         // ========================================================
+//         // LOCATION
+//         // ========================================================
+
+//         const location = safe(
+//             deployment?.work_location ||
+//                 candidate.location,
+//             "Head Office"
+//         );
+
+//         // ========================================================
+//         // SALARY VALUES
+//         // ========================================================
+
+//         const basicSalary = Number(
+//             payroll.basic_salary || 0
+//         );
+
+//         const allowances = Number(
+//             payroll.allowances || 0
+//         );
+
+//         const overtime = Number(
+//             payroll.overtime || 0
+//         );
+
+//         const bonus = Number(
+//             payroll.bonus || 0
+//         );
+
+//         const grossSalary = Number(
+//             payroll.gross_salary ??
+//                 (
+//                     basicSalary +
+//                     allowances +
+//                     overtime +
+//                     bonus
+//                 )
+//         );
+
+//         const pf = Number(
+//             payroll.pf || 0
+//         );
+
+//         const esic = Number(
+//             payroll.esic || 0
+//         );
+
+//         const tax = Number(
+//             payroll.tax || 0
+//         );
+
+//         const professionalTax =
+//             Number(
+//                 payroll.professional_tax || 0
+//             );
+
+//         const lop = Number(
+//             payroll.lop || 0
+//         );
+
+//         const totalDeductions =
+//             Number(
+//                 payroll.total_deductions ??
+//                     (
+//                         pf +
+//                         esic +
+//                         tax +
+//                         professionalTax +
+//                         lop
+//                     )
+//             );
+
+//         const netSalary = Number(
+//             payroll.net_salary ??
+//                 Math.max(
+//                     0,
+//                     grossSalary -
+//                         totalDeductions
+//                 )
+//         );
+
+//         const employerPf = Number(
+//             payroll.employer_pf || 0
+//         );
+
+//         const employerEsic = Number(
+//             payroll.employer_esic || 0
+//         );
+
+//         const employerContribution =
+//             Number(
+//                 payroll.total_employer_contribution ??
+//                     (
+//                         employerPf +
+//                         employerEsic
+//                     )
+//             );
+
+//         const employerCost =
+//             Number(
+//                 payroll.total_employer_cost ??
+//                     (
+//                         grossSalary +
+//                         employerContribution
+//                     )
+//             );
+
+//         // ========================================================
+//         // AMOUNT IN WORDS
+//         // ========================================================
+
+//         const numberToWords = (number) => {
+//             const ones = [
+//                 "",
+//                 "One",
+//                 "Two",
+//                 "Three",
+//                 "Four",
+//                 "Five",
+//                 "Six",
+//                 "Seven",
+//                 "Eight",
+//                 "Nine",
+//                 "Ten",
+//                 "Eleven",
+//                 "Twelve",
+//                 "Thirteen",
+//                 "Fourteen",
+//                 "Fifteen",
+//                 "Sixteen",
+//                 "Seventeen",
+//                 "Eighteen",
+//                 "Nineteen"
+//             ];
+
+//             const tens = [
+//                 "",
+//                 "",
+//                 "Twenty",
+//                 "Thirty",
+//                 "Forty",
+//                 "Fifty",
+//                 "Sixty",
+//                 "Seventy",
+//                 "Eighty",
+//                 "Ninety"
+//             ];
+
+//             const belowThousand = (
+//                 num
+//             ) => {
+//                 let result = "";
+
+//                 if (num >= 100) {
+//                     result +=
+//                         ones[
+//                             Math.floor(
+//                                 num / 100
+//                             )
+//                         ] +
+//                         " Hundred ";
+
+//                     num %= 100;
+//                 }
+
+//                 if (num >= 20) {
+//                     result +=
+//                         tens[
+//                             Math.floor(
+//                                 num / 10
+//                             )
+//                         ] +
+//                         " ";
+
+//                     num %= 10;
+//                 }
+
+//                 if (num > 0) {
+//                     result +=
+//                         ones[num] +
+//                         " ";
+//                 }
+
+//                 return result.trim();
+//             };
+
+//             number = Math.floor(
+//                 Number(number || 0)
+//             );
+
+//             if (number === 0) {
+//                 return "Zero";
+//             }
+
+//             let result = "";
+
+//             const crore =
+//                 Math.floor(
+//                     number / 10000000
+//                 );
+
+//             number %= 10000000;
+
+//             const lakh =
+//                 Math.floor(
+//                     number / 100000
+//                 );
+
+//             number %= 100000;
+
+//             const thousand =
+//                 Math.floor(
+//                     number / 1000
+//                 );
+
+//             number %= 1000;
+
+//             if (crore) {
+//                 result +=
+//                     belowThousand(crore) +
+//                     " Crore ";
+//             }
+
+//             if (lakh) {
+//                 result +=
+//                     belowThousand(lakh) +
+//                     " Lakh ";
+//             }
+
+//             if (thousand) {
+//                 result +=
+//                     belowThousand(thousand) +
+//                     " Thousand ";
+//             }
+
+//             if (number) {
+//                 result +=
+//                     belowThousand(number);
+//             }
+
+//             return result.trim();
+//         };
+
+//         const amountInWords =
+//             `INR ${numberToWords(
+//                 netSalary
+//             )} Rupees only`;
+
+//         // ========================================================
+//         // HTML PAYSLIP
+//         //
+//         // This follows the uploaded payslip structure.
+//         // ========================================================
+
+//         const html = `
+// <!DOCTYPE html>
+
+// <html>
+
+// <head>
+
+// <meta charset="UTF-8">
+
+// <title>
+// Payslip - ${escapeHtml(employeeName)}
+// </title>
+
+// <style>
+
+// @page {
+//     size: A4;
+//     margin: 0;
+// }
+
+// * {
+//     box-sizing: border-box;
+// }
+
+// html,
+// body {
+//     margin: 0;
+//     padding: 0;
+//     width: 210mm;
+//     min-height: 297mm;
+//     background: #ffffff;
+//     font-family: Arial, Helvetica, sans-serif;
+//     color: #111111;
+// }
+
+// .page {
+//     width: 210mm;
+//     min-height: 297mm;
+//     padding: 11mm 17mm;
+//     background: #ffffff;
+// }
+
+// .company-header {
+//     margin-bottom: 17px;
+// }
+
+// .company-name {
+//     font-size: 17px;
+//     font-weight: 700;
+//     margin-bottom: 7px;
+// }
+
+// .company-address {
+//     font-size: 9px;
+//     line-height: 1.35;
+// }
+
+// .pay-slip-box {
+//     width: 100%;
+//     min-height: 245mm;
+//     border: 2px solid #111111;
+//     padding: 10px 12px;
+// }
+
+// .pay-slip-heading {
+//     border-bottom: 1px solid #111111;
+//     padding-bottom: 7px;
+// }
+
+// .pay-slip-title {
+//     font-size: 16px;
+//     font-weight: 700;
+// }
+
+// .pay-slip-period {
+//     font-size: 10px;
+//     margin-top: 2px;
+// }
+
+// .center-heading {
+//     text-align: center;
+//     font-size: 13px;
+//     font-weight: 700;
+//     line-height: 1.3;
+//     padding: 10px 0;
+//     border-bottom: 1px solid #111111;
+// }
+
+// .employee-info {
+//     width: 100%;
+//     display: table;
+//     margin-top: 9px;
+//     margin-bottom: 15px;
+// }
+
+// .employee-column {
+//     display: table-cell;
+//     vertical-align: top;
+//     width: 50%;
+// }
+
+// .info-row {
+//     display: table;
+//     width: 100%;
+//     min-height: 17px;
+//     font-size: 9px;
+// }
+
+// .info-label {
+//     display: table-cell;
+//     width: 112px;
+//     vertical-align: top;
+// }
+
+// .info-value {
+//     display: table-cell;
+//     font-weight: 700;
+//     vertical-align: top;
+// }
+
+// .salary-section {
+//     border-top: 1px solid #111111;
+//     padding-top: 8px;
+// }
+
+// .salary-table {
+//     width: 100%;
+//     border-collapse: collapse;
+//     table-layout: fixed;
+//     font-size: 9px;
+// }
+
+// .salary-table th {
+//     background: #f2f2f2;
+//     border: 1px solid #b8b8b8;
+//     padding: 5px 4px;
+//     font-weight: 700;
+//     text-align: left;
+// }
+
+// .salary-table td {
+//     border: 1px solid #cccccc;
+//     padding: 4px;
+//     height: 18px;
+//     vertical-align: middle;
+// }
+
+// .salary-table .amount {
+//     text-align: right;
+//     white-space: nowrap;
+// }
+
+// .salary-table .total {
+//     font-weight: 700;
+//     background: #f3f3f3;
+// }
+
+// .net-row td {
+//     font-weight: 700;
+// }
+
+// .amount-words {
+//     border-top: 1px solid #999999;
+//     margin-top: 7px;
+//     padding-top: 7px;
+//     font-size: 9px;
+//     line-height: 1.5;
+// }
+
+// .amount-words-title {
+//     font-weight: 700;
+//     margin-bottom: 4px;
+// }
+
+// .signature-area {
+//     position: relative;
+//     border-top: 1px solid #999999;
+//     margin-top: 15px;
+//     height: 105px;
+// }
+
+// /*
+// ============================================================
+// LOGO IMAGE
+// ============================================================
+
+// Replace YOUR_LOGO_IMAGE_HERE with your actual logo.
+
+// Example:
+
+// src="file:///home/pooja/Desktop/Talent-Corner/logo.png"
+
+// or:
+
+// src="cid:talent-corner-logo"
+
+// ============================================================
+// */
+
+// .logo-image {
+//     position: absolute;
+//     right: 15px;
+//     top: 12px;
+//     width: 95px;
+//     height: auto;
+//     object-fit: contain;
+// }
+
+// /*
+// ============================================================
+// SIGNATURE IMAGE
+// ============================================================
+// */
+
+// .signature-image {
+//     position: absolute;
+//     right: 128px;
+//     top: 25px;
+//     width: 70px;
+//     height: 40px;
+//     object-fit: contain;
+// }
+
+// /*
+// ============================================================
+// STAMP IMAGE
+// ============================================================
+
+// Replace YOUR_STAMP_IMAGE_HERE with actual stamp.
+
+// ============================================================
+// */
+
+// .stamp-image {
+//     position: absolute;
+//     right: 17px;
+//     top: 22px;
+//     width: 68px;
+//     height: 68px;
+//     object-fit: contain;
+// }
+
+// .authorised {
+//     position: absolute;
+//     right: 5px;
+//     top: 91px;
+//     width: 92px;
+//     text-align: center;
+//     font-size: 8px;
+// }
+
+// .footer-note {
+//     text-align: center;
+//     font-size: 7px;
+//     color: #555555;
+//     margin-top: 6px;
+// }
+
+// </style>
+
+// </head>
+
+// <body>
+
+// <div class="page">
+
+//     <!-- ====================================================
+//          COMPANY HEADER
+//          ==================================================== -->
+
+//     <div class="company-header">
+
+//         <div class="company-name">
+//             Talent Corner HR Services Pvt Ltd.
+//         </div>
+
+//         <div class="company-address">
+
+//             708/709, Bhaveshwar Arcade NX<br>
+
+//             Opp Shreyas Cinema, LBS Marg, Ghatkopar(W),<br>
+
+//             Mumbai-400086<br>
+
+//             UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)<br>
+
+//             E-Mail : accounts@talentcorner.in
+
+//         </div>
+
+//     </div>
+
+
+//     <!-- ====================================================
+//          PAYSLIP
+//          ==================================================== -->
+
+//     <div class="pay-slip-box">
+
+//         <!-- PAYSLIP TITLE -->
+
+//         <div class="pay-slip-heading">
+
+//             <div class="pay-slip-title">
+//                 Pay Slip
+//             </div>
+
+//             <div class="pay-slip-period">
+//                 for ${escapeHtml(monthStart)}
+//                 to ${escapeHtml(monthEnd)}
+//             </div>
+
+//         </div>
+
+
+//         <!-- CENTER TITLE -->
+
+//         <div class="center-heading">
+
+//             Pay Slip for
+//             ${escapeHtml(monthStart)}
+//             to
+//             ${escapeHtml(monthEnd)}
+
+//             <br>
+
+//             ${escapeHtml(
+//                 employeeName
+//             ).toUpperCase()}
+
+//         </div>
+
+
+//         <!-- =================================================
+//              EMPLOYEE DETAILS
+//              ================================================= -->
+
+//         <div class="employee-info">
+
+//             <!-- LEFT -->
+
+//             <div class="employee-column">
+
+//                 <div class="info-row">
+//                     <div class="info-label">
+//                         Employee Number:
+//                     </div>
+
+//                     <div class="info-value">
+//                         ${escapeHtml(
+//                             employeeNumber
+//                         )}
+//                     </div>
+//                 </div>
+
+
+//                 <div class="info-row">
+//                     <div class="info-label">
+//                         Function:
+//                     </div>
+
+//                     <div class="info-value">
+//                         CS
+//                     </div>
+//                 </div>
+
+
+//                 <div class="info-row">
+//                     <div class="info-label">
+//                         Designation:
+//                     </div>
+
+//                     <div class="info-value">
+//                         ${escapeHtml(
+//                             safe(
+//                                 candidate.designation
+//                             )
+//                         )}
+//                     </div>
+//                 </div>
+
+
+//                 <div class="info-row">
+//                     <div class="info-label">
+//                         Location:
+//                     </div>
+
+//                     <div class="info-value">
+//                         ${escapeHtml(
+//                             location
+//                         )}
+//                     </div>
+//                 </div>
+
+
+//                 <div class="info-row">
+
+//                     <div class="info-label">
+//                         Bank Details:
+//                     </div>
+
+//                     <div class="info-value">
+
+//                         Name -
+//                         ${escapeHtml(
+//                             payroll.bank_name ||
+//                                 "N/A"
+//                         )}
+
+//                         <br>
+
+//                         BRANCH -
+//                         N/A
+
+//                         <br>
+
+//                         IFSC code -
+//                         ${escapeHtml(
+//                             payroll.ifsc_code ||
+//                                 "N/A"
+//                         )}
+
+//                         <br>
+
+//                         ACC NO. -
+//                         ${escapeHtml(
+//                             payroll.account_number ||
+//                                 "N/A"
+//                         )}
+
+//                     </div>
+
+//                 </div>
+
+
+//                 <div class="info-row">
+
+//                     <div class="info-label">
+//                         Date of joining:
+//                     </div>
+
+//                     <div class="info-value">
+//                         ${escapeHtml(
+//                             dateOfJoining
+//                         )}
+//                     </div>
+
+//                 </div>
+
+//             </div>
+
+
+//             <!-- RIGHT -->
+
+//             <div class="employee-column">
+
+//                 <div class="info-row">
+
+//                     <div class="info-label">
+//                         Tax Regime:
+//                     </div>
+
+//                     <div class="info-value">
+//                         Regular Tax Regime
+//                     </div>
+
+//                 </div>
+
+
+//                 <div class="info-row">
+
+//                     <div class="info-label">
+//                         Income Tax Number
+//                         (PAN):
+//                     </div>
+
+//                     <div class="info-value">
+//                         N/A
+//                     </div>
+
+//                 </div>
+
+
+//                 <div class="info-row">
+
+//                     <div class="info-label">
+//                         Universal Account
+//                     </div>
+
+//                     <div class="info-value">
+//                         N/A
+//                     </div>
+
+//                 </div>
+
+
+//                 <div class="info-row">
+
+//                     <div class="info-label">
+//                         Number (UAN):
+//                     </div>
+
+//                     <div class="info-value">
+//                         N/A
+//                     </div>
+
+//                 </div>
+
+
+//                 <div class="info-row">
+
+//                     <div class="info-label">
+//                         PF account number:
+//                     </div>
+
+//                     <div class="info-value">
+//                         N/A
+//                     </div>
+
+//                 </div>
+
+
+//                 <div class="info-row">
+
+//                     <div class="info-label">
+//                         ESI Number:
+//                     </div>
+
+//                     <div class="info-value">
+//                         N/A
+//                     </div>
+
+//                 </div>
+
+
+//                 <div class="info-row">
+
+//                     <div class="info-label">
+//                         PR Account Number
+//                         (PRAN):
+//                     </div>
+
+//                     <div class="info-value">
+//                         N/A
+//                     </div>
+
+//                 </div>
+
+//             </div>
+
+//         </div>
+
+
+//         <!-- =================================================
+//              SALARY TABLE
+//              ================================================= -->
+
+//         <div class="salary-section">
+
+//             <table class="salary-table">
+
+//                 <thead>
+
+//                     <tr>
+
+//                         <th style="width:23%;">
+//                             Earnings
+//                         </th>
+
+//                         <th style="width:13%;">
+//                             Amount
+//                         </th>
+
+//                         <th style="width:13%;">
+//                             Gross Salary
+//                         </th>
+
+//                         <th style="width:23%;">
+//                             Deductions
+//                         </th>
+
+//                         <th style="width:13%;">
+//                             Amount
+//                         </th>
+
+//                         <th style="width:13%;">
+//                             Gross Salary
+//                         </th>
+
+//                     </tr>
+
+//                 </thead>
+
+
+//                 <tbody>
+
+//                     <!-- BASIC -->
+
+//                     <tr>
+
+//                         <td>
+//                             Basic Salary
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 basicSalary
+//                             )}
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 basicSalary
+//                             )}
+//                         </td>
+
+//                         <td>
+//                             Provident Fund
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(pf)}
+//                         </td>
+
+//                         <td class="amount">
+//                             -
+//                         </td>
+
+//                     </tr>
+
+
+//                     <!-- ALLOWANCES -->
+
+//                     <tr>
+
+//                         <td>
+//                             HRA / Allowances
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 allowances
+//                             )}
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 allowances
+//                             )}
+//                         </td>
+
+//                         <td>
+//                             ${
+//                                 esic > 0
+//                                     ? "ESIC"
+//                                     : ""
+//                             }
+//                         </td>
+
+//                         <td class="amount">
+//                             ${
+//                                 esic > 0
+//                                     ? money(esic)
+//                                     : ""
+//                             }
+//                         </td>
+
+//                         <td class="amount">
+//                             ${
+//                                 esic > 0
+//                                     ? "-"
+//                                     : ""
+//                             }
+//                         </td>
+
+//                     </tr>
+
+
+//                     <!-- OVERTIME -->
+
+//                     <tr>
+
+//                         <td>
+//                             Overtime
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 overtime
+//                             )}
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 overtime
+//                             )}
+//                         </td>
+
+//                         <td>
+//                             ${
+//                                 tax > 0
+//                                     ? "Income Tax"
+//                                     : ""
+//                             }
+//                         </td>
+
+//                         <td class="amount">
+//                             ${
+//                                 tax > 0
+//                                     ? money(tax)
+//                                     : ""
+//                             }
+//                         </td>
+
+//                         <td class="amount">
+//                             ${
+//                                 tax > 0
+//                                     ? "-"
+//                                     : ""
+//                             }
+//                         </td>
+
+//                     </tr>
+
+
+//                     <!-- BONUS -->
+
+//                     <tr>
+
+//                         <td>
+//                             Bonus
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 bonus
+//                             )}
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 bonus
+//                             )}
+//                         </td>
+
+//                         <td>
+//                             ${
+//                                 professionalTax > 0
+//                                     ? "Professional Tax"
+//                                     : ""
+//                             }
+//                         </td>
+
+//                         <td class="amount">
+//                             ${
+//                                 professionalTax > 0
+//                                     ? money(
+//                                           professionalTax
+//                                       )
+//                                     : ""
+//                             }
+//                         </td>
+
+//                         <td class="amount">
+//                             ${
+//                                 professionalTax > 0
+//                                     ? "-"
+//                                     : ""
+//                             }
+//                         </td>
+
+//                     </tr>
+
+
+//                     <!-- LOP -->
+
+//                     <tr>
+
+//                         <td>
+//                             LOP
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(lop)}
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(lop)}
+//                         </td>
+
+//                         <td>
+//                             ${
+//                                 lop > 0
+//                                     ? "Loss of Pay"
+//                                     : ""
+//                             }
+//                         </td>
+
+//                         <td class="amount">
+//                             ${
+//                                 lop > 0
+//                                     ? money(lop)
+//                                     : ""
+//                             }
+//                         </td>
+
+//                         <td class="amount">
+//                             ${
+//                                 lop > 0
+//                                     ? "-"
+//                                     : ""
+//                             }
+//                         </td>
+
+//                     </tr>
+
+
+//                     <!-- EMPTY ROW -->
+
+//                     <tr>
+
+//                         <td></td>
+//                         <td></td>
+//                         <td></td>
+
+//                         <td></td>
+//                         <td></td>
+//                         <td></td>
+
+//                     </tr>
+
+
+//                     <!-- TOTAL -->
+
+//                     <tr class="total">
+
+//                         <td>
+//                             Total Earnings
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 grossSalary
+//                             )}
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 grossSalary
+//                             )}
+//                         </td>
+
+//                         <td>
+//                             Total Deductions
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 totalDeductions
+//                             )}
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 totalDeductions
+//                             )}
+//                         </td>
+
+//                     </tr>
+
+
+//                     <!-- NET -->
+
+//                     <tr class="net-row">
+
+//                         <td></td>
+
+//                         <td></td>
+
+//                         <td></td>
+
+//                         <td>
+//                             Net Amount
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 netSalary
+//                             )}
+//                         </td>
+
+//                         <td class="amount">
+//                             ${money(
+//                                 netSalary
+//                             )}
+//                         </td>
+
+//                     </tr>
+
+//                 </tbody>
+
+//             </table>
+
+
+//             <!-- =================================================
+//                  AMOUNT IN WORDS
+//                  ================================================= -->
+
+//             <div class="amount-words">
+
+//                 <div class="amount-words-title">
+//                     Amount (in words):
+//                 </div>
+
+//                 ${escapeHtml(
+//                     amountInWords
+//                 )}
+
+//             </div>
+
+
+//             <!-- =================================================
+//                  SIGNATURE / STAMP / LOGO
+//                  ================================================= -->
+
+//             <div class="signature-area">
+
+//                 <!-- =================================================
+//                      LOGO IMAGE TAG
+
+//                      PUT YOUR LOGO PATH HERE
+//                      ================================================= -->
+
+//                 <img
+//                     class="logo-image"
+//                     src="YOUR_LOGO_IMAGE_HERE"
+//                     alt="Talent Corner Logo"
+//                 />
+
+
+//                 <!-- =================================================
+//                      SIGNATURE IMAGE TAG
+//                      ================================================= -->
+
+//                 <img
+//                     class="signature-image"
+//                     src="YOUR_SIGNATURE_IMAGE_HERE"
+//                     alt="Authorised Signature"
+//                 />
+
+
+//                 <!-- =================================================
+//                      STAMP IMAGE TAG
+
+//                      PUT YOUR STAMP PATH HERE
+//                      ================================================= -->
+
+//                 <img
+//                     class="stamp-image"
+//                     src="YOUR_STAMP_IMAGE_HERE"
+//                     alt="Talent Corner Stamp"
+//                 />
+
+
+//                 <div class="authorised">
+//                     Authorised Signatory
+//                 </div>
+
+//             </div>
+
+//         </div>
+
+//     </div>
+
+// </div>
+
+// </body>
+
+// </html>
+// `;
+
+//         // ========================================================
+//         // PUPPETEER
+//         // ========================================================
+
+//         const puppeteer =
+//             require("puppeteer");
+
+//         browser = await puppeteer.launch({
+//             headless: true,
+
+//             args: [
+//                 "--no-sandbox",
+//                 "--disable-setuid-sandbox",
+//                 "--disable-dev-shm-usage"
+//             ]
+//         });
+
+//         const page =
+//             await browser.newPage();
+
+//         await page.setContent(
+//             html,
+//             {
+//                 waitUntil: "networkidle0"
+//             }
+//         );
+
+//         // ========================================================
+//         // GENERATE PDF
+//         // ========================================================
+
+//         const pdfBuffer =
+//             await page.pdf({
+//                 format: "A4",
+//                 printBackground: true,
+//                 preferCSSPageSize: true,
+
+//                 margin: {
+//                     top: "0mm",
+//                     right: "0mm",
+//                     bottom: "0mm",
+//                     left: "0mm"
+//                 }
+//             });
+
+//         await browser.close();
+
+//         browser = null;
+
+//         // ========================================================
+//         // MAIL TRANSPORTER
+//         // ========================================================
+
+//         const transporter =
+//             nodemailer.createTransport({
+//                 service: "gmail",
+
+//                 auth: {
+//                     user: EMAIL_USER,
+//                     pass: EMAIL_PASS
+//                 }
+//             });
+
+//         // ========================================================
+//         // VERIFY EMAIL
+//         // ========================================================
+
+//         await transporter.verify();
+
+//         // ========================================================
+//         // FILE NAME
+//         // ========================================================
+
+//         const cleanName =
+//             String(employeeName)
+//                 .replace(
+//                     /[^a-zA-Z0-9]+/g,
+//                     "_"
+//                 )
+//                 .replace(
+//                     /^_+|_+$/g,
+//                     ""
+//                 );
+
+//         const fileName =
+//             `Payslip_${cleanName}_${salaryMonth}.pdf`;
+
+//         // ========================================================
+//         // SEND EMAIL
+//         // ========================================================
+
+//         const mailResult =
+//             await transporter.sendMail({
+
+//                 from:
+//                     `"Talent Corner HR Services Pvt Ltd." <${EMAIL_USER}>`,
+
+//                 to:
+//                     employeeEmail,
+
+//                 subject:
+//                     `Payslip - ${salaryMonth} - ${employeeName}`,
+
+//                 html: `
+//                     <div style="
+//                         font-family: Arial, Helvetica, sans-serif;
+//                         font-size: 14px;
+//                         color: #222222;
+//                         line-height: 1.6;
+//                     ">
+
+//                         <p>
+//                             Dear
+//                             <strong>
+//                                 ${escapeHtml(
+//                                     employeeName
+//                                 )}
+//                             </strong>,
+//                         </p>
+
+//                         <p>
+//                             Please find attached your
+//                             payslip for
+//                             <strong>
+//                                 ${escapeHtml(
+//                                     monthName
+//                                 )}
+//                             </strong>.
+//                         </p>
+
+//                         <p>
+//                             Regards,<br>
+//                             <strong>
+//                                 Talent Corner HR Services Pvt Ltd.
+//                             </strong>
+//                         </p>
+
+//                     </div>
+//                 `,
+
+//                 attachments: [
+//                     {
+//                         filename: fileName,
+//                         content: pdfBuffer,
+//                         contentType:
+//                             "application/pdf"
+//                     }
+//                 ]
+//             });
+
+//         // ========================================================
+//         // SUCCESS
+//         // ========================================================
+
+//         console.log(
+//             `Payslip ${payrollId} sent to ${employeeEmail}`
+//         );
+
+//         return res.json({
+
+//             success: true,
+
+//             message:
+//                 `Payslip emailed successfully to ${employeeEmail}`,
+
+//             payroll_id:
+//                 payrollId,
+
+//             candidate_id:
+//                 candidateId,
+
+//             employee_name:
+//                 employeeName,
+
+//             employee_email:
+//                 employeeEmail,
+
+//             salary_month:
+//                 salaryMonth,
+
+//             file_name:
+//                 fileName,
+
+//             message_id:
+//                 mailResult.messageId
+
+//         });
+
+//     } catch (error) {
+
+//         // ========================================================
+//         // CLOSE BROWSER ON ERROR
+//         // ========================================================
+
+//         if (browser) {
+//             try {
+//                 await browser.close();
+//             } catch (_) {}
+//         }
+
+//         console.error(
+//             "EMAIL PAYSLIP ERROR:",
+//             error
+//         );
+
+//         return sendError(
+//             res,
+//             500,
+//             "Failed to generate and send payslip",
+//             error.message
+//         );
+//     }
+// });
+
+router.post("/:id/email", async (req, res) => {
     try {
         // ========================================================
         // ID
@@ -2398,11 +4308,7 @@ router.post("/:id/email", async (req, res) => {
         const payrollId = getId(req.params.id);
 
         if (!payrollId) {
-            return sendError(
-                res,
-                400,
-                "Invalid payroll ID"
-            );
+            return sendError(res, 400, "Invalid payroll ID");
         }
 
         // ========================================================
@@ -2410,9 +4316,7 @@ router.post("/:id/email", async (req, res) => {
         // ========================================================
 
         if (!EMAIL_USER || !EMAIL_PASS) {
-            console.error(
-                "EMAIL_USER or EMAIL_PASS is missing"
-            );
+            console.error("EMAIL_USER or EMAIL_PASS is missing");
 
             return sendError(
                 res,
@@ -2434,50 +4338,37 @@ router.post("/:id/email", async (req, res) => {
                 id,
                 employee_name,
                 salary_month,
-
                 basic_salary,
                 allowances,
                 overtime,
                 bonus,
                 gross_salary,
-
                 pf,
                 esic,
                 tax,
                 professional_tax,
                 lop,
-
                 net_salary,
-
                 status,
-
                 employee_ref_id,
                 attendance_id,
                 deployment_id,
                 client_id,
-
                 bank_name,
                 account_number,
                 ifsc_code,
-
                 total_deductions,
-
                 employer_pf,
                 employer_esic,
                 total_employer_contribution,
                 total_employer_cost,
-
                 created_at
             `)
             .eq("id", payrollId)
             .maybeSingle();
 
         if (payrollError) {
-            console.error(
-                "Payroll fetch error:",
-                payrollError
-            );
-
+            console.error("Payroll fetch error:", payrollError);
             throw payrollError;
         }
 
@@ -2514,8 +4405,7 @@ router.post("/:id/email", async (req, res) => {
         // CANDIDATE
         // ========================================================
 
-        const candidateId =
-            payroll.employee_ref_id;
+        const candidateId = payroll.employee_ref_id;
 
         if (!candidateId) {
             return sendError(
@@ -2547,7 +4437,6 @@ router.post("/:id/email", async (req, res) => {
                 "Candidate fetch error:",
                 candidateError
             );
-
             throw candidateError;
         }
 
@@ -2560,7 +4449,7 @@ router.post("/:id/email", async (req, res) => {
         }
 
         // ========================================================
-        // EMPLOYEE EMAIL
+        // EMAIL
         // ========================================================
 
         const employeeEmail = String(
@@ -2619,10 +4508,7 @@ router.post("/:id/email", async (req, res) => {
                     status,
                     work_location
                 `)
-                .eq(
-                    "id",
-                    payroll.deployment_id
-                )
+                .eq("id", payroll.deployment_id)
                 .maybeSingle();
 
             if (deploymentError) {
@@ -2636,55 +4522,21 @@ router.post("/:id/email", async (req, res) => {
         }
 
         // ========================================================
-        // CLIENT
-        // ========================================================
-
-        let client = null;
-
-        if (payroll.client_id) {
-            const {
-                data: clientData,
-                error: clientError
-            } = await supabase
-                .from("clients")
-                .select(`
-                    id,
-                    company_name
-                `)
-                .eq(
-                    "id",
-                    payroll.client_id
-                )
-                .maybeSingle();
-
-            if (clientError) {
-                console.error(
-                    "Client fetch error:",
-                    clientError
-                );
-            }
-
-            client = clientData;
-        }
-
-        // ========================================================
         // ATTENDANCE
         // ========================================================
 
         const {
             attendance
-        } = await getAttendanceForPayroll(
-            payroll
-        );
+        } = await getAttendanceForPayroll(payroll);
 
         const totalDays =
             attendance?.billing_month
                 ? getDaysInMonth(
-                      attendance.billing_month
-                  )
+                    attendance.billing_month
+                )
                 : getDaysInMonth(
-                      payroll.salary_month
-                  );
+                    payroll.salary_month
+                );
 
         const presentDays = Number(
             attendance?.present_days || 0
@@ -2708,12 +4560,12 @@ router.post("/:id/email", async (req, res) => {
 
         const payableDays = Number(
             attendance?.payable_days ??
-                Math.max(
-                    0,
-                    presentDays +
-                        leaveDays +
-                        halfDays * 0.5
-                )
+            Math.max(
+                0,
+                presentDays +
+                leaveDays +
+                halfDays * 0.5
+            )
         );
 
         const overtimeHours = Number(
@@ -2721,10 +4573,70 @@ router.post("/:id/email", async (req, res) => {
         );
 
         // ========================================================
+        // MONTH
+        // Same month concept used by PaySlip.jsx
+        // ========================================================
+
+        const salaryMonth =
+            payroll.salary_month || "";
+
+        let year;
+        let month;
+
+        if (/^\d{4}-\d{2}$/.test(salaryMonth)) {
+            [year, month] = salaryMonth
+                .split("-")
+                .map(Number);
+        } else {
+            const date = new Date(salaryMonth);
+
+            year = date.getFullYear();
+            month = date.getMonth() + 1;
+        }
+
+        const firstDay = new Date(
+            year,
+            month - 1,
+            1
+        );
+
+        const lastDay = new Date(
+            year,
+            month,
+            0
+        );
+
+        const formatPdfDate = (date) => {
+            return date.toLocaleDateString(
+                "en-IN",
+                {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric"
+                }
+            );
+        };
+
+        const monthStart =
+            formatPdfDate(firstDay);
+
+        const monthEnd =
+            formatPdfDate(lastDay);
+
+        const monthName =
+            firstDay.toLocaleDateString(
+                "en-IN",
+                {
+                    month: "long",
+                    year: "numeric"
+                }
+            );
+
+        // ========================================================
         // MONEY
         // ========================================================
 
-        const money = (value) => {
+        const formatNumberWithCommas = (value) => {
             return Number(value || 0).toLocaleString(
                 "en-IN",
                 {
@@ -2735,233 +4647,11 @@ router.post("/:id/email", async (req, res) => {
         };
 
         // ========================================================
-        // SAFE HTML
+        // NUMBER TO WORDS
+        // Same Indian numbering style as PaySlip.jsx
         // ========================================================
 
-        const escapeHtml = (value) => {
-            return String(value ?? "")
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        };
-
-        const safe = (
-            value,
-            fallback = "N/A"
-        ) => {
-            if (
-                value === null ||
-                value === undefined ||
-                String(value).trim() === ""
-            ) {
-                return fallback;
-            }
-
-            return String(value);
-        };
-
-        // ========================================================
-        // MONTH / DATE
-        // ========================================================
-
-        const salaryMonth =
-            payroll.salary_month || "";
-
-        let monthStart = "N/A";
-        let monthEnd = "N/A";
-        let monthName = "N/A";
-
-        if (/^\d{4}-\d{2}$/.test(salaryMonth)) {
-            const [year, month] =
-                salaryMonth
-                    .split("-")
-                    .map(Number);
-
-            const firstDay =
-                new Date(
-                    year,
-                    month - 1,
-                    1
-                );
-
-            const lastDay =
-                new Date(
-                    year,
-                    month,
-                    0
-                );
-
-            const formatDate = (date) => {
-                return date.toLocaleDateString(
-                    "en-IN",
-                    {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric"
-                    }
-                );
-            };
-
-            monthStart =
-                formatDate(firstDay);
-
-            monthEnd =
-                formatDate(lastDay);
-
-            monthName =
-                firstDay.toLocaleDateString(
-                    "en-IN",
-                    {
-                        month: "long",
-                        year: "numeric"
-                    }
-                );
-        }
-
-        // ========================================================
-        // DATE OF JOINING
-        // ========================================================
-
-        const dateOfJoining =
-            candidate.date_of_joining
-                ? new Date(
-                      candidate.date_of_joining
-                  ).toLocaleDateString(
-                      "en-IN",
-                      {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric"
-                      }
-                  )
-                : "N/A";
-
-        // ========================================================
-        // EMPLOYEE NUMBER
-        // ========================================================
-
-        const employeeNumber = safe(
-            candidate.employee_id ||
-                deployment?.employee_id ||
-                candidate.id,
-            "N/A"
-        );
-
-        // ========================================================
-        // LOCATION
-        // ========================================================
-
-        const location = safe(
-            deployment?.work_location ||
-                candidate.location,
-            "Head Office"
-        );
-
-        // ========================================================
-        // SALARY VALUES
-        // ========================================================
-
-        const basicSalary = Number(
-            payroll.basic_salary || 0
-        );
-
-        const allowances = Number(
-            payroll.allowances || 0
-        );
-
-        const overtime = Number(
-            payroll.overtime || 0
-        );
-
-        const bonus = Number(
-            payroll.bonus || 0
-        );
-
-        const grossSalary = Number(
-            payroll.gross_salary ??
-                (
-                    basicSalary +
-                    allowances +
-                    overtime +
-                    bonus
-                )
-        );
-
-        const pf = Number(
-            payroll.pf || 0
-        );
-
-        const esic = Number(
-            payroll.esic || 0
-        );
-
-        const tax = Number(
-            payroll.tax || 0
-        );
-
-        const professionalTax =
-            Number(
-                payroll.professional_tax || 0
-            );
-
-        const lop = Number(
-            payroll.lop || 0
-        );
-
-        const totalDeductions =
-            Number(
-                payroll.total_deductions ??
-                    (
-                        pf +
-                        esic +
-                        tax +
-                        professionalTax +
-                        lop
-                    )
-            );
-
-        const netSalary = Number(
-            payroll.net_salary ??
-                Math.max(
-                    0,
-                    grossSalary -
-                        totalDeductions
-                )
-        );
-
-        const employerPf = Number(
-            payroll.employer_pf || 0
-        );
-
-        const employerEsic = Number(
-            payroll.employer_esic || 0
-        );
-
-        const employerContribution =
-            Number(
-                payroll.total_employer_contribution ??
-                    (
-                        employerPf +
-                        employerEsic
-                    )
-            );
-
-        const employerCost =
-            Number(
-                payroll.total_employer_cost ??
-                    (
-                        grossSalary +
-                        employerContribution
-                    )
-            );
-
-        // ========================================================
-        // AMOUNT IN WORDS
-        // ========================================================
-
-        const numberToWords = (number) => {
+        const numberToWordsIndian = (number) => {
             const ones = [
                 "",
                 "One",
@@ -2998,17 +4688,13 @@ router.post("/:id/email", async (req, res) => {
                 "Ninety"
             ];
 
-            const belowThousand = (
-                num
-            ) => {
+            const belowThousand = (num) => {
                 let result = "";
 
                 if (num >= 100) {
                     result +=
                         ones[
-                            Math.floor(
-                                num / 100
-                            )
+                            Math.floor(num / 100)
                         ] +
                         " Hundred ";
 
@@ -3018,9 +4704,7 @@ router.post("/:id/email", async (req, res) => {
                 if (num >= 20) {
                     result +=
                         tens[
-                            Math.floor(
-                                num / 10
-                            )
+                            Math.floor(num / 10)
                         ] +
                         " ";
 
@@ -3028,9 +4712,7 @@ router.post("/:id/email", async (req, res) => {
                 }
 
                 if (num > 0) {
-                    result +=
-                        ones[num] +
-                        " ";
+                    result += ones[num] + " ";
                 }
 
                 return result.trim();
@@ -3046,24 +4728,21 @@ router.post("/:id/email", async (req, res) => {
 
             let result = "";
 
-            const crore =
-                Math.floor(
-                    number / 10000000
-                );
+            const crore = Math.floor(
+                number / 10000000
+            );
 
             number %= 10000000;
 
-            const lakh =
-                Math.floor(
-                    number / 100000
-                );
+            const lakh = Math.floor(
+                number / 100000
+            );
 
             number %= 100000;
 
-            const thousand =
-                Math.floor(
-                    number / 1000
-                );
+            const thousand = Math.floor(
+                number / 1000
+            );
 
             number %= 1000;
 
@@ -3086,1073 +4765,865 @@ router.post("/:id/email", async (req, res) => {
             }
 
             if (number) {
-                result +=
-                    belowThousand(number);
+                result += belowThousand(number);
             }
 
             return result.trim();
         };
 
-        const amountInWords =
-            `INR ${numberToWords(
-                netSalary
-            )} Rupees only`;
+        // ========================================================
+        // DATE OF JOINING
+        // ========================================================
+
+        const dateOfJoining =
+            candidate.date_of_joining
+                ? new Date(
+                    candidate.date_of_joining
+                ).toLocaleDateString(
+                    "en-IN",
+                    {
+                        day: "2-digit",
+                        month: "short",
+                        year: "2-digit"
+                    }
+                )
+                : "N/A";
 
         // ========================================================
-        // HTML PAYSLIP
+        // EMPLOYEE NUMBER
+        // ========================================================
+
+        const employeeNumber =
+            candidate.employee_id ||
+            deployment?.employee_id ||
+            candidate.id ||
+            "N/A";
+
+        // ========================================================
+        // LOCATION
+        // ========================================================
+
+        const location =
+            deployment?.work_location ||
+            candidate.location ||
+            "Head Office";
+
+        // ========================================================
+        // SALARY
         //
-        // This follows the uploaded payslip structure.
+        // These values correspond to the values shown by
+        // your PaySlip.jsx.
         // ========================================================
 
-        const html = `
-<!DOCTYPE html>
-
-<html>
-
-<head>
-
-<meta charset="UTF-8">
-
-<title>
-Payslip - ${escapeHtml(employeeName)}
-</title>
-
-<style>
-
-@page {
-    size: A4;
-    margin: 0;
-}
-
-* {
-    box-sizing: border-box;
-}
-
-html,
-body {
-    margin: 0;
-    padding: 0;
-    width: 210mm;
-    min-height: 297mm;
-    background: #ffffff;
-    font-family: Arial, Helvetica, sans-serif;
-    color: #111111;
-}
-
-.page {
-    width: 210mm;
-    min-height: 297mm;
-    padding: 11mm 17mm;
-    background: #ffffff;
-}
-
-.company-header {
-    margin-bottom: 17px;
-}
-
-.company-name {
-    font-size: 17px;
-    font-weight: 700;
-    margin-bottom: 7px;
-}
-
-.company-address {
-    font-size: 9px;
-    line-height: 1.35;
-}
-
-.pay-slip-box {
-    width: 100%;
-    min-height: 245mm;
-    border: 2px solid #111111;
-    padding: 10px 12px;
-}
-
-.pay-slip-heading {
-    border-bottom: 1px solid #111111;
-    padding-bottom: 7px;
-}
-
-.pay-slip-title {
-    font-size: 16px;
-    font-weight: 700;
-}
-
-.pay-slip-period {
-    font-size: 10px;
-    margin-top: 2px;
-}
-
-.center-heading {
-    text-align: center;
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1.3;
-    padding: 10px 0;
-    border-bottom: 1px solid #111111;
-}
-
-.employee-info {
-    width: 100%;
-    display: table;
-    margin-top: 9px;
-    margin-bottom: 15px;
-}
-
-.employee-column {
-    display: table-cell;
-    vertical-align: top;
-    width: 50%;
-}
-
-.info-row {
-    display: table;
-    width: 100%;
-    min-height: 17px;
-    font-size: 9px;
-}
-
-.info-label {
-    display: table-cell;
-    width: 112px;
-    vertical-align: top;
-}
-
-.info-value {
-    display: table-cell;
-    font-weight: 700;
-    vertical-align: top;
-}
-
-.salary-section {
-    border-top: 1px solid #111111;
-    padding-top: 8px;
-}
-
-.salary-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    font-size: 9px;
-}
-
-.salary-table th {
-    background: #f2f2f2;
-    border: 1px solid #b8b8b8;
-    padding: 5px 4px;
-    font-weight: 700;
-    text-align: left;
-}
-
-.salary-table td {
-    border: 1px solid #cccccc;
-    padding: 4px;
-    height: 18px;
-    vertical-align: middle;
-}
-
-.salary-table .amount {
-    text-align: right;
-    white-space: nowrap;
-}
-
-.salary-table .total {
-    font-weight: 700;
-    background: #f3f3f3;
-}
-
-.net-row td {
-    font-weight: 700;
-}
-
-.amount-words {
-    border-top: 1px solid #999999;
-    margin-top: 7px;
-    padding-top: 7px;
-    font-size: 9px;
-    line-height: 1.5;
-}
-
-.amount-words-title {
-    font-weight: 700;
-    margin-bottom: 4px;
-}
-
-.signature-area {
-    position: relative;
-    border-top: 1px solid #999999;
-    margin-top: 15px;
-    height: 105px;
-}
-
-/*
-============================================================
-LOGO IMAGE
-============================================================
-
-Replace YOUR_LOGO_IMAGE_HERE with your actual logo.
-
-Example:
-
-src="file:///home/pooja/Desktop/Talent-Corner/logo.png"
-
-or:
-
-src="cid:talent-corner-logo"
-
-============================================================
-*/
-
-.logo-image {
-    position: absolute;
-    right: 15px;
-    top: 12px;
-    width: 95px;
-    height: auto;
-    object-fit: contain;
-}
-
-/*
-============================================================
-SIGNATURE IMAGE
-============================================================
-*/
-
-.signature-image {
-    position: absolute;
-    right: 128px;
-    top: 25px;
-    width: 70px;
-    height: 40px;
-    object-fit: contain;
-}
-
-/*
-============================================================
-STAMP IMAGE
-============================================================
-
-Replace YOUR_STAMP_IMAGE_HERE with actual stamp.
-
-============================================================
-*/
-
-.stamp-image {
-    position: absolute;
-    right: 17px;
-    top: 22px;
-    width: 68px;
-    height: 68px;
-    object-fit: contain;
-}
-
-.authorised {
-    position: absolute;
-    right: 5px;
-    top: 91px;
-    width: 92px;
-    text-align: center;
-    font-size: 8px;
-}
-
-.footer-note {
-    text-align: center;
-    font-size: 7px;
-    color: #555555;
-    margin-top: 6px;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="page">
-
-    <!-- ====================================================
-         COMPANY HEADER
-         ==================================================== -->
-
-    <div class="company-header">
-
-        <div class="company-name">
-            Talent Corner HR Services Pvt Ltd.
-        </div>
-
-        <div class="company-address">
-
-            708/709, Bhaveshwar Arcade NX<br>
-
-            Opp Shreyas Cinema, LBS Marg, Ghatkopar(W),<br>
-
-            Mumbai-400086<br>
-
-            UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)<br>
-
-            E-Mail : accounts@talentcorner.in
-
-        </div>
-
-    </div>
-
-
-    <!-- ====================================================
-         PAYSLIP
-         ==================================================== -->
-
-    <div class="pay-slip-box">
-
-        <!-- PAYSLIP TITLE -->
-
-        <div class="pay-slip-heading">
-
-            <div class="pay-slip-title">
-                Pay Slip
-            </div>
-
-            <div class="pay-slip-period">
-                for ${escapeHtml(monthStart)}
-                to ${escapeHtml(monthEnd)}
-            </div>
-
-        </div>
-
-
-        <!-- CENTER TITLE -->
-
-        <div class="center-heading">
-
-            Pay Slip for
-            ${escapeHtml(monthStart)}
-            to
-            ${escapeHtml(monthEnd)}
-
-            <br>
-
-            ${escapeHtml(
-                employeeName
-            ).toUpperCase()}
-
-        </div>
-
-
-        <!-- =================================================
-             EMPLOYEE DETAILS
-             ================================================= -->
-
-        <div class="employee-info">
-
-            <!-- LEFT -->
-
-            <div class="employee-column">
-
-                <div class="info-row">
-                    <div class="info-label">
-                        Employee Number:
-                    </div>
-
-                    <div class="info-value">
-                        ${escapeHtml(
-                            employeeNumber
-                        )}
-                    </div>
-                </div>
-
-
-                <div class="info-row">
-                    <div class="info-label">
-                        Function:
-                    </div>
-
-                    <div class="info-value">
-                        CS
-                    </div>
-                </div>
-
-
-                <div class="info-row">
-                    <div class="info-label">
-                        Designation:
-                    </div>
-
-                    <div class="info-value">
-                        ${escapeHtml(
-                            safe(
-                                candidate.designation
-                            )
-                        )}
-                    </div>
-                </div>
-
-
-                <div class="info-row">
-                    <div class="info-label">
-                        Location:
-                    </div>
-
-                    <div class="info-value">
-                        ${escapeHtml(
-                            location
-                        )}
-                    </div>
-                </div>
-
-
-                <div class="info-row">
-
-                    <div class="info-label">
-                        Bank Details:
-                    </div>
-
-                    <div class="info-value">
-
-                        Name -
-                        ${escapeHtml(
-                            payroll.bank_name ||
-                                "N/A"
-                        )}
-
-                        <br>
-
-                        BRANCH -
-                        N/A
-
-                        <br>
-
-                        IFSC code -
-                        ${escapeHtml(
-                            payroll.ifsc_code ||
-                                "N/A"
-                        )}
-
-                        <br>
-
-                        ACC NO. -
-                        ${escapeHtml(
-                            payroll.account_number ||
-                                "N/A"
-                        )}
-
-                    </div>
-
-                </div>
-
-
-                <div class="info-row">
-
-                    <div class="info-label">
-                        Date of joining:
-                    </div>
-
-                    <div class="info-value">
-                        ${escapeHtml(
-                            dateOfJoining
-                        )}
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <!-- RIGHT -->
-
-            <div class="employee-column">
-
-                <div class="info-row">
-
-                    <div class="info-label">
-                        Tax Regime:
-                    </div>
-
-                    <div class="info-value">
-                        Regular Tax Regime
-                    </div>
-
-                </div>
-
-
-                <div class="info-row">
-
-                    <div class="info-label">
-                        Income Tax Number
-                        (PAN):
-                    </div>
-
-                    <div class="info-value">
-                        N/A
-                    </div>
-
-                </div>
-
-
-                <div class="info-row">
-
-                    <div class="info-label">
-                        Universal Account
-                    </div>
-
-                    <div class="info-value">
-                        N/A
-                    </div>
-
-                </div>
-
-
-                <div class="info-row">
-
-                    <div class="info-label">
-                        Number (UAN):
-                    </div>
-
-                    <div class="info-value">
-                        N/A
-                    </div>
-
-                </div>
-
-
-                <div class="info-row">
-
-                    <div class="info-label">
-                        PF account number:
-                    </div>
-
-                    <div class="info-value">
-                        N/A
-                    </div>
-
-                </div>
-
-
-                <div class="info-row">
-
-                    <div class="info-label">
-                        ESI Number:
-                    </div>
-
-                    <div class="info-value">
-                        N/A
-                    </div>
-
-                </div>
-
-
-                <div class="info-row">
-
-                    <div class="info-label">
-                        PR Account Number
-                        (PRAN):
-                    </div>
-
-                    <div class="info-value">
-                        N/A
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <!-- =================================================
-             SALARY TABLE
-             ================================================= -->
-
-        <div class="salary-section">
-
-            <table class="salary-table">
-
-                <thead>
-
-                    <tr>
-
-                        <th style="width:23%;">
-                            Earnings
-                        </th>
-
-                        <th style="width:13%;">
-                            Amount
-                        </th>
-
-                        <th style="width:13%;">
-                            Gross Salary
-                        </th>
-
-                        <th style="width:23%;">
-                            Deductions
-                        </th>
-
-                        <th style="width:13%;">
-                            Amount
-                        </th>
-
-                        <th style="width:13%;">
-                            Gross Salary
-                        </th>
-
-                    </tr>
-
-                </thead>
-
-
-                <tbody>
-
-                    <!-- BASIC -->
-
-                    <tr>
-
-                        <td>
-                            Basic Salary
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                basicSalary
-                            )}
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                basicSalary
-                            )}
-                        </td>
-
-                        <td>
-                            Provident Fund
-                        </td>
-
-                        <td class="amount">
-                            ${money(pf)}
-                        </td>
-
-                        <td class="amount">
-                            -
-                        </td>
-
-                    </tr>
-
-
-                    <!-- ALLOWANCES -->
-
-                    <tr>
-
-                        <td>
-                            HRA / Allowances
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                allowances
-                            )}
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                allowances
-                            )}
-                        </td>
-
-                        <td>
-                            ${
-                                esic > 0
-                                    ? "ESIC"
-                                    : ""
-                            }
-                        </td>
-
-                        <td class="amount">
-                            ${
-                                esic > 0
-                                    ? money(esic)
-                                    : ""
-                            }
-                        </td>
-
-                        <td class="amount">
-                            ${
-                                esic > 0
-                                    ? "-"
-                                    : ""
-                            }
-                        </td>
-
-                    </tr>
-
-
-                    <!-- OVERTIME -->
-
-                    <tr>
-
-                        <td>
-                            Overtime
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                overtime
-                            )}
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                overtime
-                            )}
-                        </td>
-
-                        <td>
-                            ${
-                                tax > 0
-                                    ? "Income Tax"
-                                    : ""
-                            }
-                        </td>
-
-                        <td class="amount">
-                            ${
-                                tax > 0
-                                    ? money(tax)
-                                    : ""
-                            }
-                        </td>
-
-                        <td class="amount">
-                            ${
-                                tax > 0
-                                    ? "-"
-                                    : ""
-                            }
-                        </td>
-
-                    </tr>
-
-
-                    <!-- BONUS -->
-
-                    <tr>
-
-                        <td>
-                            Bonus
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                bonus
-                            )}
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                bonus
-                            )}
-                        </td>
-
-                        <td>
-                            ${
-                                professionalTax > 0
-                                    ? "Professional Tax"
-                                    : ""
-                            }
-                        </td>
-
-                        <td class="amount">
-                            ${
-                                professionalTax > 0
-                                    ? money(
-                                          professionalTax
-                                      )
-                                    : ""
-                            }
-                        </td>
-
-                        <td class="amount">
-                            ${
-                                professionalTax > 0
-                                    ? "-"
-                                    : ""
-                            }
-                        </td>
-
-                    </tr>
-
-
-                    <!-- LOP -->
-
-                    <tr>
-
-                        <td>
-                            LOP
-                        </td>
-
-                        <td class="amount">
-                            ${money(lop)}
-                        </td>
-
-                        <td class="amount">
-                            ${money(lop)}
-                        </td>
-
-                        <td>
-                            ${
-                                lop > 0
-                                    ? "Loss of Pay"
-                                    : ""
-                            }
-                        </td>
-
-                        <td class="amount">
-                            ${
-                                lop > 0
-                                    ? money(lop)
-                                    : ""
-                            }
-                        </td>
-
-                        <td class="amount">
-                            ${
-                                lop > 0
-                                    ? "-"
-                                    : ""
-                            }
-                        </td>
-
-                    </tr>
-
-
-                    <!-- EMPTY ROW -->
-
-                    <tr>
-
-                        <td></td>
-                        <td></td>
-                        <td></td>
-
-                        <td></td>
-                        <td></td>
-                        <td></td>
-
-                    </tr>
-
-
-                    <!-- TOTAL -->
-
-                    <tr class="total">
-
-                        <td>
-                            Total Earnings
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                grossSalary
-                            )}
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                grossSalary
-                            )}
-                        </td>
-
-                        <td>
-                            Total Deductions
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                totalDeductions
-                            )}
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                totalDeductions
-                            )}
-                        </td>
-
-                    </tr>
-
-
-                    <!-- NET -->
-
-                    <tr class="net-row">
-
-                        <td></td>
-
-                        <td></td>
-
-                        <td></td>
-
-                        <td>
-                            Net Amount
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                netSalary
-                            )}
-                        </td>
-
-                        <td class="amount">
-                            ${money(
-                                netSalary
-                            )}
-                        </td>
-
-                    </tr>
-
-                </tbody>
-
-            </table>
-
-
-            <!-- =================================================
-                 AMOUNT IN WORDS
-                 ================================================= -->
-
-            <div class="amount-words">
-
-                <div class="amount-words-title">
-                    Amount (in words):
-                </div>
-
-                ${escapeHtml(
-                    amountInWords
-                )}
-
-            </div>
-
-
-            <!-- =================================================
-                 SIGNATURE / STAMP / LOGO
-                 ================================================= -->
-
-            <div class="signature-area">
-
-                <!-- =================================================
-                     LOGO IMAGE TAG
-
-                     PUT YOUR LOGO PATH HERE
-                     ================================================= -->
-
-                <img
-                    class="logo-image"
-                    src="YOUR_LOGO_IMAGE_HERE"
-                    alt="Talent Corner Logo"
-                />
-
-
-                <!-- =================================================
-                     SIGNATURE IMAGE TAG
-                     ================================================= -->
-
-                <img
-                    class="signature-image"
-                    src="YOUR_SIGNATURE_IMAGE_HERE"
-                    alt="Authorised Signature"
-                />
-
-
-                <!-- =================================================
-                     STAMP IMAGE TAG
-
-                     PUT YOUR STAMP PATH HERE
-                     ================================================= -->
-
-                <img
-                    class="stamp-image"
-                    src="YOUR_STAMP_IMAGE_HERE"
-                    alt="Talent Corner Stamp"
-                />
-
-
-                <div class="authorised">
-                    Authorised Signatory
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-</body>
-
-</html>
-`;
-
-        // ========================================================
-        // PUPPETEER
-        // ========================================================
-
-        const puppeteer =
-            require("puppeteer");
-
-        browser = await puppeteer.launch({
-            headless: true,
-
-            args: [
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage"
-            ]
-        });
-
-        const page =
-            await browser.newPage();
-
-        await page.setContent(
-            html,
-            {
-                waitUntil: "networkidle0"
-            }
+        const basicSalary = Number(
+            payroll.basic_salary || 0
+        );
+
+        const allowances = Number(
+            payroll.allowances || 0
+        );
+
+        const overtime = Number(
+            payroll.overtime || 0
+        );
+
+        const bonus = Number(
+            payroll.bonus || 0
+        );
+
+        const grossSalary = Number(
+            payroll.gross_salary ??
+            (
+                basicSalary +
+                allowances +
+                overtime +
+                bonus
+            )
+        );
+
+        const pf = Number(
+            payroll.pf || 0
+        );
+
+        const esic = Number(
+            payroll.esic || 0
+        );
+
+        const tax = Number(
+            payroll.tax || 0
+        );
+
+        const professionalTax = Number(
+            payroll.professional_tax || 0
+        );
+
+        const lop = Number(
+            payroll.lop || 0
+        );
+
+        const totalDeductions = Number(
+            payroll.total_deductions ??
+            (
+                pf +
+                esic +
+                tax +
+                professionalTax +
+                lop
+            )
+        );
+
+        const netSalary = Number(
+            payroll.net_salary ??
+            Math.max(
+                0,
+                grossSalary -
+                totalDeductions
+            )
         );
 
         // ========================================================
-        // GENERATE PDF
+        // PDF
+        // Same overall structure as PaySlip.jsx
         // ========================================================
 
-        const pdfBuffer =
-            await page.pdf({
-                format: "A4",
-                printBackground: true,
-                preferCSSPageSize: true,
+        const doc = new jsPDF({
+            orientation: "portrait",
+            unit: "mm",
+            format: "a4"
+        });
 
-                margin: {
-                    top: "0mm",
-                    right: "0mm",
-                    bottom: "0mm",
-                    left: "0mm"
+        const pageWidth = 210;
+        const pageHeight = 297;
+
+        // --------------------------------------------------------
+        // COMPANY HEADER
+        // --------------------------------------------------------
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(17);
+
+        doc.text(
+            "Talent Corner HR Services Pvt. Ltd.",
+            17,
+            18
+        );
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+
+        doc.text(
+            "708/709, Bhaveshwar Arcade NX",
+            17,
+            25
+        );
+
+        doc.text(
+            "Opp Shreyas Cinema, LBS Marg",
+            17,
+            29
+        );
+
+        doc.text(
+            "Ghatkopar(W), Mumbai-400086",
+            17,
+            33
+        );
+
+        doc.text(
+            "GSTIN : 27AACCT6635P1ZP",
+            17,
+            37
+        );
+
+        doc.text(
+            "UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)",
+            17,
+            41
+        );
+
+        doc.text(
+            "E-Mail : accounts@talentcorner.in",
+            17,
+            45
+        );
+
+        // --------------------------------------------------------
+        // PAYSLIP BOX
+        // --------------------------------------------------------
+
+        doc.setLineWidth(0.5);
+
+        doc.rect(
+            17,
+            51,
+            pageWidth - 34,
+            232
+        );
+
+        // --------------------------------------------------------
+        // PAYSLIP TITLE
+        // --------------------------------------------------------
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+
+        doc.text(
+            "Pay Slip",
+            29,
+            62
+        );
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        doc.text(
+            `for ${monthStart} to ${monthEnd}`,
+            29,
+            68
+        );
+
+        doc.line(
+            29,
+            72,
+            181,
+            72
+        );
+
+        // --------------------------------------------------------
+        // CENTER HEADING
+        // --------------------------------------------------------
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+
+        doc.text(
+            `Pay Slip for ${monthStart} to ${monthEnd}`,
+            pageWidth / 2,
+            80,
+            { align: "center" }
+        );
+
+        doc.text(
+            String(employeeName).toUpperCase(),
+            pageWidth / 2,
+            86,
+            { align: "center" }
+        );
+
+        doc.line(
+            29,
+            91,
+            181,
+            91
+        );
+
+        // --------------------------------------------------------
+        // EMPLOYEE DETAILS
+        // --------------------------------------------------------
+
+        const leftX = 29;
+        const rightX = 108;
+
+        let leftY = 99;
+        let rightY = 99;
+
+        const labelWidth = 31;
+
+        const addInfo = (
+            x,
+            y,
+            label,
+            value
+        ) => {
+            doc.setFont(
+                "helvetica",
+                "normal"
+            );
+
+            doc.setFontSize(8);
+
+            doc.text(
+                label,
+                x,
+                y
+            );
+
+            doc.setFont(
+                "helvetica",
+                "bold"
+            );
+
+            doc.text(
+                String(value || "N/A"),
+                x + labelWidth,
+                y
+            );
+        };
+
+        addInfo(
+            leftX,
+            leftY,
+            "Employee Number:",
+            employeeNumber
+        );
+
+        leftY += 7;
+
+        addInfo(
+            leftX,
+            leftY,
+            "Function:",
+            "CS"
+        );
+
+        leftY += 7;
+
+        addInfo(
+            leftX,
+            leftY,
+            "Designation:",
+            candidate.designation || "N/A"
+        );
+
+        leftY += 7;
+
+        addInfo(
+            leftX,
+            leftY,
+            "Location:",
+            location
+        );
+
+        leftY += 7;
+
+        doc.setFont(
+            "helvetica",
+            "normal"
+        );
+
+        doc.setFontSize(8);
+
+        doc.text(
+            "Bank Details:",
+            leftX,
+            leftY
+        );
+
+        doc.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        doc.text(
+            `Name - ${payroll.bank_name || "N/A"}`,
+            leftX + labelWidth,
+            leftY
+        );
+
+        leftY += 4;
+
+        doc.text(
+            "BRANCH - N/A",
+            leftX + labelWidth,
+            leftY
+        );
+
+        leftY += 4;
+
+        doc.text(
+            `IFSC code - ${payroll.ifsc_code || "N/A"}`,
+            leftX + labelWidth,
+            leftY
+        );
+
+        leftY += 4;
+
+        doc.text(
+            `ACC NO. - ${payroll.account_number || "N/A"}`,
+            leftX + labelWidth,
+            leftY
+        );
+
+        leftY += 7;
+
+        addInfo(
+            leftX,
+            leftY,
+            "Date of joining:",
+            dateOfJoining
+        );
+
+        // RIGHT
+
+        addInfo(
+            rightX,
+            rightY,
+            "Tax Regime:",
+            "Regular Tax Regime"
+        );
+
+        rightY += 7;
+
+        addInfo(
+            rightX,
+            rightY,
+            "Income Tax Number (PAN):",
+            "N/A"
+        );
+
+        rightY += 7;
+
+        addInfo(
+            rightX,
+            rightY,
+            "Universal Account Number (UAN):",
+            "N/A"
+        );
+
+        rightY += 7;
+
+        addInfo(
+            rightX,
+            rightY,
+            "PF account number:",
+            "N/A"
+        );
+
+        rightY += 7;
+
+        addInfo(
+            rightX,
+            rightY,
+            "ESI Number:",
+            "N/A"
+        );
+
+        rightY += 7;
+
+        addInfo(
+            rightX,
+            rightY,
+            "PR Account Number (PRAN):",
+            "N/A"
+        );
+
+        // --------------------------------------------------------
+        // SALARY TABLE
+        // --------------------------------------------------------
+
+        const tableX = 29;
+        const tableY = 145;
+
+        const widths = [
+            35,
+            22,
+            22,
+            35,
+            22,
+            22
+        ];
+
+        const rowHeight = 9;
+
+        const headers = [
+            "Earnings",
+            "Amount",
+            "Gross Salary",
+            "Deductions",
+            "Amount",
+            "Gross Salary"
+        ];
+
+        let x = tableX;
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+
+        headers.forEach(
+            (header, index) => {
+                doc.setFillColor(
+                    242,
+                    242,
+                    242
+                );
+
+                doc.rect(
+                    x,
+                    tableY,
+                    widths[index],
+                    rowHeight,
+                    "FD"
+                );
+
+                doc.text(
+                    header,
+                    x + 2,
+                    tableY + 6
+                );
+
+                x += widths[index];
+            }
+        );
+
+        // --------------------------------------------------------
+        // TABLE ROW HELPER
+        // --------------------------------------------------------
+
+        const drawRow = (
+            y,
+            earningsLabel,
+            earningsAmount,
+            deductionLabel,
+            deductionAmount
+        ) => {
+            let currentX = tableX;
+
+            const values = [
+                earningsLabel,
+                formatNumberWithCommas(
+                    earningsAmount
+                ),
+                formatNumberWithCommas(
+                    earningsAmount
+                ),
+                deductionLabel,
+                deductionAmount === ""
+                    ? ""
+                    : formatNumberWithCommas(
+                        deductionAmount
+                    ),
+                deductionLabel
+                    ? "-"
+                    : ""
+            ];
+
+            values.forEach(
+                (value, index) => {
+                    doc.rect(
+                        currentX,
+                        y,
+                        widths[index],
+                        rowHeight
+                    );
+
+                    if (
+                        index === 1 ||
+                        index === 2 ||
+                        index === 4 ||
+                        index === 5
+                    ) {
+                        doc.text(
+                            String(value),
+                            currentX +
+                            widths[index] -
+                            2,
+                            y + 6,
+                            {
+                                align: "right"
+                            }
+                        );
+                    } else {
+                        doc.text(
+                            String(value),
+                            currentX + 2,
+                            y + 6
+                        );
+                    }
+
+                    currentX += widths[index];
                 }
-            });
+            );
+        };
 
-        await browser.close();
+        // --------------------------------------------------------
+        // SALARY ROWS
+        // --------------------------------------------------------
 
-        browser = null;
+        drawRow(
+            tableY + rowHeight,
+            "Basic Salary",
+            basicSalary,
+            "Provident Fund",
+            pf
+        );
 
-        // ========================================================
-        // MAIL TRANSPORTER
-        // ========================================================
+        drawRow(
+            tableY + rowHeight * 2,
+            "HRA / Allowances",
+            allowances,
+            esic > 0 ? "ESIC" : "",
+            esic > 0 ? esic : ""
+        );
 
-        const transporter =
-            nodemailer.createTransport({
-                service: "gmail",
+        drawRow(
+            tableY + rowHeight * 3,
+            "Overtime",
+            overtime,
+            tax > 0 ? "Income Tax" : "",
+            tax > 0 ? tax : ""
+        );
 
-                auth: {
-                    user: EMAIL_USER,
-                    pass: EMAIL_PASS
+        drawRow(
+            tableY + rowHeight * 4,
+            "Bonus",
+            bonus,
+            professionalTax > 0
+                ? "Professional Tax"
+                : "",
+            professionalTax > 0
+                ? professionalTax
+                : ""
+        );
+
+        drawRow(
+            tableY + rowHeight * 5,
+            "LOP",
+            lop,
+            lop > 0
+                ? "Loss of Pay"
+                : "",
+            lop > 0
+                ? lop
+                : ""
+        );
+
+        // Empty row
+
+        let emptyX = tableX;
+        const emptyY =
+            tableY + rowHeight * 6;
+
+        widths.forEach((width) => {
+            doc.rect(
+                emptyX,
+                emptyY,
+                width,
+                rowHeight
+            );
+
+            emptyX += width;
+        });
+
+        // --------------------------------------------------------
+        // TOTAL ROW
+        // --------------------------------------------------------
+
+        const totalY =
+            tableY + rowHeight * 7;
+
+        let totalX = tableX;
+
+        const totalValues = [
+            "Total Earnings",
+            formatNumberWithCommas(
+                grossSalary
+            ),
+            formatNumberWithCommas(
+                grossSalary
+            ),
+            "Total Deductions",
+            formatNumberWithCommas(
+                totalDeductions
+            ),
+            formatNumberWithCommas(
+                totalDeductions
+            )
+        ];
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+
+        totalValues.forEach(
+            (value, index) => {
+                doc.setFillColor(
+                    243,
+                    243,
+                    243
+                );
+
+                doc.rect(
+                    totalX,
+                    totalY,
+                    widths[index],
+                    rowHeight,
+                    "FD"
+                );
+
+                if (
+                    index === 1 ||
+                    index === 2 ||
+                    index === 4 ||
+                    index === 5
+                ) {
+                    doc.text(
+                        String(value),
+                        totalX +
+                        widths[index] -
+                        2,
+                        totalY + 6,
+                        {
+                            align: "right"
+                        }
+                    );
+                } else {
+                    doc.text(
+                        String(value),
+                        totalX + 2,
+                        totalY + 6
+                    );
                 }
-            });
 
-        // ========================================================
-        // VERIFY EMAIL
-        // ========================================================
+                totalX += widths[index];
+            }
+        );
 
-        await transporter.verify();
+        // --------------------------------------------------------
+        // NET ROW
+        // --------------------------------------------------------
+
+        const netY =
+            totalY + rowHeight;
+
+        let netX = tableX;
+
+        const netValues = [
+            "",
+            "",
+            "",
+            "Net Amount",
+            formatNumberWithCommas(
+                netSalary
+            ),
+            formatNumberWithCommas(
+                netSalary
+            )
+        ];
+
+        netValues.forEach(
+            (value, index) => {
+                doc.rect(
+                    netX,
+                    netY,
+                    widths[index],
+                    rowHeight
+                );
+
+                if (
+                    index === 4 ||
+                    index === 5
+                ) {
+                    doc.setFont(
+                        "helvetica",
+                        "bold"
+                    );
+
+                    doc.text(
+                        String(value),
+                        netX +
+                        widths[index] -
+                        2,
+                        netY + 6,
+                        {
+                            align: "right"
+                        }
+                    );
+                } else {
+                    doc.setFont(
+                        "helvetica",
+                        "bold"
+                    );
+
+                    doc.text(
+                        String(value),
+                        netX + 2,
+                        netY + 6
+                    );
+                }
+
+                netX += widths[index];
+            }
+        );
+
+        // --------------------------------------------------------
+        // AMOUNT IN WORDS
+        // --------------------------------------------------------
+
+        const wordsY =
+            netY + 18;
+
+        doc.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        doc.setFontSize(8);
+
+        doc.text(
+            "Amount (in words):",
+            tableX,
+            wordsY
+        );
+
+        doc.setFont(
+            "helvetica",
+            "normal"
+        );
+
+        doc.text(
+            `INR ${numberToWordsIndian(
+                Math.round(netSalary)
+            )} Only`,
+            tableX,
+            wordsY + 6
+        );
+
+        doc.line(
+            tableX,
+            wordsY + 10,
+            181,
+            wordsY + 10
+        );
+
+        // --------------------------------------------------------
+        // SIGNATURE AREA
+        // Same position concept as PaySlip.jsx
+        // --------------------------------------------------------
+
+        const signatureY =
+            wordsY + 25;
+
+        doc.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        doc.setFontSize(8);
+
+        doc.text(
+            "for Talent Corner HR Services Pvt. Ltd.",
+            181,
+            signatureY,
+            {
+                align: "right"
+            }
+        );
+
+        doc.text(
+            "Authorised Signatory",
+            181,
+            signatureY + 18,
+            {
+                align: "right"
+            }
+        );
+
+        // --------------------------------------------------------
+        // PDF BUFFER
+        // --------------------------------------------------------
+
+        const pdfBuffer = Buffer.from(
+            doc.output("arraybuffer")
+        );
 
         // ========================================================
         // FILE NAME
@@ -4173,17 +5644,30 @@ Replace YOUR_STAMP_IMAGE_HERE with actual stamp.
             `Payslip_${cleanName}_${salaryMonth}.pdf`;
 
         // ========================================================
+        // MAIL TRANSPORTER
+        // ========================================================
+
+        const transporter =
+            nodemailer.createTransport({
+                service: "gmail",
+                auth: {
+                    user: EMAIL_USER,
+                    pass: EMAIL_PASS
+                }
+            });
+
+        await transporter.verify();
+
+        // ========================================================
         // SEND EMAIL
         // ========================================================
 
         const mailResult =
             await transporter.sendMail({
-
                 from:
                     `"Talent Corner HR Services Pvt Ltd." <${EMAIL_USER}>`,
 
-                to:
-                    employeeEmail,
+                to: employeeEmail,
 
                 subject:
                     `Payslip - ${salaryMonth} - ${employeeName}`,
@@ -4195,13 +5679,13 @@ Replace YOUR_STAMP_IMAGE_HERE with actual stamp.
                         color: #222222;
                         line-height: 1.6;
                     ">
-
                         <p>
                             Dear
                             <strong>
-                                ${escapeHtml(
-                                    employeeName
-                                )}
+                                ${String(employeeName)
+                                    .replace(/&/g, "&amp;")
+                                    .replace(/</g, "&lt;")
+                                    .replace(/>/g, "&gt;")}
                             </strong>,
                         </p>
 
@@ -4209,9 +5693,7 @@ Replace YOUR_STAMP_IMAGE_HERE with actual stamp.
                             Please find attached your
                             payslip for
                             <strong>
-                                ${escapeHtml(
-                                    monthName
-                                )}
+                                ${monthName}
                             </strong>.
                         </p>
 
@@ -4221,7 +5703,6 @@ Replace YOUR_STAMP_IMAGE_HERE with actual stamp.
                                 Talent Corner HR Services Pvt Ltd.
                             </strong>
                         </p>
-
                     </div>
                 `,
 
@@ -4229,8 +5710,7 @@ Replace YOUR_STAMP_IMAGE_HERE with actual stamp.
                     {
                         filename: fileName,
                         content: pdfBuffer,
-                        contentType:
-                            "application/pdf"
+                        contentType: "application/pdf"
                     }
                 ]
             });
@@ -4244,47 +5724,19 @@ Replace YOUR_STAMP_IMAGE_HERE with actual stamp.
         );
 
         return res.json({
-
             success: true,
-
             message:
                 `Payslip emailed successfully to ${employeeEmail}`,
-
-            payroll_id:
-                payrollId,
-
-            candidate_id:
-                candidateId,
-
-            employee_name:
-                employeeName,
-
-            employee_email:
-                employeeEmail,
-
-            salary_month:
-                salaryMonth,
-
-            file_name:
-                fileName,
-
-            message_id:
-                mailResult.messageId
-
+            payroll_id: payrollId,
+            candidate_id: candidateId,
+            employee_name: employeeName,
+            employee_email: employeeEmail,
+            salary_month: salaryMonth,
+            file_name: fileName,
+            message_id: mailResult.messageId
         });
 
     } catch (error) {
-
-        // ========================================================
-        // CLOSE BROWSER ON ERROR
-        // ========================================================
-
-        if (browser) {
-            try {
-                await browser.close();
-            } catch (_) {}
-        }
-
         console.error(
             "EMAIL PAYSLIP ERROR:",
             error
@@ -4298,7 +5750,7 @@ Replace YOUR_STAMP_IMAGE_HERE with actual stamp.
         );
     }
 });
-// ============================================================
+// // ============================================================
 // LOOKUP: EMPLOYEES FOR A CLIENT (for the "Create Payroll" picker)
 //
 // GET /api/payroll/lookup/employees?client_id=1

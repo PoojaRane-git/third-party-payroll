@@ -2119,6 +2119,7 @@ export default function PayrollModule({
       alert("Invalid payroll ID.");
       return;
     }
+    console.log("selected ID :",selectedSlip.email)
 
     const status = normalizeStatus(selectedSlip.status);
 
@@ -3904,11 +3905,13 @@ export default function PayrollModule({
                       {selectedSlip.email ? (
 
                         <div className="text-[11px] text-slate-400">
-                          Payslip email will be sent to:
+                          Payslip email will be sent to: 
 
                           <span className="font-semibold text-slate-600 ml-1">
                             {
                               selectedSlip.email
+                               
+                             
                             }
                           </span>
                         </div>
