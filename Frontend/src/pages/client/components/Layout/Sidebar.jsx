@@ -52,8 +52,8 @@ function Sidebar({ clientName, onLogout }) {
       items: [
         {
           id: "attendance-approval",
-          label: "Attendance Approval",
-          path: "/client-dashboard/attendance-approval",
+          label: "Attendance",
+          path: "/client-dashboard/attendance",
           icon: ClipboardCheck,
         },
       ],

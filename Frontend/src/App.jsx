@@ -299,7 +299,7 @@ function App() {
                         />
 
                         <Route
-                            path="/client-dashboard/attendance-approval"
+                            path="/client-dashboard/attendance"
                             element={
                                 <ClientAttendance />
                             }
