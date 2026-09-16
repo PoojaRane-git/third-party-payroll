@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { supabase } = require("../supabaseClient");
+const supabase = require("../config/supabase");
 
 // =====================================================
 // HELPERS
@@ -36,48 +36,59 @@ router.get("/", async (req, res) => {
 
         let query = supabase
             .from("client_contracts")
-            .select(`
-                *,
-                clients (
-                    id,
-                    company_name
-                )
-            `)
+            .select("*")
             .order("id", { ascending: false });
 
         if (clientId) {
             const id = getId(clientId);
 
             if (!id) {
-                return sendError(res, 400, "Invalid client_id");
+                return sendError(
+                    res,
+                    400,
+                    "Invalid client_id"
+                );
             }
 
             query = query.eq("client_id", id);
         }
 
-        const { data, error } = await query;
+        const {
+            data,
+            error
+        } = await query;
 
         if (error) {
-            throw error;
-        }
+            console.error(
+                "GET /api/contracts SUPABASE ERROR:",
+                error
+            );
 
-        const formattedData = (data || []).map((contract) => ({
-            ...contract,
-            client: contract.clients?.company_name || "N/A",
-        }));
+            return sendError(
+                res,
+                500,
+                error.message
+            );
+        }
 
         return res.status(200).json({
             success: true,
-            data: formattedData,
+            data: data || [],
         });
 
     } catch (err) {
-        console.error("GET /api/contracts:", err.message);
+        console.error(
+            "GET /api/contracts ERROR:",
+            err
+        );
 
-        return sendError(res, 500, err.message);
+        return sendError(
+            res,
+            500,
+            err.message
+        );
     }
 });
-
 // =====================================================
 // GET SINGLE CONTRACT
 // GET /api/contracts/:id
