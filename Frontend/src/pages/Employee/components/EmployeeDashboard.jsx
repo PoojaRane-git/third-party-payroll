@@ -38,6 +38,7 @@ const EmployeeDashboard = () => {
   const [error, setError] =
     useState("");
   const [activePage, setActivePage] = useState("dashboard");
+
   // =================================================
   // LOAD LOGGED-IN EMPLOYEE
   // =================================================
@@ -46,14 +47,7 @@ const EmployeeDashboard = () => {
     try {
       setError("");
 
-      console.log("Loading employee profile...");
-
       const response = await api.get("/auth/me");
-
-      console.log(
-        "Employee /auth/me response:",
-        response.data
-      );
 
       const user = response.data?.user;
 
@@ -69,11 +63,6 @@ const EmployeeDashboard = () => {
         );
       }
 
-      console.log(
-        "Authenticated employee:",
-        user
-      );
-
       setEmployeeName(
         user.name || "Employee"
       );
@@ -83,11 +72,6 @@ const EmployeeDashboard = () => {
       );
 
     } catch (err) {
-      console.error(
-        "Employee profile loading error:",
-        err
-      );
-
       setError(
         err.response?.data?.message ||
         err.response?.data?.error ||
@@ -98,19 +82,6 @@ const EmployeeDashboard = () => {
       setPageLoading(false);
     }
   }, []);
-
-  // =================================================
-  // TODAY
-  // =================================================
-
-  const getToday = () => {
-    return new Date().toLocaleDateString(
-      "en-CA",
-      {
-        timeZone: "Asia/Kolkata",
-      }
-    );
-  };
 
   // =================================================
   // MONTH
@@ -139,13 +110,8 @@ const EmployeeDashboard = () => {
 
         const response =
           await api.get(
-            "/employee/attendance/today"
+            "/emp-attendance/today"
           );
-
-        console.log(
-          "Today's attendance:",
-          response.data
-        );
 
         setAttendance(
           response.data?.attendance ||
@@ -153,11 +119,6 @@ const EmployeeDashboard = () => {
         );
 
       } catch (err) {
-        console.error(
-          "Attendance loading error:",
-          err
-        );
-
         setError(
           err.response?.data?.error ||
           err.response?.data?.message ||
@@ -178,18 +139,13 @@ const EmployeeDashboard = () => {
 
         const response =
           await api.get(
-            "/employee/attendance/monthly",
+            "/emp-attendance/monthly",
             {
               params: {
                 billing_month: billingMonth,
               },
             }
           );
-
-        console.log(
-          "Monthly summary:",
-          response.data
-        );
 
         const data =
           response.data?.summary ||
@@ -246,11 +202,6 @@ const EmployeeDashboard = () => {
       return;
     }
 
-    console.log(
-      "Loading dashboard for employee ID:",
-      employeeId
-    );
-
     loadAttendance();
     loadMonthlySummary();
 
@@ -271,17 +222,12 @@ const EmployeeDashboard = () => {
 
       const response =
         await api.post(
-          "/employee/attendance/check-in",
+          "/emp-attendance/check-in",
           {
             work_mode: "Office",
             remarks: "",
           }
         );
-
-      console.log(
-        "Check-in response:",
-        response.data
-      );
 
       if (response.data?.success) {
         await loadAttendance();
@@ -289,12 +235,6 @@ const EmployeeDashboard = () => {
       }
 
     } catch (err) {
-       console.error("========== CHECK-IN ERROR ==========");
-  console.error("Status:", err.response?.status);
-  console.error("Backend response:", err.response?.data);
-  console.error("Full error:", err);
-  console.error("====================================")
-
       setError(
         err.response?.data?.error ||
         err.response?.data?.message ||
@@ -324,13 +264,8 @@ const EmployeeDashboard = () => {
 
       const response =
         await api.patch(
-          `/employee/attendance/${attendance.id}/check-out`
+          `/emp-attendance/${attendance.id}/check-out`
         );
-
-      console.log(
-        "Check-out response:",
-        response.data
-      );
 
       if (
         response.data?.success
@@ -340,11 +275,6 @@ const EmployeeDashboard = () => {
       }
 
     } catch (err) {
-      console.error(
-        "Check-out error:",
-        err
-      );
-
       setError(
         err.response?.data?.error ||
         err.response?.data?.message ||
