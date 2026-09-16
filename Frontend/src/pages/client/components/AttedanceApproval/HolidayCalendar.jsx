@@ -253,116 +253,123 @@ const HolidayCalendar = () => {
     // ========================================================
 
     const fetchHolidays =
-        useCallback(
-            async (
-                showLoader = true
-            ) => {
+    useCallback(
+        async (
+            showLoader = true
+        ) => {
 
-                if (
-                    authLoading ||
-                    !session ||
-                    !user
-                ) {
+            if (
+                authLoading ||
+                !session ||
+                !user
+            ) {
+                return;
+            }
+
+            try {
+
+                if (showLoader) {
+                    setLoading(true);
+                }
+
+                setError("");
+
+                const response =
+                    await api.get(
+                        "/client/holidays"
+                    );
+
+                const result =
+                    response?.data;
+
+                // ====================================================
+                // SUPPORT BOTH API RESPONSE FORMATS
+                //
+                // OLD:
+                // [ { ...holiday } ]
+                //
+                // NEW:
+                // {
+                //     success: true,
+                //     data: [ { ...holiday } ]
+                // }
+                // ====================================================
+
+                if (Array.isArray(result)) {
+
+                    setHolidays(result);
+
                     return;
                 }
 
-                try {
+                if (
+                    !result ||
+                    result.success !== true
+                ) {
 
-                    if (showLoader) {
-                        setLoading(true);
-                    }
-
-                    setError("");
-
-                    console.log(
-                        "FETCH CLIENT HOLIDAYS"
+                    throw new Error(
+                        result?.error ||
+                        result?.message ||
+                        "Failed to load holidays."
                     );
-
-                    const response =
-                        await api.get(
-                            "/client/holidays"
-                        );
-
-                    const result =
-                        response?.data || {};
-
-                    console.log(
-                        "CLIENT HOLIDAYS RESPONSE:",
-                        result
-                    );
-
-                    if (
-                        result.success !== true
-                    ) {
-
-                        throw new Error(
-                            result.error ||
-                            result.message ||
-                            "Failed to load holidays."
-                        );
-                    }
-
-                    const records =
-                        Array.isArray(
-                            result.data
-                        )
-                            ? result.data
-                            : [];
-
-                    setHolidays(
-                        records
-                    );
-
-                } catch (err) {
-
-                    console.error(
-                        "Fetch holidays error:",
-                        err
-                    );
-
-                    if (
-                        err?.response?.status ===
-                        401
-                    ) {
-
-                        setError(
-                            "Your session has expired. Please login again."
-                        );
-
-                    } else if (
-                        err?.response?.status ===
-                        403
-                    ) {
-
-                        setError(
-                            "You do not have permission to manage the holiday calendar."
-                        );
-
-                    } else {
-
-                        setError(
-                            err?.response?.data?.error ||
-                            err?.response?.data?.message ||
-                            err?.message ||
-                            "Failed to load holidays."
-                        );
-                    }
-
-                    setHolidays([]);
-
-                } finally {
-
-                    if (showLoader) {
-                        setLoading(false);
-                    }
                 }
-            },
-            [
-                authLoading,
-                session,
-                user,
-            ]
-        );
+
+                const records =
+                    Array.isArray(
+                        result.data
+                    )
+                        ? result.data
+                        : [];
+
+                setHolidays(
+                    records
+                );
+
+            } catch (err) {
+
+                if (
+                    err?.response?.status ===
+                    401
+                ) {
+
+                    setError(
+                        "Your session has expired. Please login again."
+                    );
+
+                } else if (
+                    err?.response?.status ===
+                    403
+                ) {
+
+                    setError(
+                        "You do not have permission to manage the holiday calendar."
+                    );
+
+                } else {
+
+                    setError(
+                        err?.response?.data?.error ||
+                        err?.response?.data?.message ||
+                        err?.message ||
+                        "Failed to load holidays."
+                    );
+                }
+
+                setHolidays([]);
+
+            } finally {
+
+                if (showLoader) {
+                    setLoading(false);
+                }
+            }
+        },
+        [
+            authLoading,
+            session,
+            user,
+        ]
+    );
 
     // ========================================================
     // INITIAL FETCH
@@ -984,7 +991,7 @@ const HolidayCalendar = () => {
                 MAIN CONTENT
             ================================================== */}
 
-            <main className="min-h-screen pl-64">
+            <main className="min-h-screen ml-64">
 
                 <div className="mx-auto max-w-[1280px] px-6 py-6">
 

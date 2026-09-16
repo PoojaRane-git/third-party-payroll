@@ -234,7 +234,7 @@ const AttendanceRectifications = () => {
         useState("");
 
     const [statusFilter, setStatusFilter] =
-        useState("Pending");
+        useState("all");
 
     // ========================================================
     // LOADING / ERROR
@@ -303,116 +303,119 @@ const AttendanceRectifications = () => {
     // GET
     // /api/client/attendance/rectifications
     // ========================================================
+const fetchRectifications =
+    useCallback(
+        async (showLoader = true) => {
 
-    const fetchRectifications =
-        useCallback(
-            async (showLoader = true) => {
+            if (
+                authLoading ||
+                !session ||
+                !user
+            ) {
+                return;
+            }
 
-                if (
-                    authLoading ||
-                    !session ||
-                    !user
-                ) {
-                    return;
+            try {
+
+                if (showLoader) {
+                    setLoading(true);
                 }
 
-                try {
+                setError("");
 
-                    if (showLoader) {
-                        setLoading(true);
-                    }
-
-                    setError("");
-
-                    console.log(
-                        "FETCH ATTENDANCE RECTIFICATIONS"
+                const response =
+                    await api.get(
+                        "/client/attendance/rectifications"
                     );
 
-                    const response =
-                        await api.get(
-                            "/client/attendance/rectifications"
-                        );
+                const result =
+                    response?.data;
 
-                    const result =
-                        response?.data || {};
+                // ---------------------------------------------
+                // SAFETY:
+                // Backend should return:
+                // { success: true, data: [] }
+                // ---------------------------------------------
 
-                    console.log(
-                        "ATTENDANCE RECTIFICATIONS RESPONSE:",
+                if (
+                    Array.isArray(result)
+                ) {
+
+                    setRectifications(
                         result
                     );
 
-                    if (
-                        result.success !== true
-                    ) {
-
-                        throw new Error(
-                            result.error ||
-                            result.message ||
-                            "Failed to load attendance rectification requests."
-                        );
-                    }
-
-                    const records =
-                        Array.isArray(
-                            result.data
-                        )
-                            ? result.data
-                            : [];
-
-                    setRectifications(
-                        records
-                    );
-
-                } catch (err) {
-
-                    console.error(
-                        "Fetch attendance rectifications error:",
-                        err
-                    );
-
-                    if (
-                        err?.response?.status ===
-                        401
-                    ) {
-
-                        setError(
-                            "Your session has expired. Please login again."
-                        );
-
-                    } else if (
-                        err?.response?.status ===
-                        403
-                    ) {
-
-                        setError(
-                            "You do not have permission to view attendance rectification requests."
-                        );
-
-                    } else {
-
-                        setError(
-                            err?.response?.data?.error ||
-                            err?.response?.data?.message ||
-                            err?.message ||
-                            "Failed to load attendance rectification requests."
-                        );
-                    }
-
-                    setRectifications([]);
-
-                } finally {
-
-                    if (showLoader) {
-                        setLoading(false);
-                    }
+                    return;
                 }
-            },
-            [
-                authLoading,
-                session,
-                user,
-            ]
-        );
+
+                if (
+                    !result ||
+                    result.success !== true
+                ) {
+
+                    throw new Error(
+                        result?.error ||
+                        result?.message ||
+                        "Failed to load attendance rectification requests."
+                    );
+                }
+
+                const records =
+                    Array.isArray(
+                        result.data
+                    )
+                        ? result.data
+                        : [];
+
+                setRectifications(
+                    records
+                );
+
+            } catch (err) {
+
+                if (
+                    err?.response?.status ===
+                    401
+                ) {
+
+                    setError(
+                        "Your session has expired. Please login again."
+                    );
+
+                } else if (
+                    err?.response?.status ===
+                    403
+                ) {
+
+                    setError(
+                        "You do not have permission to view attendance rectification requests."
+                    );
+
+                } else {
+
+                    setError(
+                        err?.response?.data?.error ||
+                        err?.response?.data?.message ||
+                        err?.message ||
+                        "Failed to load attendance rectification requests."
+                    );
+                }
+
+                setRectifications([]);
+
+            } finally {
+
+                if (showLoader) {
+                    setLoading(false);
+                }
+            }
+        },
+        [
+            authLoading,
+            session,
+            user,
+        ]
+    );
 
     // ========================================================
     // INITIAL LOAD

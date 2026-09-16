@@ -974,7 +974,7 @@ const Leave = () => {
                 MAIN
             ================================================== */}
 
-            <main className="min-h-screen pl-64">
+            <main className="min-h-screen ml-64">
 
                 <div className="mx-auto max-w-[1280px] px-6 py-6">
 

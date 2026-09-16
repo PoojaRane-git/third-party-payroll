@@ -25,7 +25,9 @@ async function getClientContext(req) {
         .eq("user_id", userId)
         .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+        throw error;
+    }
 
     if (!data || !data.client_id) {
         throw new Error("Client profile not found.");
@@ -46,18 +48,27 @@ function calculateAttendance(checkIn, checkOut) {
     const start = new Date(checkIn);
     const end = new Date(checkOut);
 
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        throw new Error("Invalid check-in or check-out time.");
+    if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime())
+    ) {
+        throw new Error(
+            "Invalid check-in or check-out time."
+        );
     }
 
     if (end < start) {
-        throw new Error("Check-out cannot be before check-in.");
+        throw new Error(
+            "Check-out cannot be before check-in."
+        );
     }
 
     const hours =
-        (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        (end.getTime() - start.getTime()) /
+        (1000 * 60 * 60);
 
-    const workingHours = Number(hours.toFixed(2));
+    const workingHours =
+        Number(hours.toFixed(2));
 
     let status;
 
@@ -71,7 +82,9 @@ function calculateAttendance(checkIn, checkOut) {
 
     const overtimeHours =
         workingHours > 8
-            ? Number((workingHours - 8).toFixed(2))
+            ? Number(
+                (workingHours - 8).toFixed(2)
+            )
             : 0;
 
     return {
@@ -84,11 +97,6 @@ function calculateAttendance(checkIn, checkOut) {
 // =====================================================
 // GET RECTIFICATION REQUESTS
 // GET /api/client/attendance/rectifications
-//
-// Optional:
-// ?status=Pending
-// ?status=Approved
-// ?status=Rejected
 // =====================================================
 
 router.get("/", async (req, res) => {
@@ -96,14 +104,22 @@ router.get("/", async (req, res) => {
         const client = await getClientContext(req);
         const clientId = client.client_id;
 
-        const status = req.query.status;
+        const requestedStatus =
+            req.query.status
+                ? String(req.query.status).trim()
+                : null;
 
-        // Get attendance records belonging to this client
+        // -------------------------------------------------
+        // GET CLIENT ATTENDANCE
+        // -------------------------------------------------
+
         const {
             data: attendanceRows,
             error: attendanceError,
         } = await supabaseAdmin
-            .from("third_party_emp_daily_attendance")
+            .from(
+                "third_party_emp_daily_attendance"
+            )
             .select(`
                 id,
                 candidates_id,
@@ -115,26 +131,65 @@ router.get("/", async (req, res) => {
                 working_hours,
                 overtime_hours,
                 status,
+                work_mode,
                 remarks
             `)
             .eq("client_id", clientId);
 
-        if (attendanceError) throw attendanceError;
-
-        if (!attendanceRows || attendanceRows.length === 0) {
-            return res.json([]);
+        if (attendanceError) {
+            throw attendanceError;
         }
 
-        const attendanceIds = attendanceRows.map((row) => row.id);
+        // No attendance = no rectification requests
+        if (
+            !attendanceRows ||
+            attendanceRows.length === 0
+        ) {
+            return res.json({
+                success: true,
+                data: [],
+                count: 0,
+            });
+        }
+
+        const attendanceIds =
+            attendanceRows
+                .map((row) => row.id)
+                .filter(Boolean);
+
+        if (attendanceIds.length === 0) {
+            return res.json({
+                success: true,
+                data: [],
+                count: 0,
+            });
+        }
+
+        // -------------------------------------------------
+        // GET RECTIFICATION REQUESTS
+        // -------------------------------------------------
 
         let query = supabaseAdmin
-            .from("attendance_rectification_requests")
+            .from(
+                "attendance_rectification_requests"
+            )
             .select("*")
-            .in("attendance_id", attendanceIds)
-            .order("created_at", { ascending: false });
+            .in(
+                "attendance_id",
+                attendanceIds
+            )
+            .order(
+                "created_at",
+                {
+                    ascending: false,
+                }
+            );
 
-        if (status) {
-            query = query.eq("status", status);
+        if (requestedStatus) {
+            query = query.eq(
+                "status",
+                requestedStatus
+            );
         }
 
         const {
@@ -142,17 +197,34 @@ router.get("/", async (req, res) => {
             error: rectificationError,
         } = await query;
 
-        if (rectificationError) throw rectificationError;
-
-        if (!rectifications || rectifications.length === 0) {
-            return res.json([]);
+        if (rectificationError) {
+            throw rectificationError;
         }
 
-        // Candidate IDs
+        // IMPORTANT:
+        // Always return the same response structure.
+        if (
+            !rectifications ||
+            rectifications.length === 0
+        ) {
+            return res.json({
+                success: true,
+                data: [],
+                count: 0,
+            });
+        }
+
+        // -------------------------------------------------
+        // GET CANDIDATES
+        // -------------------------------------------------
+
         const candidateIds = [
             ...new Set(
                 attendanceRows
-                    .map((row) => row.candidates_id)
+                    .map(
+                        (row) =>
+                            row.candidates_id
+                    )
                     .filter(Boolean)
             ),
         ];
@@ -165,48 +237,101 @@ router.get("/", async (req, res) => {
                 error,
             } = await supabaseAdmin
                 .from("candidates")
-                .select("id, full_name, email")
-                .in("id", candidateIds);
+                .select(
+                    "id, full_name, email"
+                )
+                .in(
+                    "id",
+                    candidateIds
+                );
 
-            if (error) throw error;
+            if (error) {
+                throw error;
+            }
 
             candidates = data || [];
         }
 
-        const attendanceMap = new Map(
-            attendanceRows.map((row) => [row.id, row])
-        );
+        // -------------------------------------------------
+        // MAP DATA
+        // -------------------------------------------------
 
-        const candidateMap = new Map(
-            candidates.map((candidate) => [candidate.id, candidate])
-        );
-
-        const result = rectifications.map((request) => {
-            const attendance = attendanceMap.get(
-                request.attendance_id
+        const attendanceMap =
+            new Map(
+                attendanceRows.map(
+                    (row) => [
+                        row.id,
+                        row,
+                    ]
+                )
             );
 
-            const candidate = attendance
-                ? candidateMap.get(attendance.candidates_id)
-                : null;
+        const candidateMap =
+            new Map(
+                candidates.map(
+                    (candidate) => [
+                        candidate.id,
+                        candidate,
+                    ]
+                )
+            );
 
-            return {
-                ...request,
-                attendance,
-                employee: candidate || null,
-            };
+        const result =
+            rectifications.map(
+                (request) => {
+
+                    const attendance =
+                        attendanceMap.get(
+                            request.attendance_id
+                        ) || null;
+
+                    const candidate =
+                        attendance
+                            ? candidateMap.get(
+                                attendance.candidates_id
+                            )
+                            : null;
+
+                    return {
+                        ...request,
+
+                        employee_id:
+                            request.employee_id ||
+                            attendance?.candidates_id ||
+                            null,
+
+                        employee_name:
+                            candidate?.full_name ||
+                            "Unknown Employee",
+
+                        employee:
+                            candidate || null,
+
+                        attendance:
+                            attendance || null,
+                    };
+                }
+            );
+
+        return res.json({
+            success: true,
+            data: result,
+            count: result.length,
         });
 
-        return res.json(result);
     } catch (error) {
+
         console.error(
             "GET CLIENT RECTIFICATIONS ERROR:",
             error
         );
 
         return res.status(500).json({
-            error: "Failed to fetch attendance rectification requests.",
-            details: error.message,
+            success: false,
+            error:
+                "Failed to fetch attendance rectification requests.",
+            details:
+                error.message,
         });
     }
 });
@@ -216,252 +341,449 @@ router.get("/", async (req, res) => {
 // PATCH /api/client/attendance/rectifications/:id/approve
 // =====================================================
 
-router.patch("/:id/approve", async (req, res) => {
-    try {
-        const requestId = Number(req.params.id);
-
-        if (!Number.isInteger(requestId) || requestId <= 0) {
-            return res.status(400).json({
-                error: "Invalid rectification request ID.",
-            });
-        }
-
-        const client = await getClientContext(req);
-        const clientId = client.client_id;
-
-        // Get rectification
-        const {
-            data: request,
-            error: requestError,
-        } = await supabaseAdmin
-            .from("attendance_rectification_requests")
-            .select("*")
-            .eq("id", requestId)
-            .maybeSingle();
-
-        if (requestError) throw requestError;
-
-        if (!request) {
-            return res.status(404).json({
-                error: "Rectification request not found.",
-            });
-        }
-
-        if (request.status !== "Pending") {
-            return res.status(400).json({
-                error: `Request is already ${request.status}.`,
-            });
-        }
-
-        // Verify attendance belongs to this client
-        const {
-            data: attendance,
-            error: attendanceError,
-        } = await supabaseAdmin
-            .from("third_party_emp_daily_attendance")
-            .select("*")
-            .eq("id", request.attendance_id)
-            .eq("client_id", clientId)
-            .maybeSingle();
-
-        if (attendanceError) throw attendanceError;
-
-        if (!attendance) {
-            return res.status(403).json({
-                error: "Attendance record does not belong to this client.",
-            });
-        }
-
-        const finalCheckIn =
-            request.requested_check_in ||
-            attendance.check_in;
-
-        const finalCheckOut =
-            request.requested_check_out ||
-            attendance.check_out;
-
-        let calculated;
+router.patch(
+    "/:id/approve",
+    async (req, res) => {
 
         try {
-            calculated = calculateAttendance(
-                finalCheckIn,
-                finalCheckOut
-            );
+
+            const requestId =
+                Number(req.params.id);
+
+            if (
+                !Number.isInteger(
+                    requestId
+                ) ||
+                requestId <= 0
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        "Invalid rectification request ID.",
+                });
+            }
+
+            const client =
+                await getClientContext(req);
+
+            const clientId =
+                client.client_id;
+
+            // -------------------------------------------------
+            // GET REQUEST
+            // -------------------------------------------------
+
+            const {
+                data: request,
+                error: requestError,
+            } = await supabaseAdmin
+                .from(
+                    "attendance_rectification_requests"
+                )
+                .select("*")
+                .eq(
+                    "id",
+                    requestId
+                )
+                .maybeSingle();
+
+            if (requestError) {
+                throw requestError;
+            }
+
+            if (!request) {
+                return res.status(404).json({
+                    success: false,
+                    error:
+                        "Rectification request not found.",
+                });
+            }
+
+            if (
+                request.status !==
+                "Pending"
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        `Request is already ${request.status}.`,
+                });
+            }
+
+            // -------------------------------------------------
+            // VERIFY ATTENDANCE BELONGS TO CLIENT
+            // -------------------------------------------------
+
+            const {
+                data: attendance,
+                error: attendanceError,
+            } = await supabaseAdmin
+                .from(
+                    "third_party_emp_daily_attendance"
+                )
+                .select("*")
+                .eq(
+                    "id",
+                    request.attendance_id
+                )
+                .eq(
+                    "client_id",
+                    clientId
+                )
+                .maybeSingle();
+
+            if (attendanceError) {
+                throw attendanceError;
+            }
+
+            if (!attendance) {
+                return res.status(403).json({
+                    success: false,
+                    error:
+                        "Attendance record does not belong to this client.",
+                });
+            }
+
+            // -------------------------------------------------
+            // FINAL TIMES
+            // -------------------------------------------------
+
+            const finalCheckIn =
+                request.requested_check_in ||
+                attendance.check_in;
+
+            const finalCheckOut =
+                request.requested_check_out ||
+                attendance.check_out;
+
+            let calculated;
+
+            try {
+
+                calculated =
+                    calculateAttendance(
+                        finalCheckIn,
+                        finalCheckOut
+                    );
+
+            } catch (error) {
+
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        error.message,
+                });
+            }
+
+            // -------------------------------------------------
+            // UPDATE ATTENDANCE
+            // -------------------------------------------------
+
+            const {
+                data: updatedAttendance,
+                error:
+                    updateAttendanceError,
+            } = await supabaseAdmin
+                .from(
+                    "third_party_emp_daily_attendance"
+                )
+                .update({
+                    check_in:
+                        finalCheckIn,
+
+                    check_out:
+                        finalCheckOut,
+
+                    working_hours:
+                        calculated.workingHours,
+
+                    overtime_hours:
+                        calculated.overtimeHours,
+
+                    status:
+                        calculated.status,
+
+                    updated_at:
+                        new Date().toISOString(),
+                })
+                .eq(
+                    "id",
+                    attendance.id
+                )
+                .select()
+                .single();
+
+            if (
+                updateAttendanceError
+            ) {
+                throw updateAttendanceError;
+            }
+
+            // -------------------------------------------------
+            // CLIENT USER
+            // -------------------------------------------------
+
+            const {
+                data: clientUser,
+            } = await supabaseAdmin
+                .from("client_users")
+                .select("id")
+                .eq(
+                    "user_id",
+                    req.user.id
+                )
+                .maybeSingle();
+
+            // -------------------------------------------------
+            // UPDATE REQUEST
+            // -------------------------------------------------
+
+            const {
+                data: updatedRequest,
+                error:
+                    updateRequestError,
+            } = await supabaseAdmin
+                .from(
+                    "attendance_rectification_requests"
+                )
+                .update({
+                    status:
+                        "Approved",
+
+                    reviewed_by:
+                        clientUser?.id ||
+                        null,
+
+                    reviewed_at:
+                        new Date().toISOString(),
+
+                    updated_at:
+                        new Date().toISOString(),
+                })
+                .eq(
+                    "id",
+                    requestId
+                )
+                .select()
+                .single();
+
+            if (
+                updateRequestError
+            ) {
+                throw updateRequestError;
+            }
+
+            return res.json({
+                success: true,
+                message:
+                    "Attendance rectification approved successfully.",
+                request:
+                    updatedRequest,
+                attendance:
+                    updatedAttendance,
+            });
+
         } catch (error) {
-            return res.status(400).json({
-                error: error.message,
+
+            console.error(
+                "APPROVE RECTIFICATION ERROR:",
+                error
+            );
+
+            return res.status(500).json({
+                success: false,
+                error:
+                    "Failed to approve attendance rectification.",
+                details:
+                    error.message,
             });
         }
-
-        // Update attendance
-        const {
-            data: updatedAttendance,
-            error: updateAttendanceError,
-        } = await supabaseAdmin
-            .from("third_party_emp_daily_attendance")
-            .update({
-                check_in: finalCheckIn,
-                check_out: finalCheckOut,
-                working_hours: calculated.workingHours,
-                overtime_hours: calculated.overtimeHours,
-                status: calculated.status,
-                updated_at: new Date().toISOString(),
-            })
-            .eq("id", attendance.id)
-            .select()
-            .single();
-
-        if (updateAttendanceError) {
-            throw updateAttendanceError;
-        }
-
-        // Get client profile ID for reviewed_by
-        const {
-            data: clientUser,
-        } = await supabaseAdmin
-            .from("client_users")
-            .select("id")
-            .eq("user_id", req.user.id)
-            .maybeSingle();
-
-        // Mark request approved
-        const {
-            data: updatedRequest,
-            error: updateRequestError,
-        } = await supabaseAdmin
-            .from("attendance_rectification_requests")
-            .update({
-                status: "Approved",
-                reviewed_by: clientUser?.id || null,
-                reviewed_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            })
-            .eq("id", requestId)
-            .select()
-            .single();
-
-        if (updateRequestError) {
-            throw updateRequestError;
-        }
-
-        return res.json({
-            message: "Attendance rectification approved successfully.",
-            request: updatedRequest,
-            attendance: updatedAttendance,
-        });
-    } catch (error) {
-        console.error(
-            "APPROVE RECTIFICATION ERROR:",
-            error
-        );
-
-        return res.status(500).json({
-            error: "Failed to approve attendance rectification.",
-            details: error.message,
-        });
     }
-});
+);
 
 // =====================================================
 // REJECT RECTIFICATION
 // PATCH /api/client/attendance/rectifications/:id/reject
 // =====================================================
 
-router.patch("/:id/reject", async (req, res) => {
-    try {
-        const requestId = Number(req.params.id);
+router.patch(
+    "/:id/reject",
+    async (req, res) => {
 
-        if (!Number.isInteger(requestId) || requestId <= 0) {
-            return res.status(400).json({
-                error: "Invalid rectification request ID.",
+        try {
+
+            const requestId =
+                Number(req.params.id);
+
+            if (
+                !Number.isInteger(
+                    requestId
+                ) ||
+                requestId <= 0
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        "Invalid rectification request ID.",
+                });
+            }
+
+            const client =
+                await getClientContext(req);
+
+            const clientId =
+                client.client_id;
+
+            // -------------------------------------------------
+            // GET REQUEST
+            // -------------------------------------------------
+
+            const {
+                data: request,
+                error: requestError,
+            } = await supabaseAdmin
+                .from(
+                    "attendance_rectification_requests"
+                )
+                .select("*")
+                .eq(
+                    "id",
+                    requestId
+                )
+                .maybeSingle();
+
+            if (requestError) {
+                throw requestError;
+            }
+
+            if (!request) {
+                return res.status(404).json({
+                    success: false,
+                    error:
+                        "Rectification request not found.",
+                });
+            }
+
+            if (
+                request.status !==
+                "Pending"
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    error:
+                        `Request is already ${request.status}.`,
+                });
+            }
+
+            // -------------------------------------------------
+            // VERIFY ATTENDANCE
+            // -------------------------------------------------
+
+            const {
+                data: attendance,
+                error: attendanceError,
+            } = await supabaseAdmin
+                .from(
+                    "third_party_emp_daily_attendance"
+                )
+                .select("id")
+                .eq(
+                    "id",
+                    request.attendance_id
+                )
+                .eq(
+                    "client_id",
+                    clientId
+                )
+                .maybeSingle();
+
+            if (attendanceError) {
+                throw attendanceError;
+            }
+
+            if (!attendance) {
+                return res.status(403).json({
+                    success: false,
+                    error:
+                        "This request does not belong to your client.",
+                });
+            }
+
+            // -------------------------------------------------
+            // CLIENT USER
+            // -------------------------------------------------
+
+            const {
+                data: clientUser,
+            } = await supabaseAdmin
+                .from("client_users")
+                .select("id")
+                .eq(
+                    "user_id",
+                    req.user.id
+                )
+                .maybeSingle();
+
+            // -------------------------------------------------
+            // UPDATE REQUEST
+            // -------------------------------------------------
+
+            const {
+                data: updatedRequest,
+                error: updateError,
+            } = await supabaseAdmin
+                .from(
+                    "attendance_rectification_requests"
+                )
+                .update({
+                    status:
+                        "Rejected",
+
+                    reviewed_by:
+                        clientUser?.id ||
+                        null,
+
+                    reviewed_at:
+                        new Date().toISOString(),
+
+                    updated_at:
+                        new Date().toISOString(),
+                })
+                .eq(
+                    "id",
+                    requestId
+                )
+                .select()
+                .single();
+
+            if (updateError) {
+                throw updateError;
+            }
+
+            return res.json({
+                success: true,
+                message:
+                    "Attendance rectification rejected.",
+                request:
+                    updatedRequest,
+            });
+
+        } catch (error) {
+
+            console.error(
+                "REJECT RECTIFICATION ERROR:",
+                error
+            );
+
+            return res.status(500).json({
+                success: false,
+                error:
+                    "Failed to reject attendance rectification.",
+                details:
+                    error.message,
             });
         }
-
-        const client = await getClientContext(req);
-        const clientId = client.client_id;
-
-        // Verify request + attendance belongs to client
-        const {
-            data: request,
-            error: requestError,
-        } = await supabaseAdmin
-            .from("attendance_rectification_requests")
-            .select("*")
-            .eq("id", requestId)
-            .maybeSingle();
-
-        if (requestError) throw requestError;
-
-        if (!request) {
-            return res.status(404).json({
-                error: "Rectification request not found.",
-            });
-        }
-
-        if (request.status !== "Pending") {
-            return res.status(400).json({
-                error: `Request is already ${request.status}.`,
-            });
-        }
-
-        const {
-            data: attendance,
-            error: attendanceError,
-        } = await supabaseAdmin
-            .from("third_party_emp_daily_attendance")
-            .select("id")
-            .eq("id", request.attendance_id)
-            .eq("client_id", clientId)
-            .maybeSingle();
-
-        if (attendanceError) throw attendanceError;
-
-        if (!attendance) {
-            return res.status(403).json({
-                error: "This request does not belong to your client.",
-            });
-        }
-
-        const {
-            data: clientUser,
-        } = await supabaseAdmin
-            .from("client_users")
-            .select("id")
-            .eq("user_id", req.user.id)
-            .maybeSingle();
-
-        const {
-            data: updatedRequest,
-            error: updateError,
-        } = await supabaseAdmin
-            .from("attendance_rectification_requests")
-            .update({
-                status: "Rejected",
-                reviewed_by: clientUser?.id || null,
-                reviewed_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            })
-            .eq("id", requestId)
-            .select()
-            .single();
-
-        if (updateError) throw updateError;
-
-        return res.json({
-            message: "Attendance rectification rejected.",
-            request: updatedRequest,
-        });
-    } catch (error) {
-        console.error(
-            "REJECT RECTIFICATION ERROR:",
-            error
-        );
-
-        return res.status(500).json({
-            error: "Failed to reject attendance rectification.",
-            details: error.message,
-        });
     }
-});
+);
 
 module.exports = router;
