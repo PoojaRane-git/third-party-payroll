@@ -37,7 +37,7 @@ const EmployeeAttendance = () => {
       console.log("Month:", month);
 
       const response = await api.get(
-        "/employee/attendance",
+        "/emp-attendance",
         {
           params: {
             month,

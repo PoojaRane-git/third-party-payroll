@@ -114,11 +114,11 @@ const authorize = require("./middleware/authorize");
 const clientRoutes = require("./routes/clients");
 const contractRoutes = require("./routes/contracts");
 const candidateRoutes = require("./routes/candidates");
-const employee_attdanceRoutes = require("./routes/emp_attedance");
+// const employee_attdanceRoutes = require("./routes/emp_attedance");
 const deploymentRoutes = require("./routes/deployments");
 const timesheetRoutes = require("./routes/timesheets");
 const thirdPartyAttendanceRoutes = require("./routes/thirdPartyAttendance");
-const employeeAttendanceRoutes = require("./routes/employeeAttendance");
+const employeeAttendanceRoutes = require("./routes/employeeAttendance"); // Route for emp daily attedance .
 const payrollRoutes = require("./routes/payroll");
 const billingRoutes = require("./routes/billing");
 const paymentRoutes = require("./routes/payments");
@@ -279,10 +279,10 @@ app.use(
 // EMPLOYEES - ADMIN
 // =====================================================
 
-app.use(
-  "/api/employee",
-  employee_attdanceRoutes
-);
+// app.use(
+//   "/api/employee",
+//   employee_attdanceRoutes
+// );
 
 // =====================================================
 // DEPLOYMENTS
