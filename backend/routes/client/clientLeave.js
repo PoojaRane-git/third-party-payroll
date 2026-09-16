@@ -63,16 +63,36 @@ router.get("/pending", async (req, res) => {
 
         if (error) throw error;
 
-        return res.json(data || []);
+        console.log(
+            "CLIENT ID:",
+            client.client_id
+        );
+
+        console.log(
+            "PENDING LEAVE REQUESTS:",
+            data || []
+        );
+
+        return res.json({
+            success: true,
+            data: data || [],
+        });
+
     } catch (error) {
-        console.error("GET PENDING LEAVE ERROR:", error);
+
+        console.error(
+            "GET PENDING LEAVE ERROR:",
+            error
+        );
 
         return res.status(500).json({
+            success: false,
             error: "Failed to fetch pending leave requests.",
             details: error.message,
         });
     }
 });
+
 
 // =====================================================
 // APPROVE LEAVE

@@ -957,7 +957,7 @@ const Leave = () => {
     // ========================================================
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="flex h-screen overflow-hidden bg-slate-50">
 
             {/* ==================================================
                 SIDEBAR
@@ -974,7 +974,7 @@ const Leave = () => {
                 MAIN
             ================================================== */}
 
-            <main className="min-h-screen ml-64">
+            <main className="ml-64 min-h-0 flex-1 overflow-y-auto">
 
                 <div className="mx-auto max-w-[1280px] px-6 py-6">
 
