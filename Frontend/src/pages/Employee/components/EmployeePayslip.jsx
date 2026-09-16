@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
 
-import logo from "../../assets/logo.jpeg";
+import logo from "../../../assets/logo.jpeg";
 
 import api from "../../services/api";
 import EmployeeLayout from "./EmployeeLayout";
