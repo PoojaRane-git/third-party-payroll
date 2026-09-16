@@ -233,22 +233,22 @@ app.get("/api/health", (req, res) => {
 // ============================================================
 
 const clientAttendanceRectificationRoutes =
-    require("./routes/client/attendanceRectification");
+    require("./routes/client/clientAttendanceRectification");
 
 const clientLeaveRoutes =
-    require("./routes/client/leave");
+    require("./routes/client/clientLeave");
 
 const clientHolidayRoutes =
-    require("./routes/client/holiday");
+    require("./routes/client/clientHoliday");
 
 const clientRosterRoutes =
-    require("./routes/client/roster");
+    require("./routes/client/clientRoster");
 
 const clientAttendancePolicyRoutes =
-    require("./routes/client/attendancePolicy");
+    require("./routes/client/clientAttendancePolicy");
 
 const clientCompoffRoutes =
-    require("./routes/client/compoff");
+    require("./routes/client/clientCompoff");
 
 
 // ============================================================
@@ -256,19 +256,19 @@ const clientCompoffRoutes =
 // ============================================================
 
 const employeeAttendanceRectificationRoutes =
-    require("./routes/employee/attendanceRectification");
+    require("./routes/employee/employeeAttendanceRectification");
 
 const employeeLeaveRoutes =
-    require("./routes/employee/leave");
+    require("./routes/employee/employeeLeave");
 
 const employeeHolidayRoutes =
-    require("./routes/employee/holiday");
+    require("./routes/employee/employeeHoliday");
 
 const employeeRosterRoutes =
-    require("./routes/employee/roster");
+    require("./routes/employee/employeeRoster");
 
 const employeeCompoffRoutes =
-    require("./routes/employee/compoff");
+    require("./routes/employee/employeeCompoff");
 
 
 // =====================================================
