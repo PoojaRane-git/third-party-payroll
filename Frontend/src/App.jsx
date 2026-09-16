@@ -69,7 +69,7 @@ import EmployeeRoster from "./pages/Employee/components/EmployeeRoster";
 
 import ClientPortalDashboard from "./pages/client/components/ClientPortalDashboard";
 
-import {ClientAttendance} from "./pages/client/components/AttedanceApproval/ClientAttendance";
+import ClientAttendance from "./pages/client/components/AttedanceApproval/ClientAttendance";
 
 import JobRequirementsClient from "./pages/client/components/Recruitment/JobRequirementsClient";
 
