@@ -1,53 +1,146 @@
 import React, { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
 
+import logo from "../../assets/logo.jpeg";
 
 import api from "../../services/api";
 import EmployeeLayout from "./EmployeeLayout";
 
 // =====================================================
-// PDF HELPERS (mirrors PaySlip.jsx)
+// NUMBER TO WORDS - INDIAN FORMAT
 // =====================================================
 
-// Convert numbers to Indian words
 const numberToWordsIndian = (num) => {
-  if (num === 0) return "Zero";
-  const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
-  const teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const value = Math.floor(Number(num || 0));
+
+  if (value === 0) return "Zero";
+
+  const units = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+  ];
+
+  const teens = [
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
+
+  const tens = [
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
+  ];
 
   const convertLessThanThousand = (n) => {
     if (n === 0) return "";
-    if (n < 10) return units[n];
-    if (n < 20) return teens[n - 10];
-    if (n < 100) return `${tens[Math.floor(n / 10)]} ${units[n % 10]}`.trim();
-    return `${units[Math.floor(n / 100)]} Hundred ${convertLessThanThousand(n % 100)}`.trim();
+
+    if (n < 10) {
+      return units[n];
+    }
+
+    if (n < 20) {
+      return teens[n - 10];
+    }
+
+    if (n < 100) {
+      return `${tens[Math.floor(n / 10)]} ${
+        units[n % 10]
+      }`.trim();
+    }
+
+    return `${units[Math.floor(n / 100)]} Hundred ${
+      convertLessThanThousand(n % 100)
+    }`.trim();
   };
 
-  let crore = Math.floor(num / 10000000);
-  let lakh = Math.floor((num % 10000000) / 100000);
-  let thousand = Math.floor((num % 100000) / 1000);
-  let hundred = Math.floor(num % 1000);
+  let crore = Math.floor(value / 10000000);
 
-  let result = [];
-  if (crore > 0) result.push(`${convertLessThanThousand(crore)} Crore`);
-  if (lakh > 0) result.push(`${convertLessThanThousand(lakh)} Lakh`);
-  if (thousand > 0) result.push(`${convertLessThanThousand(thousand)} Thousand`);
-  if (hundred > 0) result.push(convertLessThanThousand(hundred));
+  let lakh = Math.floor(
+    (value % 10000000) / 100000
+  );
 
-  return result.join(" ").trim() || "Zero";
+  let thousand = Math.floor(
+    (value % 100000) / 1000
+  );
+
+  let remainder = value % 1000;
+
+  const result = [];
+
+  if (crore > 0) {
+    result.push(
+      `${convertLessThanThousand(crore)} Crore`
+    );
+  }
+
+  if (lakh > 0) {
+    result.push(
+      `${convertLessThanThousand(lakh)} Lakh`
+    );
+  }
+
+  if (thousand > 0) {
+    result.push(
+      `${convertLessThanThousand(thousand)} Thousand`
+    );
+  }
+
+  if (remainder > 0) {
+    result.push(
+      convertLessThanThousand(remainder)
+    );
+  }
+
+  return result.join(" ");
 };
 
-// Load logo image for the PDF header
-const loadImage = (url) => {
+// =====================================================
+// LOAD IMAGE
+// =====================================================
+
+const loadImage = (src) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "Anonymous";
+
     img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
+
+    img.onerror = () =>
+      reject(
+        new Error(
+          `Unable to load image: ${src}`
+        )
+      );
+
+    img.src = src;
   });
 };
+
+// =====================================================
+// COMPONENT
+// =====================================================
 
 const EmployeePayslip = () => {
   // =====================================================
@@ -55,13 +148,20 @@ const EmployeePayslip = () => {
   // =====================================================
 
   const [payslips, setPayslips] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState(null);
-  const [error, setError] = useState("");
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [downloading, setDownloading] =
+    useState(null);
+
+  const [error, setError] =
+    useState("");
 
   // =====================================================
   // FETCH PAYSLIPS
   // =====================================================
+
   useEffect(() => {
     const fetchPayslips = async () => {
       try {
@@ -84,13 +184,19 @@ const EmployeePayslip = () => {
         let data = [];
 
         if (
-          Array.isArray(response.data?.payslips)
+          Array.isArray(
+            response.data?.payslips
+          )
         ) {
-          data = response.data.payslips;
+          data =
+            response.data.payslips;
         } else if (
-          Array.isArray(response.data?.data)
+          Array.isArray(
+            response.data?.data
+          )
         ) {
-          data = response.data.data;
+          data =
+            response.data.data;
         } else if (
           Array.isArray(response.data)
         ) {
@@ -103,7 +209,6 @@ const EmployeePayslip = () => {
         );
 
         setPayslips(data);
-
       } catch (err) {
         console.error(
           "Employee payslip error:",
@@ -119,10 +224,9 @@ const EmployeePayslip = () => {
 
         setError(
           err.response?.data?.message ||
-          err.response?.data?.error ||
-          "Unable to load payslips."
+            err.response?.data?.error ||
+            "Unable to load payslips."
         );
-
       } finally {
         setLoading(false);
       }
@@ -132,11 +236,13 @@ const EmployeePayslip = () => {
   }, []);
 
   // =====================================================
-  // HELPERS
+  // MONEY FORMATTER
   // =====================================================
 
   const money = (value) => {
-    const amount = Number(value ?? 0);
+    const amount = Number(
+      value ?? 0
+    );
 
     if (!Number.isFinite(amount)) {
       return "0.00";
@@ -151,6 +257,10 @@ const EmployeePayslip = () => {
     );
   };
 
+  // =====================================================
+  // DISPLAY
+  // =====================================================
+
   const display = (value) => {
     if (
       value === null ||
@@ -163,15 +273,24 @@ const EmployeePayslip = () => {
     return value;
   };
 
-  const formatSalaryMonth = (value) => {
+  // =====================================================
+  // SALARY MONTH FORMAT
+  // =====================================================
+
+  const formatSalaryMonth = (
+    value
+  ) => {
     if (!value) {
       return "--";
     }
 
     const text = String(value);
 
-    // Example: 2026-08
-    if (/^\d{4}-\d{2}$/.test(text)) {
+    if (
+      /^\d{4}-\d{2}$/.test(
+        text
+      )
+    ) {
       const [year, month] =
         text.split("-");
 
@@ -190,9 +309,14 @@ const EmployeePayslip = () => {
       );
     }
 
-    const date = new Date(text);
+    const date =
+      new Date(text);
 
-    if (!Number.isNaN(date.getTime())) {
+    if (
+      !Number.isNaN(
+        date.getTime()
+      )
+    ) {
       return date.toLocaleDateString(
         "en-IN",
         {
@@ -205,7 +329,13 @@ const EmployeePayslip = () => {
     return text;
   };
 
-  const getStatusClass = (status) => {
+  // =====================================================
+  // STATUS CLASS
+  // =====================================================
+
+  const getStatusClass = (
+    status
+  ) => {
     const value = String(
       status || ""
     )
@@ -239,428 +369,1456 @@ const EmployeePayslip = () => {
 
   // =====================================================
   // DOWNLOAD PAYSLIP
-  // Same visual template as PaySlip.jsx:
-  // logo + company header, title/period, employee name,
-  // two-column details grid, bordered earnings/deductions
-  // table, totals, amount in words, signatory footer.
-  //
-  // Field values are pulled from the employee's own
-  // payslip record (third_party_payroll), not the
-  // calculateSalary() shape used in PaySlip.jsx.
   // =====================================================
 
-  const downloadPayslip = async (payslip) => {
-    try {
-      setDownloading(payslip.id);
-
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const pageWidth =
-        doc.internal.pageSize.getWidth();
-
-      const margin = 15;
-      let y = 15;
-
-      // Custom robust currency formatter (Indian grouping)
-      const formatCurrency = (num) => {
-        if (num == null) return "0.00";
-        const str = Number(num).toFixed(2).toString();
-        const parts = str.split(".");
-        let integerPart = parts[0];
-        const fractionPart = parts[1];
-        const lastThree =
-          integerPart.length > 3
-            ? integerPart.slice(integerPart.length - 3)
-            : integerPart;
-        const otherNumbers = integerPart.slice(
-          0,
-          integerPart.length - 3
-        );
-        const formattedOtherNumbers = otherNumbers.replace(
-          /\B(?=(\d{2})+(?!\d))/g,
-          ","
-        );
-        const finalInteger = otherNumbers
-          ? formattedOtherNumbers + "," + lastThree
-          : lastThree;
-        return `${finalInteger}.${fractionPart}`;
-      };
-
-      // =================================================
-      // 1. LOGO + COMPANY HEADER
-      // =================================================
-
-      const logoUrl = "/assets/logo.jpeg";
-
+  const downloadPayslip =
+    async (payslip) => {
       try {
-        const img = await loadImage(logoUrl);
-        const logoWidth = 35;
-        const aspectRatio = img.width / img.height;
-        const logoHeight = logoWidth / aspectRatio;
-        doc.addImage(img, "PNG", margin, y, logoWidth, logoHeight);
-      } catch (imgErr) {
-        console.warn("Logo not found at /logo.png, skipping...");
-      }
-
-      const headerTextX = pageWidth / 2 + 10;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text(
-        "Talent Corner HR Services Pvt. Ltd.",
-        headerTextX,
-        y + 5,
-        { align: "center" }
-      );
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text(
-        "708/709, Bhaveshwar Arcade NX, Opp Shreyas Cinema, LBS Marg",
-        headerTextX,
-        y + 11,
-        { align: "center" }
-      );
-      doc.text(
-        "Ghatkopar(W), Mumbai-400086",
-        headerTextX,
-        y + 16,
-        { align: "center" }
-      );
-      doc.text(
-        "GSTIN : 27AACCT6635P1ZP",
-        headerTextX,
-        y + 21,
-        { align: "center" }
-      );
-      doc.text(
-        "UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)",
-        headerTextX,
-        y + 26,
-        { align: "center" }
-      );
-      doc.text(
-        "E-Mail : accounts@talentcorner.in",
-        headerTextX,
-        y + 31,
-        { align: "center" }
-      );
-
-      y += 40;
-
-      // =================================================
-      // 2. TITLE + PERIOD
-      // =================================================
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.text("Pay Slip", pageWidth / 2, y, { align: "center" });
-      y += 6;
-
-      const monthYearStr = `for the month of ${formatSalaryMonth(
-        payslip.salary_month
-      )}`;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.text(monthYearStr, pageWidth / 2, y, { align: "center" });
-      y += 10;
-
-      // =================================================
-      // 3. EMPLOYEE NAME
-      // =================================================
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.text(
-        String(payslip.employee_name || "N/A").toUpperCase(),
-        pageWidth / 2,
-        y,
-        { align: "center" }
-      );
-      y += 12;
-
-      // =================================================
-      // 4. DETAILS GRID (with text wrapping)
-      // =================================================
-
-      const col1X = margin;
-      const col2X = pageWidth / 2 + 10;
-      const detailLineHeight = 5;
-      doc.setFontSize(10);
-
-      const bankDetails = `${payslip.account_number || ""}${
-        payslip.account_number && payslip.bank_name ? ", " : ""
-      }${payslip.bank_name || ""}`;
-
-      const detailsLeft = [
-        { label: "Employee Number", value: display(payslip.employee_ref_id) },
-        { label: "Function", value: display(payslip.department) },
-        { label: "Designation", value: display(payslip.designation) },
-        { label: "Location", value: display(payslip.branch_office_name) },
-        { label: "Bank Details", value: bankDetails || "N/A" },
-        { label: "Payslip ID", value: display(payslip.id) },
-      ];
-
-      const detailsRight = [
-        { label: "Status", value: display(payslip.status) },
-        { label: "Income Tax Number (PAN)", value: display(payslip.pan_card) },
-        { label: "Universal Account Number (UAN)", value: display(payslip.uan_number) },
-        { label: "PF account number", value: display(payslip.pf_ac_number) },
-        { label: "ESI Number", value: display(payslip.esi_number) },
-        { label: "IFSC Code", value: display(payslip.ifsc_code) },
-      ];
-
-      const leftLabelMaxWidth = 45;
-      const rightLabelMaxWidth = 45;
-      const leftValueX = col1X + leftLabelMaxWidth;
-      const rightValueX = col2X + rightLabelMaxWidth;
-      const leftValueMaxWidth = col2X - leftValueX - 2;
-      const rightValueMaxWidth = pageWidth - rightValueX - margin;
-
-      for (
-        let i = 0;
-        i < Math.max(detailsLeft.length, detailsRight.length);
-        i++
-      ) {
-        const currentY = y;
-        let leftLabelLines = [""],
-          leftValueLines = [""],
-          rightLabelLines = [""],
-          rightValueLines = [""];
-
-        if (detailsLeft[i]) {
-          leftLabelLines = doc.splitTextToSize(
-            detailsLeft[i].label,
-            leftLabelMaxWidth
-          );
-          leftValueLines = doc.splitTextToSize(
-            String(detailsLeft[i].value),
-            leftValueMaxWidth
-          );
-        }
-        if (detailsRight[i]) {
-          rightLabelLines = doc.splitTextToSize(
-            detailsRight[i].label,
-            rightLabelMaxWidth
-          );
-          rightValueLines = doc.splitTextToSize(
-            String(detailsRight[i].value),
-            rightValueMaxWidth
-          );
-        }
-
-        const maxLines = Math.max(
-          leftLabelLines.length,
-          leftValueLines.length,
-          rightLabelLines.length,
-          rightValueLines.length
+        setDownloading(
+          payslip.id
         );
 
-        if (detailsLeft[i]) {
-          doc.setFont("helvetica", "normal");
-          doc.text(leftLabelLines, col1X, currentY);
-          doc.text(":", leftValueX - 5, currentY);
-          doc.setFont("helvetica", "bold");
-          doc.text(leftValueLines, leftValueX, currentY);
-        }
-        if (detailsRight[i]) {
-          doc.setFont("helvetica", "normal");
-          doc.text(rightLabelLines, col2X, currentY);
-          doc.text(":", rightValueX - 5, currentY);
-          doc.setFont("helvetica", "bold");
-          doc.text(rightValueLines, rightValueX, currentY);
-        }
+        // =================================================
+        // PDF INITIALIZATION
+        // =================================================
 
-        y += maxLines * detailLineHeight + 1;
-      }
-      y += 5;
+        const doc =
+          new jsPDF({
+            orientation:
+              "portrait",
+            unit: "mm",
+            format: "a4",
+          });
 
-      // =================================================
-      // 5. EARNINGS & DEDUCTIONS TABLE
-      // =================================================
+        const pageWidth =
+          doc.internal.pageSize.getWidth();
 
-      const earningsData = [
-        { label: "Basic Salary", value: Number(payslip.basic_salary || 0) },
-        { label: "Allowances", value: Number(payslip.allowances || 0) },
-        { label: "Overtime", value: Number(payslip.overtime || 0) },
-        { label: "Bonus", value: Number(payslip.bonus || 0) },
-        { label: "Employer PF", value: Number(payslip.employer_pf || 0) },
-        { label: "Employer ESIC", value: Number(payslip.employer_esic || 0) },
-      ];
+        const pageHeight =
+          doc.internal.pageSize.getHeight();
 
-      const deductionsData = [
-        { label: "Employee PF", value: Number(payslip.pf || 0) },
-        { label: "ESIC", value: Number(payslip.esic || 0) },
-        { label: "Tax / TDS", value: Number(payslip.tax || 0) },
-        { label: "Professional Tax", value: Number(payslip.professional_tax || 0) },
-        { label: "LOP Deduction", value: Number(payslip.lop || 0) },
-      ];
+        const margin = 14;
 
-      const totalEarnings = Number(
-        payslip.gross_salary ??
-        earningsData
-          .slice(0, 4)
-          .reduce((sum, item) => sum + (item.value || 0), 0)
-      );
+        const contentWidth =
+          pageWidth -
+          margin * 2;
 
-      const totalDeductions = Number(
-        payslip.total_deductions ??
-        deductionsData.reduce((sum, item) => sum + (item.value || 0), 0)
-      );
+        let y = 14;
 
-      const netPayable = Number(
-        payslip.net_salary ?? totalEarnings - totalDeductions
-      );
+        // =================================================
+        // PDF HELPERS
+        // =================================================
 
-      doc.setLineWidth(0.4);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 6;
+        const currency = (
+          value
+        ) => {
+          const amount =
+            Number(
+              value ?? 0
+            );
 
-      const earningX = margin + 2,
-        earningAmtX = margin + 90,
-        deductionX = margin + 100,
-        deductionAmtX = pageWidth - margin - 2;
+          if (
+            !Number.isFinite(
+              amount
+            )
+          ) {
+            return "0.00";
+          }
 
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text("Earnings", earningX, y);
-      doc.text("Amount", earningAmtX, y, { align: "right" });
-      doc.text("Deductions", deductionX, y);
-      doc.text("Amount", deductionAmtX, y, { align: "right" });
-      y += 6;
+          return amount.toLocaleString(
+            "en-IN",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
+          );
+        };
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      const tableLineHeight = 6;
-      const numRows = Math.max(
-        earningsData.length,
-        deductionsData.length
-      );
+        const line = (
+          x1,
+          y1,
+          x2,
+          y2,
+          width = 0.3
+        ) => {
+          doc.setLineWidth(
+            width
+          );
 
-      for (let i = 0; i < numRows; i++) {
-        if (i < earningsData.length && earningsData[i].value !== 0) {
-          const item = earningsData[i];
-          doc.text(item.label, earningX, y);
+          doc.line(
+            x1,
+            y1,
+            x2,
+            y2
+          );
+        };
+
+        const box = (
+          x,
+          top,
+          width,
+          height
+        ) => {
+          doc.setLineWidth(
+            0.3
+          );
+
+          doc.rect(
+            x,
+            top,
+            width,
+            height
+          );
+        };
+
+        // =================================================
+        // 1. COMPANY HEADER
+        // =================================================
+
+        const headerHeight = 42;
+
+        box(
+          margin,
+          y,
+          contentWidth,
+          headerHeight
+        );
+
+        // -------------------------------------------------
+        // LOGO
+        // -------------------------------------------------
+
+        try {
+          const img =
+            await loadImage(
+              logo
+            );
+
+          const logoWidth = 32;
+
+          const aspectRatio =
+            img.width /
+            img.height;
+
+          const logoHeight =
+            logoWidth /
+            aspectRatio;
+
+          doc.addImage(
+            img,
+            "JPEG",
+            margin + 5,
+            y + 5,
+            logoWidth,
+            logoHeight
+          );
+        } catch (imageError) {
+          console.warn(
+            "Payslip logo could not be loaded:",
+            imageError
+          );
+
+          // Small fallback box
+          doc.setFont(
+            "helvetica",
+            "bold"
+          );
+
+          doc.setFontSize(
+            11
+          );
+
           doc.text(
-            formatCurrency(item.value),
-            earningAmtX,
-            y,
-            { align: "right" }
+            "TC",
+            margin + 15,
+            y + 20,
+            {
+              align:
+                "center",
+            }
           );
         }
-        if (
-          i < deductionsData.length &&
-          (deductionsData[i].label === "Professional Tax" ||
-            deductionsData[i].value !== 0)
+
+        // -------------------------------------------------
+        // COMPANY DETAILS
+        // -------------------------------------------------
+
+        const companyX =
+          margin +
+          contentWidth /
+            2 +
+          13;
+
+        doc.setTextColor(
+          20,
+          20,
+          20
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          13
+        );
+
+        doc.text(
+          "Talent Corner HR Services Pvt. Ltd.",
+          companyX,
+          y + 8,
+          {
+            align:
+              "center",
+          }
+        );
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.setFontSize(
+          8.5
+        );
+
+        doc.text(
+          "708/709, Bhaveshwar Arcade NX, Opp Shreyas Cinema, LBS Marg",
+          companyX,
+          y + 14,
+          {
+            align:
+              "center",
+          }
+        );
+
+        doc.text(
+          "Ghatkopar(W), Mumbai-400086",
+          companyX,
+          y + 19,
+          {
+            align:
+              "center",
+          }
+        );
+
+        doc.text(
+          "GSTIN : 27AACCT6635P1ZP",
+          companyX,
+          y + 24,
+          {
+            align:
+              "center",
+          }
+        );
+
+        doc.text(
+          "UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)",
+          companyX,
+          y + 29,
+          {
+            align:
+              "center",
+          }
+        );
+
+        doc.text(
+          "E-Mail : accounts@talentcorner.in",
+          companyX,
+          y + 34,
+          {
+            align:
+              "center",
+          }
+        );
+
+        y +=
+          headerHeight +
+          8;
+
+        // =================================================
+        // 2. PAYSLIP TITLE
+        // =================================================
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          16
+        );
+
+        doc.text(
+          "PAY SLIP",
+          pageWidth / 2,
+          y,
+          {
+            align:
+              "center",
+          }
+        );
+
+        y += 6;
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.setFontSize(
+          10
+        );
+
+        doc.text(
+          `For the month of ${formatSalaryMonth(
+            payslip.salary_month
+          )}`,
+          pageWidth / 2,
+          y,
+          {
+            align:
+              "center",
+          }
+        );
+
+        y += 6;
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          12
+        );
+
+        doc.text(
+          String(
+            payslip.employee_name ||
+              "EMPLOYEE"
+          ).toUpperCase(),
+          pageWidth / 2,
+          y,
+          {
+            align:
+              "center",
+          }
+        );
+
+        y += 9;
+
+        // =================================================
+        // 3. EMPLOYEE INFORMATION
+        // =================================================
+
+        const infoTop =
+          y;
+
+        const infoHeaderHeight =
+          8;
+
+        const infoRowHeight =
+          7;
+
+        const infoRows = 5;
+
+        const infoHeight =
+          infoHeaderHeight +
+          infoRows *
+            infoRowHeight;
+
+        box(
+          margin,
+          infoTop,
+          contentWidth,
+          infoHeight
+        );
+
+        // Header background
+        doc.setFillColor(
+          242,
+          244,
+          247
+        );
+
+        doc.rect(
+          margin,
+          infoTop,
+          contentWidth,
+          infoHeaderHeight,
+          "F"
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          9
+        );
+
+        doc.text(
+          "EMPLOYEE INFORMATION",
+          margin + 4,
+          infoTop + 5.5
+        );
+
+        // Vertical divider
+        const infoMiddle =
+          pageWidth / 2;
+
+        line(
+          infoMiddle,
+          infoTop +
+            infoHeaderHeight,
+          infoMiddle,
+          infoTop +
+            infoHeight
+        );
+
+        const leftDetails =
+          [
+            [
+              "Employee No.",
+              display(
+                payslip.employee_ref_id
+              ),
+            ],
+            [
+              "Function",
+              display(
+                payslip.department
+              ),
+            ],
+            [
+              "Designation",
+              display(
+                payslip.designation
+              ),
+            ],
+            [
+              "Location",
+              display(
+                payslip.branch_office_name
+              ),
+            ],
+            [
+              "Payslip ID",
+              display(
+                payslip.id
+              ),
+            ],
+          ];
+
+        const rightDetails =
+          [
+            [
+              "Status",
+              display(
+                payslip.status
+              ),
+            ],
+            [
+              "PAN",
+              display(
+                payslip.pan_card
+              ),
+            ],
+            [
+              "UAN",
+              display(
+                payslip.uan_number
+              ),
+            ],
+            [
+              "PF Account",
+              display(
+                payslip.pf_ac_number
+              ),
+            ],
+            [
+              "ESI Number",
+              display(
+                payslip.esi_number
+              ),
+            ],
+          ];
+
+        doc.setFontSize(
+          8.5
+        );
+
+        for (
+          let i = 0;
+          i < infoRows;
+          i++
         ) {
-          const item = deductionsData[i];
-          doc.text(item.label, deductionX, y);
+          const rowY =
+            infoTop +
+            infoHeaderHeight +
+            i *
+              infoRowHeight +
+            5;
+
+          // Horizontal line
+          if (
+            i <
+            infoRows - 1
+          ) {
+            line(
+              margin,
+              infoTop +
+                infoHeaderHeight +
+                (i + 1) *
+                  infoRowHeight,
+              margin +
+                contentWidth,
+              infoTop +
+                infoHeaderHeight +
+                (i + 1) *
+                  infoRowHeight
+            );
+          }
+
+          // LEFT LABEL
+          doc.setFont(
+            "helvetica",
+            "normal"
+          );
+
           doc.text(
-            formatCurrency(item.value),
-            deductionAmtX,
-            y,
-            { align: "right" }
+            leftDetails[i][0],
+            margin + 4,
+            rowY
+          );
+
+          doc.text(
+            ":",
+            margin + 36,
+            rowY
+          );
+
+          // LEFT VALUE
+          doc.setFont(
+            "helvetica",
+            "bold"
+          );
+
+          doc.text(
+            leftDetails[i][1],
+            margin + 39,
+            rowY
+          );
+
+          // RIGHT LABEL
+          doc.setFont(
+            "helvetica",
+            "normal"
+          );
+
+          doc.text(
+            rightDetails[i][0],
+            infoMiddle + 4,
+            rowY
+          );
+
+          doc.text(
+            ":",
+            infoMiddle + 36,
+            rowY
+          );
+
+          // RIGHT VALUE
+          doc.setFont(
+            "helvetica",
+            "bold"
+          );
+
+          const rightValue =
+            String(
+              rightDetails[i][1]
+            );
+
+          const rightLines =
+            doc.splitTextToSize(
+              rightValue,
+              40
+            );
+
+          doc.text(
+            rightLines,
+            infoMiddle + 39,
+            rowY
           );
         }
-        y += tableLineHeight;
+
+        y =
+          infoTop +
+          infoHeight +
+          8;
+
+        // =================================================
+        // 4. SALARY TABLE
+        // =================================================
+
+        const earnings = [
+          [
+            "Basic Salary",
+            Number(
+              payslip.basic_salary ||
+                0
+            ),
+          ],
+          [
+            "Allowances",
+            Number(
+              payslip.allowances ||
+                0
+            ),
+          ],
+          [
+            "Overtime",
+            Number(
+              payslip.overtime ||
+                0
+            ),
+          ],
+          [
+            "Bonus",
+            Number(
+              payslip.bonus ||
+                0
+            ),
+          ],
+        ];
+
+        const deductions = [
+          [
+            "Employee PF",
+            Number(
+              payslip.pf ||
+                0
+            ),
+          ],
+          [
+            "ESIC",
+            Number(
+              payslip.esic ||
+                0
+            ),
+          ],
+          [
+            "Tax / TDS",
+            Number(
+              payslip.tax ||
+                0
+            ),
+          ],
+          [
+            "Professional Tax",
+            Number(
+              payslip.professional_tax ||
+                0
+            ),
+          ],
+          [
+            "LOP Deduction",
+            Number(
+              payslip.lop ||
+                0
+            ),
+          ],
+        ];
+
+        const totalEarnings =
+          Number(
+            payslip.gross_salary ??
+              earnings.reduce(
+                (
+                  sum,
+                  item
+                ) =>
+                  sum +
+                  item[1],
+                0
+              )
+          );
+
+        const totalDeductions =
+          Number(
+            payslip.total_deductions ??
+              deductions.reduce(
+                (
+                  sum,
+                  item
+                ) =>
+                  sum +
+                  item[1],
+                0
+              )
+          );
+
+        const netPayable =
+          Number(
+            payslip.net_salary ??
+              totalEarnings -
+                totalDeductions
+          );
+
+        const tableTop =
+          y;
+
+        const tableHeaderHeight =
+          9;
+
+        const tableRowHeight =
+          7;
+
+        const tableRows =
+          Math.max(
+            earnings.length,
+            deductions.length
+          );
+
+        const tableTotalRowHeight =
+          9;
+
+        const tableHeight =
+          tableHeaderHeight +
+          tableRows *
+            tableRowHeight +
+          tableTotalRowHeight;
+
+        const halfWidth =
+          contentWidth / 2;
+
+        // Outer border
+        box(
+          margin,
+          tableTop,
+          contentWidth,
+          tableHeight
+        );
+
+        // Header background
+        doc.setFillColor(
+          242,
+          244,
+          247
+        );
+
+        doc.rect(
+          margin,
+          tableTop,
+          contentWidth,
+          tableHeaderHeight,
+          "F"
+        );
+
+        // Middle divider
+        line(
+          margin +
+            halfWidth,
+          tableTop,
+          margin +
+            halfWidth,
+          tableTop +
+            tableHeight
+        );
+
+        // Header bottom
+        line(
+          margin,
+          tableTop +
+            tableHeaderHeight,
+          margin +
+            contentWidth,
+          tableTop +
+            tableHeaderHeight
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          9
+        );
+
+        doc.text(
+          "EARNINGS",
+          margin + 4,
+          tableTop + 6
+        );
+
+        doc.text(
+          "DEDUCTIONS",
+          margin +
+            halfWidth +
+            4,
+          tableTop + 6
+        );
+
+        // Column positions
+        const earningAmountX =
+          margin +
+          halfWidth -
+          4;
+
+        const deductionAmountX =
+          margin +
+          contentWidth -
+          4;
+
+        // Table rows
+        for (
+          let i = 0;
+          i < tableRows;
+          i++
+        ) {
+          const rowTop =
+            tableTop +
+            tableHeaderHeight +
+            i *
+              tableRowHeight;
+
+          const rowY =
+            rowTop + 5;
+
+          // Row separator
+          line(
+            margin,
+            rowTop +
+              tableRowHeight,
+            margin +
+              contentWidth,
+            rowTop +
+              tableRowHeight
+          );
+
+          doc.setFont(
+            "helvetica",
+            "normal"
+          );
+
+          doc.setFontSize(
+            8.5
+          );
+
+          // Earnings
+          if (
+            earnings[i]
+          ) {
+            doc.text(
+              earnings[i][0],
+              margin + 4,
+              rowY
+            );
+
+            doc.text(
+              currency(
+                earnings[i][1]
+              ),
+              earningAmountX,
+              rowY,
+              {
+                align:
+                  "right",
+              }
+            );
+          }
+
+          // Deductions
+          if (
+            deductions[i]
+          ) {
+            doc.text(
+              deductions[i][0],
+              margin +
+                halfWidth +
+                4,
+              rowY
+            );
+
+            doc.text(
+              currency(
+                deductions[i][1]
+              ),
+              deductionAmountX,
+              rowY,
+              {
+                align:
+                  "right",
+              }
+            );
+          }
+        }
+
+        // Total row
+        const totalTop =
+          tableTop +
+          tableHeaderHeight +
+          tableRows *
+            tableRowHeight;
+
+        doc.setFillColor(
+          248,
+          249,
+          250
+        );
+
+        doc.rect(
+          margin,
+          totalTop,
+          contentWidth,
+          tableTotalRowHeight,
+          "F"
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          8.5
+        );
+
+        doc.text(
+          "TOTAL EARNINGS",
+          margin + 4,
+          totalTop + 6
+        );
+
+        doc.text(
+          currency(
+            totalEarnings
+          ),
+          earningAmountX,
+          totalTop + 6,
+          {
+            align:
+              "right",
+          }
+        );
+
+        doc.text(
+          "TOTAL DEDUCTIONS",
+          margin +
+            halfWidth +
+            4,
+          totalTop + 6
+        );
+
+        doc.text(
+          currency(
+            totalDeductions
+          ),
+          deductionAmountX,
+          totalTop + 6,
+          {
+            align:
+              "right",
+          }
+        );
+
+        y =
+          tableTop +
+          tableHeight +
+          8;
+
+        // =================================================
+        // 5. NET PAYABLE
+        // =================================================
+
+        const netTop =
+          y;
+
+        const netHeight =
+          22;
+
+        box(
+          margin,
+          netTop,
+          contentWidth,
+          netHeight
+        );
+
+        doc.setFillColor(
+          245,
+          247,
+          250
+        );
+
+        doc.rect(
+          margin,
+          netTop,
+          contentWidth,
+          netHeight,
+          "F"
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          10
+        );
+
+        doc.text(
+          "NET PAYABLE",
+          margin + 5,
+          netTop + 8
+        );
+
+        doc.setFontSize(
+          14
+        );
+
+        doc.text(
+          `₹ ${currency(
+            netPayable
+          )}`,
+          pageWidth -
+            margin -
+            5,
+          netTop + 9,
+          {
+            align:
+              "right",
+          }
+        );
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.setFontSize(
+          7.5
+        );
+
+        doc.text(
+          "Net salary payable to employee",
+          margin + 5,
+          netTop + 15
+        );
+
+        y =
+          netTop +
+          netHeight +
+          7;
+
+        // =================================================
+        // 6. AMOUNT IN WORDS
+        // =================================================
+
+        const wordsTop =
+          y;
+
+        const amountWords =
+          `INR ${numberToWordsIndian(
+            Math.round(
+              netPayable
+            )
+          )} Only`;
+
+        const wordLines =
+          doc.splitTextToSize(
+            amountWords,
+            contentWidth - 40
+          );
+
+        const wordsHeight =
+          Math.max(
+            16,
+            wordLines.length *
+              5 +
+              10
+          );
+
+        box(
+          margin,
+          wordsTop,
+          contentWidth,
+          wordsHeight
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          8.5
+        );
+
+        doc.text(
+          "Amount in Words:",
+          margin + 4,
+          wordsTop + 7
+        );
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.text(
+          wordLines,
+          margin + 38,
+          wordsTop + 7
+        );
+
+        y =
+          wordsTop +
+          wordsHeight +
+          7;
+
+        // =================================================
+        // 7. EMPLOYER CONTRIBUTION
+        // =================================================
+
+        const employerPF =
+          Number(
+            payslip.employer_pf ||
+              0
+          );
+
+        const employerESIC =
+          Number(
+            payslip.employer_esic ||
+              0
+          );
+
+        const employerTotal =
+          Number(
+            payslip.total_employer_contribution ??
+              employerPF +
+                employerESIC
+          );
+
+        const employerTop =
+          y;
+
+        const employerHeight =
+          28;
+
+        box(
+          margin,
+          employerTop,
+          contentWidth,
+          employerHeight
+        );
+
+        doc.setFillColor(
+          242,
+          244,
+          247
+        );
+
+        doc.rect(
+          margin,
+          employerTop,
+          contentWidth,
+          8,
+          "F"
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          8.5
+        );
+
+        doc.text(
+          "EMPLOYER CONTRIBUTION",
+          margin + 4,
+          employerTop + 5.5
+        );
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.setFontSize(
+          8
+        );
+
+        doc.text(
+          "Employer PF",
+          margin + 4,
+          employerTop + 15
+        );
+
+        doc.text(
+          `₹ ${currency(
+            employerPF
+          )}`,
+          margin + 70,
+          employerTop + 15,
+          {
+            align:
+              "right",
+          }
+        );
+
+        doc.text(
+          "Employer ESIC",
+          margin + 80,
+          employerTop + 15
+        );
+
+        doc.text(
+          `₹ ${currency(
+            employerESIC
+          )}`,
+          pageWidth -
+            margin -
+            4,
+          employerTop + 15,
+          {
+            align:
+              "right",
+          }
+        );
+
+        line(
+          margin,
+          employerTop + 18,
+          margin +
+            contentWidth,
+          employerTop + 18
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.text(
+          "Total Employer Contribution",
+          margin + 4,
+          employerTop + 24
+        );
+
+        doc.text(
+          `₹ ${currency(
+            employerTotal
+          )}`,
+          pageWidth -
+            margin -
+            4,
+          employerTop + 24,
+          {
+            align:
+              "right",
+          }
+        );
+
+        y =
+          employerTop +
+          employerHeight +
+          7;
+
+        // =================================================
+        // 8. BANK DETAILS
+        // =================================================
+
+        const bankTop =
+          y;
+
+        const bankHeight =
+          25;
+
+        box(
+          margin,
+          bankTop,
+          contentWidth,
+          bankHeight
+        );
+
+        doc.setFillColor(
+          242,
+          244,
+          247
+        );
+
+        doc.rect(
+          margin,
+          bankTop,
+          contentWidth,
+          8,
+          "F"
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          8.5
+        );
+
+        doc.text(
+          "BANK DETAILS",
+          margin + 4,
+          bankTop + 5.5
+        );
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.setFontSize(
+          8
+        );
+
+        doc.text(
+          `Bank Name: ${display(
+            payslip.bank_name
+          )}`,
+          margin + 4,
+          bankTop + 15
+        );
+
+        doc.text(
+          `Account No.: ${display(
+            payslip.account_number
+          )}`,
+          margin + 72,
+          bankTop + 15
+        );
+
+        doc.text(
+          `IFSC: ${display(
+            payslip.ifsc_code
+          )}`,
+          margin + 4,
+          bankTop + 21
+        );
+
+        y =
+          bankTop +
+          bankHeight +
+          7;
+
+        // =================================================
+        // 9. FOOTER
+        // =================================================
+
+        const footerY =
+          pageHeight - 20;
+
+        line(
+          margin,
+          footerY - 7,
+          pageWidth -
+            margin,
+          footerY - 7
+        );
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.setFontSize(
+          7
+        );
+
+        doc.text(
+          "This is a computer-generated payslip and does not require a physical signature.",
+          margin,
+          footerY
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.text(
+          "For Talent Corner HR Services Pvt. Ltd.",
+          pageWidth -
+            margin,
+          footerY - 4,
+          {
+            align:
+              "right",
+          }
+        );
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.text(
+          "Authorised Signatory",
+          pageWidth -
+            margin,
+          footerY + 4,
+          {
+            align:
+              "right",
+          }
+        );
+
+        // =================================================
+        // 10. FILE NAME
+        // =================================================
+
+        const month =
+          String(
+            payslip.salary_month ||
+              "payslip"
+          ).replace(
+            /[^a-zA-Z0-9-_]/g,
+            "-"
+          );
+
+        const employee =
+          String(
+            payslip.employee_name ||
+              "Employee"
+          )
+            .replace(
+              /[^a-zA-Z0-9]/g,
+              "_"
+            )
+            .replace(
+              /_+/g,
+              "_"
+            );
+
+        doc.save(
+          `${employee}_Payslip_${month}.pdf`
+        );
+      } catch (error) {
+        console.error(
+          "Payslip download error:",
+          error
+        );
+
+        alert(
+          "Unable to download payslip."
+        );
+      } finally {
+        setDownloading(null);
       }
-
-      // =================================================
-      // 6. TOTALS
-      // =================================================
-
-      y += 2;
-      doc.setLineWidth(0.4);
-      doc.line(margin, y, earningAmtX, y);
-      doc.line(deductionX - 2, y, deductionAmtX + 2, y);
-      y += 6;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text("Total Earnings", earningX, y);
-      doc.text(formatCurrency(totalEarnings), earningAmtX, y, {
-        align: "right",
-      });
-      doc.text("Total Deductions", deductionX, y);
-      doc.text(formatCurrency(totalDeductions), deductionAmtX, y, {
-        align: "right",
-      });
-      y += 8;
-
-      doc.setLineWidth(0.4);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 6;
-      doc.text("Net Amount", margin, y);
-      doc.text(formatCurrency(netPayable), deductionAmtX, y, {
-        align: "right",
-      });
-      y += 8;
-
-      // =================================================
-      // 7. FOOTER
-      // =================================================
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      const amountInWords = `Amount (in words): INR ${numberToWordsIndian(
-        Math.round(netPayable)
-      )} Only`;
-      const textLines = doc.splitTextToSize(
-        amountInWords,
-        pageWidth - margin * 2
-      );
-      doc.text(textLines, margin, y);
-
-      const footerY = doc.internal.pageSize.getHeight() - 30;
-      doc.text(
-        `for Talent Corner HR Services Pvt. Ltd.`,
-        pageWidth - margin,
-        footerY,
-        { align: "right" }
-      );
-      doc.text(
-        "Authorised Signatory",
-        pageWidth - margin,
-        footerY + 15,
-        { align: "right" }
-      );
-
-      // =================================================
-      // FILE NAME
-      // =================================================
-
-      const month = String(
-        payslip.salary_month || "payslip"
-      ).replace(/[^a-zA-Z0-9-_]/g, "-");
-
-      const employee = String(
-        payslip.employee_name || "Employee"
-      )
-        .replace(/[^a-zA-Z0-9]/g, "_")
-        .replace(/_+/g, "_");
-
-      doc.save(`${employee}_Payslip_${month}.pdf`);
-
-    } catch (error) {
-
-      console.error(
-        "Payslip download error:",
-        error
-      );
-
-      alert(
-        "Unable to download payslip."
-      );
-
-    } finally {
-      setDownloading(null);
-    }
-  };
+    };
 
   // =====================================================
   // LOADING
@@ -670,7 +1828,6 @@ const EmployeePayslip = () => {
     return (
       <EmployeeLayout>
         <div className="empty-state">
-
           <h3>
             Loading payslips...
           </h3>
@@ -679,7 +1836,6 @@ const EmployeePayslip = () => {
             Please wait while we load
             your salary records.
           </p>
-
         </div>
       </EmployeeLayout>
     );
@@ -691,17 +1847,14 @@ const EmployeePayslip = () => {
 
   return (
     <EmployeeLayout>
-
       <div>
 
         {/* =================================================
-            HEADER
+            PAGE HEADER
         ================================================= */}
 
         <div className="page-header">
-
           <div>
-
             <h1>
               Payslips
             </h1>
@@ -710,9 +1863,7 @@ const EmployeePayslip = () => {
               View your complete salary
               and payslip records.
             </p>
-
           </div>
-
         </div>
 
         {/* =================================================
@@ -730,9 +1881,7 @@ const EmployeePayslip = () => {
         ================================================= */}
 
         {payslips.length === 0 ? (
-
           <div className="empty-state">
-
             <h3>
               No payslips available
             </h3>
@@ -741,16 +1890,12 @@ const EmployeePayslip = () => {
               Your approved payroll records
               will appear here.
             </p>
-
           </div>
-
         ) : (
-
           <div>
 
             {payslips.map(
               (payslip) => (
-
                 <div
                   key={payslip.id}
                   className="table-card"
@@ -784,7 +1929,6 @@ const EmployeePayslip = () => {
                   >
 
                     <div>
-
                       <h2
                         style={{
                           margin: 0,
@@ -801,7 +1945,6 @@ const EmployeePayslip = () => {
                           payslip.id
                         )}
                       </p>
-
                     </div>
 
                     <div
@@ -857,9 +2000,7 @@ const EmployeePayslip = () => {
                           ? "Generating..."
                           : "Download Payslip"}
                       </button>
-
                     </div>
-
                   </div>
 
                   {/* =================================================
@@ -1192,18 +2333,16 @@ const EmployeePayslip = () => {
                   </div>
 
                 </div>
-
               )
             )}
 
           </div>
-
         )}
 
       </div>
-
     </EmployeeLayout>
   );
 };
 
 export default EmployeePayslip;
+

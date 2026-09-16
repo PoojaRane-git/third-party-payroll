@@ -1,3 +1,4 @@
+
 import React from "react";
 import {
   useLocation,
@@ -17,6 +18,10 @@ const EmployeeSidebar = () => {
       label: "Dashboard",
       path: "/employee-portal",
     },
+
+    // =====================================================
+    // ATTENDANCE
+    // =====================================================
     {
       id: "attendance",
       icon: "🕐",
@@ -29,12 +34,60 @@ const EmployeeSidebar = () => {
       label: "Monthly Attendance",
       path: "/employee-portal/monthly",
     },
+
+    // =====================================================
+    // NEW - LEAVE
+    // =====================================================
+    {
+      id: "leave",
+      icon: "📝",
+      label: "Leave",
+      path: "/employee-portal/leave",
+    },
+
+    // =====================================================
+    // NEW - ATTENDANCE RECTIFICATION
+    // =====================================================
+    {
+      id: "rectification",
+      icon: "⚠️",
+      label: "Rectification Requests",
+      path: "/employee-portal/rectification",
+    },
+
+    // =====================================================
+    // NEW - HOLIDAY CALENDAR
+    // =====================================================
+    {
+      id: "holidays",
+      icon: "🎉",
+      label: "Holiday Calendar",
+      path: "/employee-portal/holidays",
+    },
+
+    // =====================================================
+    // NEW - MY ROSTER
+    // =====================================================
+    {
+      id: "roster",
+      icon: "🗓️",
+      label: "My Roster",
+      path: "/employee-portal/roster",
+    },
+
+    // =====================================================
+    // PAYROLL
+    // =====================================================
     {
       id: "payslip",
       icon: "💰",
       label: "Payslips",
       path: "/employee-portal/payslips",
     },
+
+    // =====================================================
+    // PROFILE
+    // =====================================================
     {
       id: "profile",
       icon: "👤",
@@ -126,4 +179,5 @@ const EmployeeSidebar = () => {
   );
 };
 
-export default EmployeeSidebar; 
+export default EmployeeSidebar;
+

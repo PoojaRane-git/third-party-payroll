@@ -17,11 +17,9 @@ import {
     X,
 } from "lucide-react";
 
-
 import Sidebar from "../../components/Layout/Sidebar";
 import api from "../../../services/api";
 import { useAuth } from "../../../../auth/AuthProvider";
-
 
 // ============================================================
 // HELPERS
@@ -51,8 +49,7 @@ const formatDateForDisplay = (dateString) => {
         }
     }
 
-    const [year, month, day] =
-        value.split("-");
+    const [year, month, day] = value.split("-");
 
     if (!year || !month || !day) {
         return value;
@@ -168,17 +165,11 @@ const getOriginalCheckOut = (record) => {
 };
 
 const getRequestedCheckIn = (record) => {
-    return (
-        record?.requested_check_in ??
-        null
-    );
+    return record?.requested_check_in ?? null;
 };
 
 const getRequestedCheckOut = (record) => {
-    return (
-        record?.requested_check_out ??
-        null
-    );
+    return record?.requested_check_out ?? null;
 };
 
 const getReason = (record) => {
@@ -190,9 +181,7 @@ const getReason = (record) => {
 };
 
 const getRequestStatus = (record) => {
-    return normalizeStatus(
-        record?.status
-    );
+    return normalizeStatus(record?.status);
 };
 
 // ============================================================
@@ -261,7 +250,6 @@ const AttendanceRectifications = () => {
     // ========================================================
 
     const clientName = useMemo(() => {
-
         return (
             user?.company_name ||
             user?.companyName ||
@@ -269,7 +257,6 @@ const AttendanceRectifications = () => {
             user?.name ||
             ""
         );
-
     }, [user]);
 
     // ========================================================
@@ -277,23 +264,17 @@ const AttendanceRectifications = () => {
     // ========================================================
 
     const handleLogout = async () => {
-
         try {
-
             await logout();
 
-            window.location.href =
-                "/login";
-
+            window.location.href = "/login";
         } catch (error) {
-
             console.error(
                 "Attendance rectification logout error:",
                 error
             );
 
-            window.location.href =
-                "/login";
+            window.location.href = "/login";
         }
     };
 
@@ -303,8 +284,8 @@ const AttendanceRectifications = () => {
     // GET
     // /api/client/attendance/rectifications
     // ========================================================
-const fetchRectifications =
-    useCallback(
+
+    const fetchRectifications = useCallback(
         async (showLoader = true) => {
 
             if (
@@ -323,36 +304,42 @@ const fetchRectifications =
 
                 setError("");
 
-                const response =
-                    await api.get(
-                        "/client/attendance/rectifications"
-                    );
+                const response = await api.get(
+                    "/client/attendance/rectifications"
+                );
 
-                const result =
-                    response?.data;
+                const result = response?.data;
 
-                // ---------------------------------------------
-                // SAFETY:
-                // Backend should return:
-                // { success: true, data: [] }
-                // ---------------------------------------------
+                // ==================================================
+                // BACKEND MAY RETURN DIRECT ARRAY
+                //
+                // Example:
+                // [
+                //   {...},
+                //   {...}
+                // ]
+                // ==================================================
 
-                if (
-                    Array.isArray(result)
-                ) {
+                if (Array.isArray(result)) {
 
-                    setRectifications(
-                        result
-                    );
+                    setRectifications(result);
 
                     return;
                 }
+
+                // ==================================================
+                // BACKEND MAY RETURN WRAPPED RESPONSE
+                //
+                // {
+                //   success: true,
+                //   data: [...]
+                // }
+                // ==================================================
 
                 if (
                     !result ||
                     result.success !== true
                 ) {
-
                     throw new Error(
                         result?.error ||
                         result?.message ||
@@ -361,21 +348,16 @@ const fetchRectifications =
                 }
 
                 const records =
-                    Array.isArray(
-                        result.data
-                    )
+                    Array.isArray(result.data)
                         ? result.data
                         : [];
 
-                setRectifications(
-                    records
-                );
+                setRectifications(records);
 
             } catch (err) {
 
                 if (
-                    err?.response?.status ===
-                    401
+                    err?.response?.status === 401
                 ) {
 
                     setError(
@@ -383,8 +365,7 @@ const fetchRectifications =
                     );
 
                 } else if (
-                    err?.response?.status ===
-                    403
+                    err?.response?.status === 403
                 ) {
 
                     setError(
@@ -451,9 +432,7 @@ const fetchRectifications =
 
             setRefreshing(true);
 
-            await fetchRectifications(
-                false
-            );
+            await fetchRectifications(false);
 
         } finally {
 
@@ -468,12 +447,9 @@ const fetchRectifications =
     // /api/client/attendance/rectifications/:id/approve
     // ========================================================
 
-    const handleApprove = async (
-        record
-    ) => {
+    const handleApprove = async (record) => {
 
-        const rectificationId =
-            record?.id;
+        const rectificationId = record?.id;
 
         if (!rectificationId) {
             return;
@@ -493,23 +469,16 @@ const fetchRectifications =
 
         try {
 
-            setProcessingId(
-                rectificationId
-            );
-
+            setProcessingId(rectificationId);
             setError("");
 
-            const response =
-                await api.patch(
-                    `/client/attendance/rectifications/${rectificationId}/approve`
-                );
+            const response = await api.patch(
+                `/client/attendance/rectifications/${rectificationId}/approve`
+            );
 
-            const result =
-                response?.data || {};
+            const result = response?.data || {};
 
-            if (
-                result.success !== true
-            ) {
+            if (result.success !== true) {
 
                 throw new Error(
                     result.error ||
@@ -518,9 +487,7 @@ const fetchRectifications =
                 );
             }
 
-            await fetchRectifications(
-                false
-            );
+            await fetchRectifications(false);
 
         } catch (err) {
 
@@ -538,9 +505,7 @@ const fetchRectifications =
 
         } finally {
 
-            setProcessingId(
-                null
-            );
+            setProcessingId(null);
         }
     };
 
@@ -551,12 +516,9 @@ const fetchRectifications =
     // /api/client/attendance/rectifications/:id/reject
     // ========================================================
 
-    const handleReject = async (
-        record
-    ) => {
+    const handleReject = async (record) => {
 
-        const rectificationId =
-            record?.id;
+        const rectificationId = record?.id;
 
         if (!rectificationId) {
             return;
@@ -576,23 +538,16 @@ const fetchRectifications =
 
         try {
 
-            setProcessingId(
-                rectificationId
-            );
-
+            setProcessingId(rectificationId);
             setError("");
 
-            const response =
-                await api.patch(
-                    `/client/attendance/rectifications/${rectificationId}/reject`
-                );
+            const response = await api.patch(
+                `/client/attendance/rectifications/${rectificationId}/reject`
+            );
 
-            const result =
-                response?.data || {};
+            const result = response?.data || {};
 
-            if (
-                result.success !== true
-            ) {
+            if (result.success !== true) {
 
                 throw new Error(
                     result.error ||
@@ -601,9 +556,7 @@ const fetchRectifications =
                 );
             }
 
-            await fetchRectifications(
-                false
-            );
+            await fetchRectifications(false);
 
         } catch (err) {
 
@@ -621,9 +574,7 @@ const fetchRectifications =
 
         } finally {
 
-            setProcessingId(
-                null
-            );
+            setProcessingId(null);
         }
     };
 
@@ -637,45 +588,32 @@ const fetchRectifications =
         let approved = 0;
         let rejected = 0;
 
-        rectifications.forEach(
-            (record) => {
+        rectifications.forEach((record) => {
 
-                const status =
-                    getRequestStatus(
-                        record
-                    );
+            const status =
+                getRequestStatus(record);
 
-                if (
-                    status === "pending"
-                ) {
-                    pending++;
-                }
-
-                if (
-                    status === "approved"
-                ) {
-                    approved++;
-                }
-
-                if (
-                    status === "rejected"
-                ) {
-                    rejected++;
-                }
+            if (status === "pending") {
+                pending++;
             }
-        );
+
+            if (status === "approved") {
+                approved++;
+            }
+
+            if (status === "rejected") {
+                rejected++;
+            }
+        });
 
         return {
-            total:
-                rectifications.length,
+            total: rectifications.length,
             pending,
             approved,
             rejected,
         };
 
-    }, [
-        rectifications,
-    ]);
+    }, [rectifications]);
 
     // ========================================================
     // FILTERED RECORDS
@@ -693,30 +631,21 @@ const fetchRectifications =
                 (record) => {
 
                     const status =
-                        getRequestStatus(
-                            record
-                        );
+                        getRequestStatus(record);
 
                     const employeeName =
-                        getEmployeeName(
-                            record
-                        ).toLowerCase();
+                        getEmployeeName(record)
+                            .toLowerCase();
 
                     const employeeId =
                         String(
-                            getEmployeeId(
-                                record
-                            )
+                            getEmployeeId(record)
                         ).toLowerCase();
 
                     const matchesSearch =
                         !search ||
-                        employeeName.includes(
-                            search
-                        ) ||
-                        employeeId.includes(
-                            search
-                        );
+                        employeeName.includes(search) ||
+                        employeeId.includes(search);
 
                     const matchesStatus =
                         statusFilter === "all" ||
@@ -742,9 +671,7 @@ const fetchRectifications =
     // STATUS BADGE
     // ========================================================
 
-    const getStatusBadge = (
-        status
-    ) => {
+    const getStatusBadge = (status) => {
 
         const normalized =
             normalizeStatus(status);
@@ -755,35 +682,26 @@ const fetchRectifications =
         let label =
             status || "Unknown";
 
-        if (
-            normalized === "pending"
-        ) {
+        if (normalized === "pending") {
 
             className =
                 "bg-amber-50 text-amber-700";
 
-            label =
-                "Pending";
+            label = "Pending";
 
-        } else if (
-            normalized === "approved"
-        ) {
+        } else if (normalized === "approved") {
 
             className =
                 "bg-emerald-50 text-emerald-700";
 
-            label =
-                "Approved";
+            label = "Approved";
 
-        } else if (
-            normalized === "rejected"
-        ) {
+        } else if (normalized === "rejected") {
 
             className =
                 "bg-red-50 text-red-600";
 
-            label =
-                "Rejected";
+            label = "Rejected";
         }
 
         return (
@@ -827,10 +745,7 @@ const fetchRectifications =
     // INVALID SESSION
     // ========================================================
 
-    if (
-        !session ||
-        !user
-    ) {
+    if (!session || !user) {
 
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
@@ -867,7 +782,7 @@ const fetchRectifications =
     // ========================================================
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="flex min-h-screen bg-slate-50">
 
             {/* ==================================================
                 SIDEBAR
@@ -884,7 +799,7 @@ const fetchRectifications =
                 MAIN CONTENT
             ================================================== */}
 
-            <main className="min-h-screen ml-64">
+            <main className="min-w-0 flex-1">
 
                 <div className="mx-auto w-full max-w-[1280px] px-6 py-6">
 
@@ -966,9 +881,7 @@ const fetchRectifications =
 
                                     <input
                                         type="text"
-                                        value={
-                                            searchEmployee
-                                        }
+                                        value={searchEmployee}
                                         onChange={(e) =>
                                             setSearchEmployee(
                                                 e.target.value
@@ -991,9 +904,7 @@ const fetchRectifications =
                                 </label>
 
                                 <select
-                                    value={
-                                        statusFilter
-                                    }
+                                    value={statusFilter}
                                     onChange={(e) =>
                                         setStatusFilter(
                                             e.target.value
@@ -1242,8 +1153,7 @@ const fetchRectifications =
                                 <p className="mt-2 text-sm text-slate-500">
 
                                     {searchEmployee ||
-                                    statusFilter !==
-                                        "all"
+                                    statusFilter !== "all"
                                         ? "No requests match your current filters."
                                         : "There are no attendance rectification requests yet."}
 
@@ -1296,10 +1206,7 @@ const fetchRectifications =
                                     <tbody>
 
                                         {filteredRectifications.map(
-                                            (
-                                                record,
-                                                index
-                                            ) => {
+                                            (record, index) => {
 
                                                 const requestId =
                                                     record?.id;
@@ -1467,8 +1374,7 @@ const fetchRectifications =
 
                                                         <td className="px-6 py-5">
 
-                                                            {status ===
-                                                            "pending" ? (
+                                                            {status === "pending" ? (
 
                                                                 <div className="flex justify-end gap-2">
 
