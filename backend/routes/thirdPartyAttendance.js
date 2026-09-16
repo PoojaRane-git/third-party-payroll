@@ -236,7 +236,7 @@ router.get("/", async (req, res) => {
                 .from(DAILY_TABLE)
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     attendance_date,
@@ -295,7 +295,7 @@ router.get("/", async (req, res) => {
                     .map(
                         (record) =>
                             Number(
-                                record.employee_id
+                                record.candidates_id
                             )
                     )
                     .filter(
@@ -411,7 +411,7 @@ router.get("/", async (req, res) => {
         records.forEach((record) => {
             const employeeId =
                 Number(
-                    record.employee_id
+                    record.candidates_id
                 );
 
             if (
@@ -666,4 +666,3 @@ router.get("/", async (req, res) => {
 // ============================================================
 
 module.exports = router;
-
