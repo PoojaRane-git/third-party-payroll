@@ -272,9 +272,38 @@ const submitLeave = async (
         return;
     }
 
+    // Get deployment assigned to the logged-in employee
+    const deploymentId =
+        sessionStorage.getItem(
+            "deployment_id"
+        );
+
+    if (!deploymentId) {
+        setError(
+            "Deployment information not found. Please login again."
+        );
+        return;
+    }
+
     try {
         setSaving(true);
         setError("");
+
+        console.log(
+            "LEAVE SUBMIT DATA:",
+            {
+                leave_type:
+                    form.leave_type,
+                start_date:
+                    form.start_date,
+                end_date:
+                    form.end_date,
+                reason:
+                    form.reason.trim(),
+                deployment_id:
+                    Number(deploymentId),
+            }
+        );
 
         const response =
             await api.post(
@@ -288,6 +317,8 @@ const submitLeave = async (
                         form.end_date,
                     reason:
                         form.reason.trim(),
+                    deployment_id:
+                        Number(deploymentId),
                 }
             );
 
@@ -313,10 +344,11 @@ const submitLeave = async (
     } catch (err) {
         console.error(
             "LEAVE APPLY ERROR:",
-            err
+            err?.response?.data || err
         );
 
         setError(
+            err?.response?.data?.error ||
             err?.response?.data?.message ||
             err?.message ||
             "Failed to submit leave application."
@@ -325,6 +357,7 @@ const submitLeave = async (
         setSaving(false);
     }
 };
+
 
 
 const filteredLeaves = useMemo(() => {
