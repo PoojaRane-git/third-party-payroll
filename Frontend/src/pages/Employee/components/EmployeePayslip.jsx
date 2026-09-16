@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
+import {logo} from '../../../../src/assets/logo.jpeg'
 
 import api from "../../services/api";
 import EmployeeLayout from "./EmployeeLayout";
@@ -293,7 +294,7 @@ const EmployeePayslip = () => {
       // 1. LOGO + COMPANY HEADER
       // =================================================
 
-      const logoUrl = "/logo.png";
+      const logoUrl = "/assets/logo.jpeg";
 
       try {
         const img = await loadImage(logoUrl);
