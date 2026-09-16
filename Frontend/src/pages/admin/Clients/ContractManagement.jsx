@@ -13,8 +13,7 @@ import {
     ExternalLink
 } from "lucide-react";
 import Sidebar from "../Layout/Sidebar";
-
-const API_BASE = "http://localhost:5000/api";
+import api from "../../services/api";
 
 const emptyForm = {
     clientId: "",
@@ -59,13 +58,9 @@ export default function ContractManagement({
 
     const fetchClients = async () => {
         try {
-            const res = await fetch(`${API_BASE}/clients`);
+            const response = await api.get("/clients");
 
-            if (!res.ok) {
-                throw new Error("Failed to fetch clients");
-            }
-
-            const data = await res.json();
+            const data = response?.data || {};
 
             const clientList = Array.isArray(data)
                 ? data
@@ -73,7 +68,10 @@ export default function ContractManagement({
 
             setClients(clientList);
         } catch (error) {
-            console.error("Error fetching clients:", error);
+            console.error(
+                "Error fetching clients:",
+                error
+            );
         }
     };
 
@@ -83,21 +81,23 @@ export default function ContractManagement({
 
     const fetchContracts = async (clientId = null) => {
         try {
-            const url = clientId
-                ? `${API_BASE}/contracts?client_id=${clientId}`
-                : `${API_BASE}/contracts`;
+            const endpoint = clientId
+                ? `/contracts?client_id=${encodeURIComponent(clientId)}`
+                : "/contracts";
 
-            console.log("Fetching contracts:", url);
+            console.log(
+                "Fetching contracts:",
+                endpoint
+            );
 
-            const res = await fetch(url);
+            const response = await api.get(endpoint);
 
-            if (!res.ok) {
-                throw new Error("Failed to fetch contracts");
-            }
+            const data = response?.data || {};
 
-            const data = await res.json();
-
-            console.log("Contracts:", data);
+            console.log(
+                "Contracts:",
+                data
+            );
 
             const contractList = Array.isArray(data)
                 ? data
@@ -105,7 +105,10 @@ export default function ContractManagement({
 
             setContracts(contractList);
         } catch (error) {
-            console.error("Error fetching contracts:", error);
+            console.error(
+                "Error fetching contracts:",
+                error
+            );
         }
     };
 
@@ -135,10 +138,15 @@ export default function ContractManagement({
         }
 
         const client = clients.find(
-            (c) => String(c.id) === String(contract.client_id)
+            (c) =>
+                String(c.id) ===
+                String(contract.client_id)
         );
 
-        return client?.company_name || `Client #${contract.client_id}`;
+        return (
+            client?.company_name ||
+            `Client #${contract.client_id}`
+        );
     };
 
     // =====================================================
@@ -146,7 +154,8 @@ export default function ContractManagement({
     // =====================================================
 
     const getDisplayStatus = (contract) => {
-        const dbStatus = contract.contract_status || "Active";
+        const dbStatus =
+            contract.contract_status || "Active";
 
         if (dbStatus !== "Active") {
             return dbStatus;
@@ -156,11 +165,15 @@ export default function ContractManagement({
             return dbStatus;
         }
 
-        const end = new Date(contract.end_date);
+        const end = new Date(
+            contract.end_date
+        );
+
         const now = new Date();
 
         const daysLeft = Math.ceil(
-            (end - now) / (1000 * 60 * 60 * 24)
+            (end - now) /
+                (1000 * 60 * 60 * 24)
         );
 
         if (daysLeft < 0) {
@@ -205,7 +218,8 @@ export default function ContractManagement({
     // =====================================================
 
     const getBillingDisplay = (contract) => {
-        const model = contract.billing_model;
+        const model =
+            contract.billing_model;
 
         if (model === "Percentage Markup") {
             return `${contract.markup_percentage ?? 0}%`;
@@ -247,7 +261,10 @@ export default function ContractManagement({
         setEditingContractId(contract.id);
 
         setForm({
-            clientId: String(contract.client_id || ""),
+            clientId:
+                String(
+                    contract.client_id || ""
+                ),
 
             contractNumber:
                 contract.contract_number || "",
@@ -262,19 +279,24 @@ export default function ContractManagement({
                 contract.end_date || "",
 
             billingModel:
-                contract.billing_model || "Percentage Markup",
+                contract.billing_model ||
+                "Percentage Markup",
 
             markupPercentage:
-                contract.markup_percentage ?? "",
+                contract.markup_percentage ??
+                "",
 
             perHeadFee:
-                contract.per_head_fee ?? "",
+                contract.per_head_fee ??
+                "",
 
             creditTerms:
-                contract.credit_terms || "Net 30",
+                contract.credit_terms ||
+                "Net 30",
 
             contractStatus:
-                contract.contract_status || "Active"
+                contract.contract_status ||
+                "Active"
         });
 
         setShowFormModal(true);
@@ -289,10 +311,16 @@ export default function ContractManagement({
         setEditingContractId(contract.id);
 
         setForm({
-            clientId: String(contract.client_id || ""),
+            clientId:
+                String(
+                    contract.client_id || ""
+                ),
 
             contractNumber:
-                `${contract.contract_number || "CONTRACT"}-RENEWED`,
+                `${
+                    contract.contract_number ||
+                    "CONTRACT"
+                }-RENEWED`,
 
             contractTitle:
                 contract.contract_title || "",
@@ -302,16 +330,20 @@ export default function ContractManagement({
             endDate: "",
 
             billingModel:
-                contract.billing_model || "Percentage Markup",
+                contract.billing_model ||
+                "Percentage Markup",
 
             markupPercentage:
-                contract.markup_percentage ?? "",
+                contract.markup_percentage ??
+                "",
 
             perHeadFee:
-                contract.per_head_fee ?? "",
+                contract.per_head_fee ??
+                "",
 
             creditTerms:
-                contract.credit_terms || "Net 30",
+                contract.credit_terms ||
+                "Net 30",
 
             contractStatus: "Active"
         });
@@ -336,7 +368,8 @@ export default function ContractManagement({
 
     const buildPayload = () => {
         return {
-            client_id: Number(form.clientId),
+            client_id:
+                Number(form.clientId),
 
             contract_number:
                 form.contractNumber.trim(),
@@ -356,12 +389,16 @@ export default function ContractManagement({
             markup_percentage:
                 form.markupPercentage === ""
                     ? 0
-                    : Number(form.markupPercentage),
+                    : Number(
+                        form.markupPercentage
+                    ),
 
             per_head_fee:
                 form.perHeadFee === ""
                     ? 0
-                    : Number(form.perHeadFee),
+                    : Number(
+                        form.perHeadFee
+                    ),
 
             credit_terms:
                 form.creditTerms,
@@ -385,54 +422,65 @@ export default function ContractManagement({
             !form.startDate ||
             !form.endDate
         ) {
-            alert("Please fill all required fields.");
+            alert(
+                "Please fill all required fields."
+            );
             return;
         }
 
         if (
-            form.billingModel === "Percentage Markup" &&
+            form.billingModel ===
+                "Percentage Markup" &&
             form.markupPercentage === ""
         ) {
-            alert("Please enter markup percentage.");
+            alert(
+                "Please enter markup percentage."
+            );
             return;
         }
 
         setSaving(true);
 
         try {
+            // =================================================
+            // ADD
+            // =================================================
+
             if (formMode === "add") {
-                const payload = buildPayload();
+                const payload =
+                    buildPayload();
 
-                console.log("Creating contract:", payload);
-
-                const res = await fetch(
-                    `${API_BASE}/contracts`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(payload)
-                    }
+                console.log(
+                    "Creating contract:",
+                    payload
                 );
 
-                const data = await res.json();
-
-                console.log("Create response:", data);
-
-                if (!res.ok) {
-                    throw new Error(
-                        data.message ||
-                        data.error ||
-                        "Failed to create contract"
+                const response =
+                    await api.post(
+                        "/contracts",
+                        payload
                     );
-                }
 
-                alert("Contract created successfully.");
+                const data =
+                    response?.data || {};
+
+                console.log(
+                    "Create response:",
+                    data
+                );
+
+                alert(
+                    "Contract created successfully."
+                );
             }
 
+            // =================================================
+            // EDIT
+            // =================================================
+
             if (formMode === "edit") {
-                const payload = buildPayload();
+                const payload =
+                    buildPayload();
 
                 console.log(
                     "Updating contract:",
@@ -440,103 +488,108 @@ export default function ContractManagement({
                     payload
                 );
 
-                const res = await fetch(
-                    `${API_BASE}/contracts/${editingContractId}`,
-                    {
-                        method: "PUT",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(payload)
-                    }
+                const response =
+                    await api.put(
+                        `/contracts/${editingContractId}`,
+                        payload
+                    );
+
+                const data =
+                    response?.data || {};
+
+                console.log(
+                    "Update response:",
+                    data
                 );
 
-                const data = await res.json();
-
-                console.log("Update response:", data);
-
-                if (!res.ok) {
-                    throw new Error(
-                        data.message ||
-                        data.error ||
-                        "Failed to update contract"
-                    );
-                }
-
-                alert("Contract updated successfully.");
+                alert(
+                    "Contract updated successfully."
+                );
             }
 
+            // =================================================
+            // RENEW
+            // =================================================
+
             if (formMode === "renew") {
-                const oldContractResponse = await fetch(
-                    `${API_BASE}/contracts/${editingContractId}`,
-                    {
-                        method: "PUT",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            contract_status: "Renewed"
-                        })
-                    }
+
+                // ---------------------------------------------
+                // MARK OLD CONTRACT AS RENEWED
+                // ---------------------------------------------
+
+                console.log(
+                    "Marking old contract as renewed:",
+                    editingContractId
                 );
 
-                const oldData =
-                    await oldContractResponse.json();
-
-                if (!oldContractResponse.ok) {
-                    throw new Error(
-                        oldData.message ||
-                        oldData.error ||
-                        "Failed to mark old contract as renewed"
+                const oldResponse =
+                    await api.put(
+                        `/contracts/${editingContractId}`,
+                        {
+                            contract_status:
+                                "Renewed"
+                        }
                     );
-                }
 
-                const payload = buildPayload();
+                const oldData =
+                    oldResponse?.data || {};
+
+                console.log(
+                    "Old contract update response:",
+                    oldData
+                );
+
+                // ---------------------------------------------
+                // CREATE NEW CONTRACT
+                // ---------------------------------------------
+
+                const payload =
+                    buildPayload();
 
                 console.log(
                     "Creating renewed contract:",
                     payload
                 );
 
-                const newResponse = await fetch(
-                    `${API_BASE}/contracts`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(payload)
-                    }
-                );
+                const newResponse =
+                    await api.post(
+                        "/contracts",
+                        payload
+                    );
 
                 const newData =
-                    await newResponse.json();
+                    newResponse?.data || {};
 
-                if (!newResponse.ok) {
-                    throw new Error(
-                        newData.message ||
-                        newData.error ||
-                        "Failed to create renewed contract"
-                    );
-                }
+                console.log(
+                    "Renewed contract response:",
+                    newData
+                );
 
-                alert("Contract renewed successfully.");
+                alert(
+                    "Contract renewed successfully."
+                );
             }
 
-            await fetchContracts(urlClientId);
+            await fetchContracts(
+                urlClientId
+            );
 
             closeFormModal();
 
         } catch (error) {
+
             console.error(
                 `Error in ${formMode} contract:`,
                 error
             );
 
-            alert(
-                error.message ||
-                "Something went wrong."
-            );
+            const message =
+                error?.response?.data?.message ||
+                error?.response?.data?.error ||
+                error?.message ||
+                "Something went wrong.";
+
+            alert(message);
 
             setSaving(false);
         }
@@ -546,7 +599,9 @@ export default function ContractManagement({
     // VIEW
     // =====================================================
 
-    const handleViewContract = (contract) => {
+    const handleViewContract = (
+        contract
+    ) => {
         setSelectedContract(contract);
         setShowViewModal(true);
     };
@@ -555,7 +610,9 @@ export default function ContractManagement({
     // DOWNLOAD
     // =====================================================
 
-    const handleDownloadAgreement = (contract) => {
+    const handleDownloadAgreement = (
+        contract
+    ) => {
         if (contract.document_url) {
             window.open(
                 contract.document_url,
@@ -572,35 +629,40 @@ export default function ContractManagement({
     // SEARCH
     // =====================================================
 
-    const filteredContracts = contracts.filter(
-        (contract) => {
-            const clientName =
-                getClientName(contract);
+    const filteredContracts =
+        contracts.filter(
+            (contract) => {
+                const clientName =
+                    getClientName(
+                        contract
+                    );
 
-            const contractNumber =
-                contract.contract_number || "";
+                const contractNumber =
+                    contract.contract_number ||
+                    "";
 
-            const contractTitle =
-                contract.contract_title || "";
+                const contractTitle =
+                    contract.contract_title ||
+                    "";
 
-            const search =
-                searchQuery.toLowerCase();
+                const search =
+                    searchQuery.toLowerCase();
 
-            return (
-                clientName
-                    .toLowerCase()
-                    .includes(search) ||
+                return (
+                    clientName
+                        .toLowerCase()
+                        .includes(search) ||
 
-                contractNumber
-                    .toLowerCase()
-                    .includes(search) ||
+                    contractNumber
+                        .toLowerCase()
+                        .includes(search) ||
 
-                contractTitle
-                    .toLowerCase()
-                    .includes(search)
-            );
-        }
-    );
+                    contractTitle
+                        .toLowerCase()
+                        .includes(search)
+                );
+            }
+        );
 
     // =====================================================
     // MODAL TITLE
@@ -635,17 +697,18 @@ export default function ContractManagement({
 
                     <div className="flex items-start gap-3">
 
-                        {/* BACK BUTTON */}
-
                         <button
                             type="button"
-                            onClick={() => navigate("/clients")}
+                            onClick={() =>
+                                navigate("/clients")
+                            }
                             className="mt-1 flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold shadow-sm"
                         >
                             ← Back
                         </button>
 
                         <div>
+
                             <h2 className="text-2xl font-bold text-slate-900">
                                 Contract Management
                             </h2>
@@ -654,6 +717,7 @@ export default function ContractManagement({
                                 Manage agreements and service level
                                 terms between Talent Corner and clients.
                             </p>
+
                         </div>
 
                     </div>
@@ -671,7 +735,9 @@ export default function ContractManagement({
                                 placeholder="Search contracts..."
                                 value={searchQuery}
                                 onChange={(e) =>
-                                    setSearchQuery(e.target.value)
+                                    setSearchQuery(
+                                        e.target.value
+                                    )
                                 }
                                 className="w-full pl-10 pr-4 py-2 bg-slate-100 border border-transparent rounded-xl text-sm focus:bg-white focus:border-slate-300 focus:outline-none"
                             />
@@ -681,11 +747,16 @@ export default function ContractManagement({
                         {/* ADD */}
 
                         <button
-                            onClick={openAddModal}
+                            onClick={
+                                openAddModal
+                            }
                             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold"
                         >
+
                             <Plus className="h-4 w-4" />
+
                             Add Contract
+
                         </button>
 
                     </div>
@@ -701,7 +772,11 @@ export default function ContractManagement({
                     <div className="p-4 border-b border-slate-100 flex justify-between">
 
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                            Agreements ({filteredContracts.length})
+
+                            Agreements (
+                            {filteredContracts.length}
+                            )
+
                         </span>
 
                         <span className="text-xs text-slate-500">
@@ -767,9 +842,10 @@ export default function ContractManagement({
                                                 );
 
                                             return (
-
                                                 <tr
-                                                    key={contract.id}
+                                                    key={
+                                                        contract.id
+                                                    }
                                                     className="hover:bg-slate-50"
                                                 >
 
@@ -782,11 +858,16 @@ export default function ContractManagement({
                                                             <div>
 
                                                                 <div className="font-medium text-slate-900">
-                                                                    {getClientName(contract)}
+                                                                    {getClientName(
+                                                                        contract
+                                                                    )}
                                                                 </div>
 
                                                                 <div className="text-[11px] text-slate-400">
-                                                                    Client #{contract.client_id}
+                                                                    Client #
+                                                                    {
+                                                                        contract.client_id
+                                                                    }
                                                                 </div>
 
                                                             </div>
@@ -798,49 +879,75 @@ export default function ContractManagement({
                                                     <td className="p-4">
 
                                                         <div className="font-semibold text-slate-800">
-                                                            {contract.contract_title || "-"}
+                                                            {
+                                                                contract.contract_title ||
+                                                                "-"
+                                                            }
                                                         </div>
 
                                                         <div className="text-[11px] font-mono text-slate-400">
-                                                            {contract.contract_number || "-"}
+                                                            {
+                                                                contract.contract_number ||
+                                                                "-"
+                                                            }
                                                         </div>
 
                                                     </td>
 
                                                     <td className="p-4 font-mono text-xs text-slate-600">
-                                                        {contract.start_date || "-"}
+                                                        {
+                                                            contract.start_date ||
+                                                            "-"
+                                                        }
                                                     </td>
 
                                                     <td className="p-4 font-mono text-xs text-slate-600">
-                                                        {contract.end_date || "-"}
+                                                        {
+                                                            contract.end_date ||
+                                                            "-"
+                                                        }
                                                     </td>
 
                                                     <td className="p-4">
 
                                                         <span className="inline-flex px-2.5 py-1 bg-purple-50 text-purple-600 rounded-lg text-xs font-semibold">
 
-                                                            {getBillingDisplay(contract)}
+                                                            {getBillingDisplay(
+                                                                contract
+                                                            )}
 
                                                         </span>
 
                                                         <div className="text-[10px] text-slate-400 mt-1">
-                                                            {contract.billing_model || "-"}
+
+                                                            {
+                                                                contract.billing_model ||
+                                                                "-"
+                                                            }
+
                                                         </div>
 
                                                     </td>
 
                                                     <td className="p-4 text-xs font-semibold text-slate-700">
 
-                                                        {contract.credit_terms || "-"}
+                                                        {
+                                                            contract.credit_terms ||
+                                                            "-"
+                                                        }
 
                                                     </td>
 
                                                     <td className="p-4">
 
                                                         <span
-                                                            className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${statusStyles(status)}`}
+                                                            className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${statusStyles(
+                                                                status
+                                                            )}`}
                                                         >
+
                                                             {status}
+
                                                         </span>
 
                                                     </td>
@@ -851,40 +958,58 @@ export default function ContractManagement({
 
                                                             <button
                                                                 onClick={() =>
-                                                                    handleViewContract(contract)
+                                                                    handleViewContract(
+                                                                        contract
+                                                                    )
                                                                 }
                                                                 className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium flex items-center gap-1"
                                                             >
+
                                                                 <Eye className="h-3.5 w-3.5" />
+
                                                                 View
+
                                                             </button>
 
                                                             <button
                                                                 onClick={() =>
-                                                                    openEditModal(contract)
+                                                                    openEditModal(
+                                                                        contract
+                                                                    )
                                                                 }
                                                                 className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg"
                                                             >
+
                                                                 <Edit className="h-4 w-4" />
+
                                                             </button>
 
                                                             <button
                                                                 onClick={() =>
-                                                                    handleDownloadAgreement(contract)
+                                                                    handleDownloadAgreement(
+                                                                        contract
+                                                                    )
                                                                 }
                                                                 className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg"
                                                             >
+
                                                                 <Download className="h-4 w-4" />
+
                                                             </button>
 
                                                             <button
                                                                 onClick={() =>
-                                                                    openRenewModal(contract)
+                                                                    openRenewModal(
+                                                                        contract
+                                                                    )
                                                                 }
                                                                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium flex items-center gap-1"
                                                             >
+
                                                                 <RefreshCw className="h-3.5 w-3.5" />
+
                                                                 Renew
+
                                                             </button>
 
                                                         </div>
@@ -892,9 +1017,7 @@ export default function ContractManagement({
                                                     </td>
 
                                                 </tr>
-
                                             );
-
                                         }
                                     )
 
@@ -906,7 +1029,9 @@ export default function ContractManagement({
                                             colSpan="8"
                                             className="p-8 text-center text-slate-400"
                                         >
+
                                             No agreements or contracts found.
+
                                         </td>
 
                                     </tr>
@@ -941,13 +1066,19 @@ export default function ContractManagement({
                                         <div>
 
                                             <h3 className="font-bold text-slate-900">
+
                                                 {getClientName(
                                                     selectedContract
                                                 )}
+
                                             </h3>
 
                                             <p className="text-xs text-slate-400">
-                                                {selectedContract.contract_number}
+
+                                                {
+                                                    selectedContract.contract_number
+                                                }
+
                                             </p>
 
                                         </div>
@@ -956,10 +1087,14 @@ export default function ContractManagement({
 
                                     <button
                                         onClick={() =>
-                                            setShowViewModal(false)
+                                            setShowViewModal(
+                                                false
+                                            )
                                         }
                                     >
+
                                         <X className="h-5 w-5 text-slate-400" />
+
                                     </button>
 
                                 </div>
@@ -975,7 +1110,12 @@ export default function ContractManagement({
                                             </span>
 
                                             <p className="font-mono font-semibold text-slate-800">
-                                                {selectedContract.contract_number || "-"}
+
+                                                {
+                                                    selectedContract.contract_number ||
+                                                    "-"
+                                                }
+
                                             </p>
 
                                         </div>
@@ -995,9 +1135,11 @@ export default function ContractManagement({
                                                         )
                                                     )}`}
                                                 >
+
                                                     {getDisplayStatus(
                                                         selectedContract
                                                     )}
+
                                                 </span>
 
                                             </div>
@@ -1013,7 +1155,12 @@ export default function ContractManagement({
                                         </span>
 
                                         <p className="font-semibold text-slate-800">
-                                            {selectedContract.contract_title || "-"}
+
+                                            {
+                                                selectedContract.contract_title ||
+                                                "-"
+                                            }
+
                                         </p>
 
                                     </div>
@@ -1027,7 +1174,12 @@ export default function ContractManagement({
                                             </span>
 
                                             <p className="font-mono font-semibold">
-                                                {selectedContract.start_date || "-"}
+
+                                                {
+                                                    selectedContract.start_date ||
+                                                    "-"
+                                                }
+
                                             </p>
 
                                         </div>
@@ -1039,7 +1191,12 @@ export default function ContractManagement({
                                             </span>
 
                                             <p className="font-mono font-semibold">
-                                                {selectedContract.end_date || "-"}
+
+                                                {
+                                                    selectedContract.end_date ||
+                                                    "-"
+                                                }
+
                                             </p>
 
                                         </div>
@@ -1061,7 +1218,12 @@ export default function ContractManagement({
                                                 </span>
 
                                                 <p className="font-semibold">
-                                                    {selectedContract.billing_model || "-"}
+
+                                                    {
+                                                        selectedContract.billing_model ||
+                                                        "-"
+                                                    }
+
                                                 </p>
 
                                             </div>
@@ -1073,7 +1235,12 @@ export default function ContractManagement({
                                                 </span>
 
                                                 <p className="font-semibold text-purple-600">
-                                                    {selectedContract.markup_percentage ?? 0}%
+
+                                                    {
+                                                        selectedContract.markup_percentage ??
+                                                        0
+                                                    }%
+
                                                 </p>
 
                                             </div>
@@ -1085,7 +1252,13 @@ export default function ContractManagement({
                                                 </span>
 
                                                 <p className="font-semibold">
-                                                    ₹{selectedContract.per_head_fee ?? 0}
+
+                                                    ₹
+                                                    {
+                                                        selectedContract.per_head_fee ??
+                                                        0
+                                                    }
+
                                                 </p>
 
                                             </div>
@@ -1097,7 +1270,12 @@ export default function ContractManagement({
                                                 </span>
 
                                                 <p className="font-semibold">
-                                                    {selectedContract.credit_terms || "-"}
+
+                                                    {
+                                                        selectedContract.credit_terms ||
+                                                        "-"
+                                                    }
+
                                                 </p>
 
                                             </div>
@@ -1153,7 +1331,9 @@ export default function ContractManagement({
 
                                     <button
                                         onClick={() =>
-                                            setShowViewModal(false)
+                                            setShowViewModal(
+                                                false
+                                            )
                                         }
                                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold"
                                     >
@@ -1184,8 +1364,14 @@ export default function ContractManagement({
                                     {modalTitle}
                                 </h3>
 
-                                <button onClick={closeFormModal}>
+                                <button
+                                    onClick={
+                                        closeFormModal
+                                    }
+                                >
+
                                     <X className="h-5 w-5 text-slate-400" />
+
                                 </button>
 
                             </div>
@@ -1203,7 +1389,9 @@ export default function ContractManagement({
                             )}
 
                             <form
-                                onSubmit={handleSubmit}
+                                onSubmit={
+                                    handleSubmit
+                                }
                                 className="p-6 space-y-4 max-h-[75vh] overflow-y-auto"
                             >
 
@@ -1215,12 +1403,18 @@ export default function ContractManagement({
 
                                     <select
                                         required
-                                        disabled={formMode === "edit"}
-                                        value={form.clientId}
+                                        disabled={
+                                            formMode ===
+                                            "edit"
+                                        }
+                                        value={
+                                            form.clientId
+                                        }
                                         onChange={(e) =>
                                             setForm({
                                                 ...form,
-                                                clientId: e.target.value
+                                                clientId:
+                                                    e.target.value
                                             })
                                         }
                                         className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-xs"
@@ -1230,16 +1424,26 @@ export default function ContractManagement({
                                             Select a client...
                                         </option>
 
-                                        {clients.map((client) => (
+                                        {clients.map(
+                                            (client) => (
 
-                                            <option
-                                                key={client.id}
-                                                value={client.id}
-                                            >
-                                                {client.company_name}
-                                            </option>
+                                                <option
+                                                    key={
+                                                        client.id
+                                                    }
+                                                    value={
+                                                        client.id
+                                                    }
+                                                >
 
-                                        ))}
+                                                    {
+                                                        client.company_name
+                                                    }
+
+                                                </option>
+
+                                            )
+                                        )}
 
                                     </select>
 
@@ -1254,7 +1458,9 @@ export default function ContractManagement({
                                     <input
                                         type="text"
                                         required
-                                        value={form.contractNumber}
+                                        value={
+                                            form.contractNumber
+                                        }
                                         onChange={(e) =>
                                             setForm({
                                                 ...form,
@@ -1277,7 +1483,9 @@ export default function ContractManagement({
                                     <input
                                         type="text"
                                         required
-                                        value={form.contractTitle}
+                                        value={
+                                            form.contractTitle
+                                        }
                                         onChange={(e) =>
                                             setForm({
                                                 ...form,
@@ -1302,7 +1510,9 @@ export default function ContractManagement({
                                         <input
                                             type="date"
                                             required
-                                            value={form.startDate}
+                                            value={
+                                                form.startDate
+                                            }
                                             onChange={(e) =>
                                                 setForm({
                                                     ...form,
@@ -1324,7 +1534,9 @@ export default function ContractManagement({
                                         <input
                                             type="date"
                                             required
-                                            value={form.endDate}
+                                            value={
+                                                form.endDate
+                                            }
                                             onChange={(e) =>
                                                 setForm({
                                                     ...form,
@@ -1346,7 +1558,9 @@ export default function ContractManagement({
                                     </label>
 
                                     <select
-                                        value={form.billingModel}
+                                        value={
+                                            form.billingModel
+                                        }
                                         onChange={(e) =>
                                             setForm({
                                                 ...form,
@@ -1403,21 +1617,30 @@ export default function ContractManagement({
 
                                 )}
 
-                                {(form.billingModel === "Per Head" ||
-                                    form.billingModel === "Flat Fee") && (
+                                {(
+                                    form.billingModel ===
+                                        "Per Head" ||
+                                    form.billingModel ===
+                                        "Flat Fee"
+                                ) && (
 
                                     <div>
 
                                         <label className="block text-xs font-semibold mb-1">
-                                            {form.billingModel === "Per Head"
+
+                                            {form.billingModel ===
+                                            "Per Head"
                                                 ? "Per Head Fee (₹)"
                                                 : "Fee (₹)"}
+
                                         </label>
 
                                         <input
                                             type="number"
                                             step="0.01"
-                                            value={form.perHeadFee}
+                                            value={
+                                                form.perHeadFee
+                                            }
                                             onChange={(e) =>
                                                 setForm({
                                                     ...form,
@@ -1440,7 +1663,9 @@ export default function ContractManagement({
                                     </label>
 
                                     <select
-                                        value={form.creditTerms}
+                                        value={
+                                            form.creditTerms
+                                        }
                                         onChange={(e) =>
                                             setForm({
                                                 ...form,
@@ -1478,7 +1703,9 @@ export default function ContractManagement({
                                     </label>
 
                                     <select
-                                        value={form.contractStatus}
+                                        value={
+                                            form.contractStatus
+                                        }
                                         onChange={(e) =>
                                             setForm({
                                                 ...form,
@@ -1509,8 +1736,12 @@ export default function ContractManagement({
 
                                     <button
                                         type="button"
-                                        onClick={closeFormModal}
-                                        disabled={saving}
+                                        onClick={
+                                            closeFormModal
+                                        }
+                                        disabled={
+                                            saving
+                                        }
                                         className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold"
                                     >
                                         Cancel
@@ -1518,15 +1749,19 @@ export default function ContractManagement({
 
                                     <button
                                         type="submit"
-                                        disabled={saving}
+                                        disabled={
+                                            saving
+                                        }
                                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold disabled:opacity-50"
                                     >
 
                                         {saving
                                             ? "Saving..."
-                                            : formMode === "add"
+                                            : formMode ===
+                                                "add"
                                                 ? "Save Contract"
-                                                : formMode === "edit"
+                                                : formMode ===
+                                                    "edit"
                                                     ? "Save Changes"
                                                     : "Renew Contract"}
 

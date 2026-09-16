@@ -1,3 +1,4 @@
+
 // =====================================================
 // ATTENDANCE ROUTER - CLIENT
 // =====================================================
@@ -17,6 +18,10 @@
 //
 // MONTHLY ATTENDANCE IS CALCULATED DIRECTLY FROM:
 //   third_party_emp_daily_attendance
+//
+// IMPORTANT:
+//   Database employee identifier = candidates_id
+//   API parameter can remain = employee_id
 //
 // =====================================================
 
@@ -136,27 +141,45 @@ function calculateAttendanceSummary(records) {
     let overtimeHours = 0;
 
     for (const row of attendance) {
-        const status = normalizeStatus(row?.status);
+        const status = normalizeStatus(
+            row?.status
+        );
 
+        // -------------------------------------------------
         // PRESENT
+        // -------------------------------------------------
+
         if (status === "present") {
             presentDays += 1;
         }
 
+        // -------------------------------------------------
         // ABSENT
-        else if (status === "absent") {
+        // -------------------------------------------------
+
+        else if (
+            status === "absent" ||
+            status === "lop"
+        ) {
             absentDays += 1;
         }
 
+        // -------------------------------------------------
         // LEAVE
+        // -------------------------------------------------
+
         else if (
             status === "leave" ||
-            status === "on_leave"
+            status === "on_leave" ||
+            status === "approved_leave"
         ) {
             leaveDays += 1;
         }
 
+        // -------------------------------------------------
         // HALF DAY
+        // -------------------------------------------------
+
         else if (
             status === "half_day" ||
             status === "halfday"
@@ -164,21 +187,30 @@ function calculateAttendanceSummary(records) {
             halfDays += 1;
         }
 
+        // -------------------------------------------------
+        // OVERTIME
+        // -------------------------------------------------
+
         overtimeHours += Number(
             row?.overtime_hours || 0
         );
     }
 
     return {
-        total_records: attendance.length,
+        total_records:
+            attendance.length,
 
-        present_days: presentDays,
+        present_days:
+            presentDays,
 
-        absent_days: absentDays,
+        absent_days:
+            absentDays,
 
-        leave_days: leaveDays,
+        leave_days:
+            leaveDays,
 
-        half_days: halfDays,
+        half_days:
+            halfDays,
 
         working_days:
             presentDays +
@@ -212,7 +244,13 @@ function createEmployeeMap(candidates) {
 // =====================================================
 // GET EMPLOYEES FOR CLIENT
 //
-// GET /api/employees?client_id=1
+// GET /api/attendance/employees
+//
+// QUERY:
+// ?client_id=1
+//
+// IMPORTANT:
+// This endpoint is required by ClientAttendance.jsx
 //
 // =====================================================
 
@@ -324,7 +362,9 @@ router.get(
             // FETCH CANDIDATES
             // -------------------------------------------------
 
-            if (candidateIds.length > 0) {
+            if (
+                candidateIds.length > 0
+            ) {
                 const {
                     data,
                     error:
@@ -360,7 +400,8 @@ router.get(
                     });
                 }
 
-                candidates = data || [];
+                candidates =
+                    data || [];
             }
 
             // -------------------------------------------------
@@ -472,7 +513,10 @@ router.get(
 
             return res.json({
                 success: true,
-                count: employees.length,
+
+                count:
+                    employees.length,
+
                 employees,
             });
         } catch (error) {
@@ -549,6 +593,9 @@ router.get(
 
             // -------------------------------------------------
             // FETCH DAILY ATTENDANCE
+            //
+            // DATABASE COLUMN:
+            // candidates_id
             // -------------------------------------------------
 
             const {
@@ -583,7 +630,7 @@ router.get(
                     attendance_date
                 )
                 .order(
-                    "employee_id",
+                    "candidates_id",
                     {
                         ascending: true,
                     }
@@ -604,25 +651,37 @@ router.get(
                 });
             }
 
-            const records = data || [];
+            const records =
+                data || [];
 
             // -------------------------------------------------
             // NO ATTENDANCE
             // -------------------------------------------------
 
-            if (records.length === 0) {
+            if (
+                records.length === 0
+            ) {
                 return res.json({
                     success: true,
-                    client_id: clientId,
+
+                    client_id:
+                        clientId,
+
                     attendance_date,
+
                     count: 0,
+
                     data: [],
+
                     attendance: [],
                 });
             }
 
             // -------------------------------------------------
             // GET EMPLOYEE IDS
+            //
+            // DATABASE:
+            // candidates_id
             // -------------------------------------------------
 
             const employeeIds = [
@@ -630,7 +689,7 @@ router.get(
                     records
                         .map(
                             (record) =>
-                                record.employee_id
+                                record.candidates_id
                         )
                         .filter(
                             (id) =>
@@ -644,9 +703,12 @@ router.get(
             // FETCH EMPLOYEE DETAILS
             // -------------------------------------------------
 
-            let employeesMap = new Map();
+            let employeesMap =
+                new Map();
 
-            if (employeeIds.length > 0) {
+            if (
+                employeeIds.length > 0
+            ) {
                 const {
                     data: employees,
                     error:
@@ -688,18 +750,23 @@ router.get(
                         const employee =
                             employeesMap.get(
                                 String(
-                                    record.employee_id
+                                    record.candidates_id
                                 )
                             );
 
                         const fallbackName =
                             `Employee ${
-                                record.employee_id ??
+                                record.candidates_id ??
                                 ""
                             }`;
 
                         return {
                             ...record,
+
+                            // Keep employee_id in API
+                            // response for frontend compatibility
+                            employee_id:
+                                record.candidates_id,
 
                             employee_name:
                                 employee?.full_name ??
@@ -772,6 +839,9 @@ router.get(
 // ?client_id=1
 // &employee_id=1
 // &billing_month=2026-09
+//
+// DATABASE COLUMN:
+// candidates_id
 //
 // =====================================================
 
@@ -878,7 +948,7 @@ router.get(
                     clientId
                 )
                 .eq(
-                    "employee_id",
+                    "candidates_id",
                     employeeId
                 )
                 .gte(
@@ -911,7 +981,8 @@ router.get(
                 });
             }
 
-            const records = data || [];
+            const records =
+                data || [];
 
             // -------------------------------------------------
             // CALCULATE SUMMARY
@@ -926,7 +997,8 @@ router.get(
             // FETCH EMPLOYEE DETAILS
             // -------------------------------------------------
 
-            let employee = null;
+            let employee =
+                null;
 
             const {
                 data: candidate,
@@ -1008,7 +1080,15 @@ router.get(
                 summary,
 
                 attendance:
-                    records,
+                    records.map(
+                        (record) => ({
+                            ...record,
+
+                            // Frontend compatibility
+                            employee_id:
+                                record.candidates_id,
+                        })
+                    ),
             });
         } catch (error) {
             console.error(
@@ -1129,7 +1209,7 @@ router.get(
                     lastDate
                 )
                 .order(
-                    "employee_id",
+                    "candidates_id",
                     {
                         ascending: true,
                     }
@@ -1156,13 +1236,16 @@ router.get(
                 });
             }
 
-            const records = data || [];
+            const records =
+                data || [];
 
             // -------------------------------------------------
             // NO RECORDS
             // -------------------------------------------------
 
-            if (records.length === 0) {
+            if (
+                records.length === 0
+            ) {
                 return res.json({
                     success: true,
 
@@ -1194,7 +1277,7 @@ router.get(
                     records
                         .map(
                             (record) =>
-                                record.employee_id
+                                record.candidates_id
                         )
                         .filter(
                             (id) =>
@@ -1208,9 +1291,12 @@ router.get(
             // FETCH EMPLOYEE DETAILS
             // -------------------------------------------------
 
-            let employeesMap = new Map();
+            let employeesMap =
+                new Map();
 
-            if (employeeIds.length > 0) {
+            if (
+                employeeIds.length > 0
+            ) {
                 const {
                     data: candidates,
                     error:
@@ -1258,10 +1344,12 @@ router.get(
             const employeeGroups =
                 new Map();
 
-            for (const record of records) {
+            for (
+                const record of records
+            ) {
                 const employeeId =
                     String(
-                        record.employee_id
+                        record.candidates_id
                     );
 
                 if (
@@ -1369,7 +1457,15 @@ router.get(
                                 summary.total_records,
 
                             attendance:
-                                employeeRecords,
+                                employeeRecords.map(
+                                    (record) => ({
+                                        ...record,
+
+                                        // Frontend compatibility
+                                        employee_id:
+                                            record.candidates_id,
+                                    })
+                                ),
                         };
                     }
                 );
@@ -1418,13 +1514,16 @@ router.get(
 );
 
 // =====================================================
-// GET ALL ATTENDANCE (ALL DATES + ALL MONTHS)
+// GET ALL ATTENDANCE
 //
 // GET /api/attendance/all
 //
 // QUERY:
 // ?client_id=1
-// &employee_id=1   (optional — omit for all employees)
+// &employee_id=1
+//
+// DATABASE COLUMN:
+// candidates_id
 //
 // =====================================================
 
@@ -1432,98 +1531,202 @@ router.get(
     "/attendance/all",
     async (req, res) => {
         try {
-            const { client_id, employee_id } = req.query;
+            const {
+                client_id,
+                employee_id,
+            } = req.query;
 
-            if (!isValidPositiveInteger(client_id)) {
+            // -------------------------------------------------
+            // VALIDATE CLIENT
+            // -------------------------------------------------
+
+            if (
+                !isValidPositiveInteger(
+                    client_id
+                )
+            ) {
                 return res.status(400).json({
                     success: false,
-                    error: "Valid client_id is required",
+                    error:
+                        "Valid client_id is required",
                 });
             }
 
-            const clientId = Number(client_id);
+            const clientId =
+                Number(client_id);
 
-            let query = supabase
-                .from(DAILY_ATTENDANCE_TABLE)
-                .select(`
-                    id,
-                    candidates_id,
-                    deployment_id,
-                    client_id,
-                    attendance_date,
-                    check_in,
-                    check_out,
-                    working_hours,
-                    overtime_hours,
-                    status,
-                    work_mode,
-                    remarks,
-                    created_at,
-                    updated_at
-                `)
-                .eq("client_id", clientId)
-                .order("attendance_date", { ascending: true })
-                .order("employee_id", { ascending: true });
+            // -------------------------------------------------
+            // BUILD QUERY
+            // -------------------------------------------------
 
-            if (employee_id !== undefined) {
-                if (!isValidPositiveInteger(employee_id)) {
+            let query =
+                supabase
+                    .from(
+                        DAILY_ATTENDANCE_TABLE
+                    )
+                    .select(`
+                        id,
+                        candidates_id,
+                        deployment_id,
+                        client_id,
+                        attendance_date,
+                        check_in,
+                        check_out,
+                        working_hours,
+                        overtime_hours,
+                        status,
+                        work_mode,
+                        remarks,
+                        created_at,
+                        updated_at
+                    `)
+                    .eq(
+                        "client_id",
+                        clientId
+                    )
+                    .order(
+                        "attendance_date",
+                        {
+                            ascending: true,
+                        }
+                    )
+                    .order(
+                        "candidates_id",
+                        {
+                            ascending: true,
+                        }
+                    );
+
+            // -------------------------------------------------
+            // OPTIONAL EMPLOYEE FILTER
+            //
+            // API:
+            // employee_id
+            //
+            // DATABASE:
+            // candidates_id
+            // -------------------------------------------------
+
+            if (
+                employee_id !==
+                undefined
+            ) {
+                if (
+                    !isValidPositiveInteger(
+                        employee_id
+                    )
+                ) {
                     return res.status(400).json({
                         success: false,
-                        error: "Valid employee_id is required",
+                        error:
+                            "Valid employee_id is required",
                     });
                 }
-                query = query.eq("employee_id", Number(employee_id));
+
+                query =
+                    query.eq(
+                        "candidates_id",
+                        Number(
+                            employee_id
+                        )
+                    );
             }
 
-            const { data, error } = await query;
+            // -------------------------------------------------
+            // EXECUTE QUERY
+            // -------------------------------------------------
+
+            const {
+                data,
+                error,
+            } = await query;
 
             if (error) {
-                console.error("GET /attendance/all query error:", error);
+                console.error(
+                    "GET /attendance/all query error:",
+                    error
+                );
+
                 return res.status(500).json({
                     success: false,
-                    error: "Failed to fetch attendance history",
-                    details: error.message,
+                    error:
+                        "Failed to fetch attendance history",
+                    details:
+                        error.message,
                 });
             }
 
-            const records = data || [];
+            const records =
+                data || [];
 
-            if (records.length === 0) {
+            // -------------------------------------------------
+            // NO RECORDS
+            // -------------------------------------------------
+
+            if (
+                records.length === 0
+            ) {
                 return res.json({
                     success: true,
-                    client_id: clientId,
+
+                    client_id:
+                        clientId,
+
                     total_records: 0,
+
                     months: [],
+
                     data: [],
                 });
             }
 
             // -------------------------------------------------
-            // ATTACH EMPLOYEE DETAILS
+            // GET EMPLOYEE IDS
             // -------------------------------------------------
 
             const employeeIds = [
                 ...new Set(
                     records
-                        .map((r) => r.employee_id)
-                        .filter((id) => id !== null && id !== undefined)
+                        .map(
+                            (record) =>
+                                record.candidates_id
+                        )
+                        .filter(
+                            (id) =>
+                                id !== null &&
+                                id !== undefined
+                        )
                 ),
             ];
 
-            let employeesMap = new Map();
+            // -------------------------------------------------
+            // FETCH EMPLOYEE DETAILS
+            // -------------------------------------------------
 
-            if (employeeIds.length > 0) {
-                const { data: candidates, error: candidateError } =
-                    await supabase
-                        .from("candidates")
-                        .select(`
-                            id,
-                            full_name,
-                            email,
-                            phone,
-                            designation
-                        `)
-                        .in("id", employeeIds);
+            let employeesMap =
+                new Map();
+
+            if (
+                employeeIds.length > 0
+            ) {
+                const {
+                    data: candidates,
+                    error:
+                        candidateError,
+                } = await supabase
+                    .from("candidates")
+                    .select(`
+                        id,
+                        full_name,
+                        email,
+                        phone,
+                        designation,
+                        employment_status
+                    `)
+                    .in(
+                        "id",
+                        employeeIds
+                    );
 
                 if (candidateError) {
                     console.error(
@@ -1531,57 +1734,129 @@ router.get(
                         candidateError
                     );
                 } else {
-                    employeesMap = createEmployeeMap(candidates);
+                    employeesMap =
+                        createEmployeeMap(
+                            candidates
+                        );
                 }
             }
 
-            const enrichedRecords = records.map((record) => {
-                const employee = employeesMap.get(
-                    String(record.employee_id)
+            // -------------------------------------------------
+            // ENRICH ATTENDANCE
+            // -------------------------------------------------
+
+            const enrichedRecords =
+                records.map(
+                    (record) => {
+                        const employee =
+                            employeesMap.get(
+                                String(
+                                    record.candidates_id
+                                )
+                            );
+
+                        const employeeName =
+                            employee?.full_name ??
+                            `Employee ${
+                                record.candidates_id
+                            }`;
+
+                        return {
+                            ...record,
+
+                            // Frontend compatibility
+                            employee_id:
+                                record.candidates_id,
+
+                            employee_name:
+                                employeeName,
+
+                            full_name:
+                                employeeName,
+
+                            employee_email:
+                                employee?.email ??
+                                null,
+
+                            employee_phone:
+                                employee?.phone ??
+                                null,
+
+                            designation:
+                                employee?.designation ??
+                                null,
+
+                            employment_status:
+                                employee?.employment_status ??
+                                null,
+                        };
+                    }
                 );
 
-                return {
-                    ...record,
-                    employee_name:
-                        employee?.full_name ??
-                        `Employee ${record.employee_id}`,
-                    full_name:
-                        employee?.full_name ??
-                        `Employee ${record.employee_id}`,
-                    employee_email: employee?.email ?? null,
-                    employee_phone: employee?.phone ?? null,
-                    designation: employee?.designation ?? null,
-                };
-            });
-
             // -------------------------------------------------
-            // GROUP BY MONTH (YYYY-MM), WITH SUMMARY PER MONTH
+            // GROUP BY MONTH
             // -------------------------------------------------
 
-            const monthGroups = new Map();
+            const monthGroups =
+                new Map();
 
-            for (const record of enrichedRecords) {
-                const month = String(record.attendance_date).slice(0, 7);
+            for (
+                const record of
+                    enrichedRecords
+            ) {
+                const month =
+                    String(
+                        record.attendance_date
+                    ).slice(0, 7);
 
-                if (!monthGroups.has(month)) {
-                    monthGroups.set(month, []);
+                if (
+                    !monthGroups.has(
+                        month
+                    )
+                ) {
+                    monthGroups.set(
+                        month,
+                        []
+                    );
                 }
 
-                monthGroups.get(month).push(record);
+                monthGroups
+                    .get(month)
+                    .push(record);
             }
 
-            const months = Array.from(monthGroups.entries())
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([billing_month, monthRecords]) => {
-                    const summary =
-                        calculateAttendanceSummary(monthRecords);
+            // -------------------------------------------------
+            // BUILD MONTHS
+            // -------------------------------------------------
 
-                    return {
-                        billing_month,
-                        ...summary,
-                        attendance: monthRecords,
-                    };
-                });
+            const months =
+                Array.from(
+                    monthGroups.entries()
+                )
+                    .sort(
+                        ([a], [b]) =>
+                            a.localeCompare(b)
+                    )
+                    .map(
+                        ([
+                            billing_month,
+                            monthRecords,
+                        ]) => {
+                            const summary =
+                                calculateAttendanceSummary(
+                                    monthRecords
+                                );
+
+                            return {
+                                billing_month,
+
+                                ...summary,
+
+                                attendance:
+                                    monthRecords,
+                            };
+                        }
+                    );
 
             // -------------------------------------------------
             // RESPONSE
@@ -1589,23 +1864,38 @@ router.get(
 
             return res.json({
                 success: true,
-                client_id: clientId,
-                total_records: enrichedRecords.length,
+
+                client_id:
+                    clientId,
+
+                total_records:
+                    enrichedRecords.length,
+
                 months,
-                data: enrichedRecords,
+
+                data:
+                    enrichedRecords,
             });
         } catch (error) {
-            console.error("GET /attendance/all error:", error);
+            console.error(
+                "GET /attendance/all error:",
+                error
+            );
+
             return res.status(500).json({
                 success: false,
-                error: "Failed to fetch attendance history",
-                details: error.message,
+                error:
+                    "Failed to fetch attendance history",
+                details:
+                    error.message,
             });
         }
     }
 );
+
 // =====================================================
 // EXPORT
 // =====================================================
 
 module.exports = router;
+

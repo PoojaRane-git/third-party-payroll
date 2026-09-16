@@ -21,8 +21,7 @@ import {
 } from "lucide-react";
 
 import Sidebar from "../Layout/Sidebar";
-
-const API_BASE = "http://localhost:5000/api";
+import api from "../../../services/api";
 
 export default function EmployeeDetails() {
   const { id } = useParams();
@@ -47,19 +46,14 @@ export default function EmployeeDetails() {
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        `${API_BASE}/candidates/${id}`
-      );
+      // ========================================================
+      // FETCH USING CENTRAL API SERVICE
+      // No localhost / API_BASE here
+      // ========================================================
 
-      const data = await response.json().catch(() => ({}));
+      const response = await api.get(`/candidates/${id}`);
 
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            data?.error ||
-            "Failed to fetch employee"
-        );
-      }
+      const data = response?.data || {};
 
       const employeeData =
         data?.candidate ||
@@ -74,10 +68,13 @@ export default function EmployeeDetails() {
         err
       );
 
-      setError(
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
         err?.message ||
-          "Failed to load employee details."
-      );
+        "Failed to load employee details.";
+
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -133,14 +130,21 @@ export default function EmployeeDetails() {
   if (loading) {
     return (
       <div className="flex min-h-screen bg-slate-50">
+
         <Sidebar activePage="/employee-management" />
 
         <main className="flex-1 flex items-center justify-center">
+
           <div className="flex items-center gap-2 text-slate-600">
+
             <Loader2 className="h-5 w-5 animate-spin" />
+
             Loading employee details...
+
           </div>
+
         </main>
+
       </div>
     );
   }
@@ -152,6 +156,7 @@ export default function EmployeeDetails() {
   if (error || !employee) {
     return (
       <div className="flex min-h-screen bg-slate-50">
+
         <Sidebar activePage="/employee-management" />
 
         <main className="flex-1 p-8">
@@ -161,8 +166,11 @@ export default function EmployeeDetails() {
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 mb-6"
           >
+
             <ArrowLeft className="h-4 w-4" />
+
             Back
+
           </button>
 
           <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex items-center gap-3 text-red-700">
@@ -170,19 +178,21 @@ export default function EmployeeDetails() {
             <AlertCircle className="h-5 w-5" />
 
             <div>
+
               <p className="font-semibold">
                 Unable to load employee
               </p>
 
               <p className="text-sm mt-1">
-                {error ||
-                  "Employee not found."}
+                {error || "Employee not found."}
               </p>
+
             </div>
 
           </div>
 
         </main>
+
       </div>
     );
   }
@@ -235,24 +245,30 @@ export default function EmployeeDetails() {
                 onClick={() => navigate(-1)}
                 className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900 mb-3"
               >
+
                 <ArrowLeft className="h-4 w-4" />
 
                 Back to Employee Management
+
               </button>
 
               <div className="flex items-center gap-4">
 
                 <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl font-bold">
+
                   {employee.full_name
                     ?.charAt(0)
                     ?.toUpperCase() || "E"}
+
                 </div>
 
                 <div>
 
                   <h1 className="text-2xl font-bold text-slate-900">
+
                     {employee.full_name ||
                       "Unnamed Employee"}
+
                   </h1>
 
                   <p className="text-sm text-slate-500 mt-1">
@@ -338,8 +354,10 @@ export default function EmployeeDetails() {
                     : "bg-amber-50 text-amber-700"
                 }`}
               >
+
                 {employee.employment_status ||
                   "Available"}
+
               </span>
 
               {/* Deployment Status */}
@@ -347,13 +365,17 @@ export default function EmployeeDetails() {
               {isDeployed ? (
 
                 <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
+
                   Deployed
+
                 </span>
 
               ) : (
 
                 <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
+
                   Not Assigned
+
                 </span>
 
               )}
@@ -401,8 +423,10 @@ export default function EmployeeDetails() {
                     </h3>
 
                     <p className="text-sm text-blue-700 mt-1">
+
                       Deploy this employee to a client
                       before creating their login account.
+
                     </p>
 
                   </div>
@@ -712,12 +736,17 @@ export default function EmployeeDetails() {
                   <div>
 
                     <p className="text-sm font-bold text-emerald-800">
+
                       Employee account is active
+
                     </p>
 
                     <p className="text-xs text-emerald-700 mt-1">
+
                       Auth User ID:{" "}
+
                       {employee.auth_user_id}
+
                     </p>
 
                   </div>
@@ -737,12 +766,16 @@ export default function EmployeeDetails() {
                     <div>
 
                       <p className="text-sm font-bold text-amber-800">
+
                         No login account created
+
                       </p>
 
                       <p className="text-xs text-amber-700 mt-1">
+
                         This employee is deployed and
                         can now receive a login account.
+
                       </p>
 
                     </div>
@@ -778,13 +811,17 @@ export default function EmployeeDetails() {
                   <div>
 
                     <p className="text-sm font-bold text-slate-700">
+
                       Account creation unavailable
+
                     </p>
 
                     <p className="text-xs text-slate-500 mt-1">
+
                       Deploy the employee first.
                       An employee account can only be
                       created after deployment.
+
                     </p>
 
                   </div>
@@ -873,7 +910,9 @@ function InfoItem({
       </div>
 
       <p className="text-sm font-semibold text-slate-800 mt-1.5 break-words">
+
         {displayValue}
+
       </p>
 
     </div>
