@@ -56,11 +56,12 @@ import EmployeeAttendance from "./pages/Employee/components/EmployeeAttendance";
 import EmployeeMonthlyAttendance from "./pages/Employee/components/EmployeeMonthlyAttendance";
 import EmployeePayslip from "./pages/Employee/components/EmployeePayslip";
 import EmployeeProfile from "./pages/Employee/components/EmployeeProfile";
-import EmployeeAttendanceRectification from "./pages/Employee/EmployeeAttendanceRectification";
-import EmployeeLeave from "./pages/Employee/EmployeeLeave";
-import EmployeeHolidayCalendar from "./pages/Employee/EmployeeHolidayCalendar";
-import EmployeeRoster from "./pages/Employee/EmployeeRoster";
-import EmployeeCompOff from "./pages/Employee/EmployeeCompOff";
+
+import EmployeeAttendanceRectification from "./pages/Employee/components/EmployeeAttendanceRectification";
+import EmployeeLeave from "./pages/Employee/components/EmployeeLeave";
+import EmployeeHolidayCalendar from "./pages/Employee/components/EmployeeHolidayCalendar";
+import EmployeeRoster from "./pages/Employee/components/EmployeeRoster";
+import EmployeeCompOff from "./pages/Employee/components/EmployeeCompOff";
 
 // =====================================================
 // CLIENT
@@ -276,32 +277,27 @@ function App() {
 
                         <Route
                             path="/employee/attendance-rectification"
-                            element={<AttendanceRectification />}
-                        />
-
-                        <Route
-                            path="/employee/attendance-rectification"
-                            element={<AttendanceRectification />}
+                            element={<EmployeeAttendanceRectification />}
                         />
 
                         <Route
                             path="/employee/leave"
-                            element={<Leave />}
+                            element={<EmployeeLeave />}
                         />
 
                         <Route
                             path="/employee/holiday-calendar"
-                            element={<HolidayCalendar />}
+                            element={<EmployeeHolidayCalendar />}
                         />
 
                         <Route
                             path="/employee/roster"
-                            element={<Roster />}
+                            element={<EmployeeRoster />}
                         />
 
                         <Route
                             path="/employee/compoff"
-                            element={<CompOff />}
+                            element={<EmployeeCompOff />}
                         />
 
                     </Route>
