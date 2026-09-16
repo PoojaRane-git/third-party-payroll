@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 import Sidebar from "../Layout/Sidebar";
-import api from "../../../services/api";
+import api from "../../services/api";
 
 export default function EmployeeDetails() {
   const { id } = useParams();
