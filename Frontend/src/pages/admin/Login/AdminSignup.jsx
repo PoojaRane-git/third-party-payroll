@@ -2,9 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:5000/api";
+import api from "../../services/api";
 
 function AdminSignup() {
   const navigate = useNavigate();
@@ -71,14 +69,14 @@ function AdminSignup() {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        `${API_BASE_URL}/auth/signup-admin`,
-        {
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-        }
-      );
+      const response = await api.post(
+  "/auth/signup/admin",
+  {
+    name: formData.name,
+    email: formData.email,
+    password: formData.password,
+  }
+);
 
       if (response.data.success) {
         setSuccess(
@@ -115,14 +113,11 @@ function AdminSignup() {
 
     const checkApproval = async () => {
       try {
-        const response = await axios.get(
-          `${API_BASE_URL}/auth/admin-status`,
-          {
-            params: {
-              email: formData.email,
-            },
-          }
-        );
+        const response = await api.get("/auth/admin-status", {
+  params: {
+    email: formData.email,
+  },
+});
 
         if (!response.data?.success) {
           return;

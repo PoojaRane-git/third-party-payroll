@@ -2,9 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:5000/api";
+import api from "../../services/api";
 
 function ClientSignup() {
   const navigate = useNavigate();
@@ -98,21 +96,21 @@ function ClientSignup() {
     try {
       setLoading(true);
 
-      const response = await axios.post(
-        `${API_BASE_URL}/auth/signup-client`,
-        {
-          company_name: formData.company_name,
-          contact_person: formData.contact_person,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-          gstin: formData.gstin,
-          billing_address: formData.billing_address,
-          state_code: formData.state_code,
-          credit_terms: formData.credit_terms,
-          service_fee: formData.service_fee,
-        }
-      );
+      const response = await api.post(
+  "/auth/signup/client",
+  {
+    company_name: formData.company_name,
+    contact_person: formData.contact_person,
+    email: formData.email,
+    phone: formData.phone,
+    password: formData.password,
+    gstin: formData.gstin,
+    billing_address: formData.billing_address,
+    state_code: formData.state_code,
+    credit_terms: formData.credit_terms,
+    service_fee: formData.service_fee,
+  }
+);
 
       if (response.data.success) {
         setSuccess(
@@ -151,14 +149,14 @@ function ClientSignup() {
 
     const checkClientApproval = async () => {
       try {
-        const response = await axios.get(
-          `${API_BASE_URL}/auth/client-status`,
-          {
-            params: {
-              email: formData.email,
-            },
-          }
-        );
+        const response = await api.get(
+  "/auth/client-status",
+  {
+    params: {
+      email: formData.email,
+    },
+  }
+);
 
         if (!response.data?.success) {
           return;

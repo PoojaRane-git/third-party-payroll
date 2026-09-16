@@ -251,11 +251,6 @@ const clientHolidayRoutes =
 const clientRosterRoutes =
     require("./routes/client/clientRoster");
 
-const clientAttendancePolicyRoutes =
-    require("./routes/client/clientAttendancePolicy");
-
-const clientCompoffRoutes =
-    require("./routes/client/clientCompoff");
 
 
 // ============================================================
@@ -274,8 +269,7 @@ const employeeHolidayRoutes =
 const employeeRosterRoutes =
     require("./routes/employee/employeeRoster");
 
-const employeeCompoffRoutes =
-    require("./routes/employee/employeeCompoff");
+
 
 
 // =====================================================
@@ -541,15 +535,8 @@ app.use(
     clientRosterRoutes
 );
 
-app.use(
-    "/api/client/attendance-policy",
-    clientAttendancePolicyRoutes
-);
 
-app.use(
-    "/api/client/compoff",
-    clientCompoffRoutes
-);
+
 
 
 // ============================================================
@@ -576,10 +563,7 @@ app.use(
     employeeRosterRoutes
 );
 
-app.use(
-    "/api/employee/compoff",
-    employeeCompoffRoutes
-);
+
 
 // =====================================================
 // 404 HANDLER
