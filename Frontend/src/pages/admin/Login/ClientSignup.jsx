@@ -25,6 +25,8 @@ function ClientSignup() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // =====================================================
   // HANDLE INPUT CHANGE
@@ -97,7 +99,7 @@ function ClientSignup() {
       setLoading(true);
 
       const response = await api.post(
-  "/auth/signup/client",
+  "/auth/signup-client",
   {
     company_name: formData.company_name,
     contact_person: formData.contact_person,

@@ -18,6 +18,8 @@ function AdminSignup() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // =====================================================
   // FORM CHANGE
@@ -70,13 +72,13 @@ function AdminSignup() {
       setLoading(true);
 
       const response = await api.post(
-  "/auth/signup/admin",
-  {
-    name: formData.name,
-    email: formData.email,
-    password: formData.password,
-  }
-);
+        "/auth/signup-admin",
+        {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }
+      );
 
       if (response.data.success) {
         setSuccess(
@@ -93,7 +95,7 @@ function AdminSignup() {
 
       setError(
         err.response?.data?.message ||
-          "Unable to create admin account."
+        "Unable to create admin account."
       );
     } finally {
       setLoading(false);
@@ -114,10 +116,10 @@ function AdminSignup() {
     const checkApproval = async () => {
       try {
         const response = await api.get("/auth/admin-status", {
-  params: {
-    email: formData.email,
-  },
-});
+          params: {
+            email: formData.email,
+          },
+        });
 
         if (!response.data?.success) {
           return;
@@ -317,33 +319,64 @@ function AdminSignup() {
                   Password *
                 </label>
 
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className="w-full border rounded-lg px-4 py-3"
-                  placeholder="Minimum 8 characters"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    disabled={loading}
+                    className="w-full border rounded-lg px-4 py-3 pr-12"
+                    placeholder="Minimum 8 characters"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
               </div>
+
+              {/* Confirm Password */}
 
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Confirm Password *
                 </label>
 
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className="w-full border rounded-lg px-4 py-3"
-                  placeholder="Confirm password"
-                />
-              </div>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    disabled={loading}
+                    className="w-full border rounded-lg px-4 py-3 pr-12"
+                    placeholder="Confirm password"
+                  />
 
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowConfirmPassword(!showConfirmPassword)
+                    }
+                    disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    aria-label={
+                      showConfirmPassword
+                        ? "Hide confirm password"
+                        : "Show confirm password"
+                    }
+                  >
+                    {showConfirmPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
               <button
                 type="submit"
                 disabled={loading}

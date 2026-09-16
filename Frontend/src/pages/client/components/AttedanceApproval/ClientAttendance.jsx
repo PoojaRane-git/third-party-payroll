@@ -654,6 +654,9 @@ const ClientAttendance = () => {
                         "ALL ATTENDANCE RESPONSE:",
                         result
                     );
+                     console.log("FETCH ALL ATTENDANCE RESPONSE:", result);
+    console.log("ATTENDANCE DATA:", result?.data?.data);
+    console.log("ATTENDANCE DATA LENGTH:", result?.data?.data?.length);
 
                     if (
                         result.success !==
