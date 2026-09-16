@@ -63,19 +63,11 @@ const EmployeeMonthlyAttendance = () => {
       setLoading(true);
       setError("");
 
-      console.log("Fetching monthly attendance...");
-      console.log("Selected month:", month);
-
-      const response = await api.get("/employee/monthly", {
+      const response = await api.get("/emp-attendance/monthly", {
         params: {
           billing_month: month,
         },
       });
-
-      console.log(
-        "Monthly attendance response:",
-        response.data
-      );
 
       // =================================================
       // SUMMARY
@@ -114,19 +106,11 @@ const EmployeeMonthlyAttendance = () => {
       // =================================================
 
       setDailyAttendance(
-        response.data?.data || []
+        response.data?.attendance ||
+          response.data?.daily_attendance ||
+          []
       );
     } catch (err) {
-      console.error(
-        "Monthly attendance error:",
-        err
-      );
-
-      console.error(
-        "Server response:",
-        err.response?.data
-      );
-
       setSummary(null);
 
       setDailyAttendance([]);
