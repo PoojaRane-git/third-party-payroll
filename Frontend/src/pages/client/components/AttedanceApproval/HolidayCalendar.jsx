@@ -1,3 +1,4 @@
+
 import React, {
     useCallback,
     useEffect,
@@ -27,20 +28,25 @@ import { useAuth } from "../../../../auth/AuthProvider";
 // ============================================================
 
 const getToday = () => {
+
     const date = new Date();
 
-    const year = date.getFullYear();
+    const year =
+        date.getFullYear();
 
-    const month = String(
-        date.getMonth() + 1
-    ).padStart(2, "0");
+    const month =
+        String(
+            date.getMonth() + 1
+        ).padStart(2, "0");
 
-    const day = String(
-        date.getDate()
-    ).padStart(2, "0");
+    const day =
+        String(
+            date.getDate()
+        ).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
 };
+
 
 const formatDate = (value) => {
 
@@ -79,6 +85,7 @@ const formatDate = (value) => {
     );
 };
 
+
 const getMonthName = (value) => {
 
     if (!value) {
@@ -110,6 +117,7 @@ const getMonthName = (value) => {
     );
 };
 
+
 const normalizeHolidayType = (
     value
 ) => {
@@ -120,6 +128,7 @@ const normalizeHolidayType = (
         .trim()
         .toLowerCase();
 };
+
 
 // ============================================================
 // COMPONENT
@@ -138,12 +147,14 @@ const HolidayCalendar = () => {
         logout,
     } = useAuth();
 
+
     // ========================================================
     // SIDEBAR
     // ========================================================
 
     const [activeTab, setActiveTab] =
         useState("holiday");
+
 
     // ========================================================
     // DATA
@@ -152,6 +163,7 @@ const HolidayCalendar = () => {
     const [holidays, setHolidays] =
         useState([]);
 
+
     // ========================================================
     // FILTERS
     // ========================================================
@@ -159,12 +171,9 @@ const HolidayCalendar = () => {
     const [searchHoliday, setSearchHoliday] =
         useState("");
 
-    const [yearFilter, setYearFilter] =
-        useState(
-            String(
-                new Date().getFullYear()
-            )
-        );
+    const [dateFilter, setDateFilter] =
+        useState("");
+
 
     // ========================================================
     // LOADING
@@ -179,6 +188,7 @@ const HolidayCalendar = () => {
     const [error, setError] =
         useState("");
 
+
     // ========================================================
     // MODAL
     // ========================================================
@@ -192,6 +202,7 @@ const HolidayCalendar = () => {
     const [saving, setSaving] =
         useState(false);
 
+
     // ========================================================
     // FORM
     // ========================================================
@@ -203,6 +214,7 @@ const HolidayCalendar = () => {
             holiday_type: "Full Day",
             is_paid: true,
         });
+
 
     // ========================================================
     // CLIENT NAME
@@ -220,6 +232,7 @@ const HolidayCalendar = () => {
 
     }, [user]);
 
+
     // ========================================================
     // LOGOUT
     // ========================================================
@@ -235,15 +248,11 @@ const HolidayCalendar = () => {
 
         } catch (error) {
 
-            console.error(
-                "Holiday calendar logout error:",
-                error
-            );
-
             window.location.href =
                 "/login";
         }
     };
+
 
     // ========================================================
     // FETCH HOLIDAYS
@@ -253,123 +262,141 @@ const HolidayCalendar = () => {
     // ========================================================
 
     const fetchHolidays =
-    useCallback(
-        async (
-            showLoader = true
-        ) => {
+        useCallback(
+            async (
+                showLoader = true
+            ) => {
 
-            if (
-                authLoading ||
-                !session ||
-                !user
-            ) {
-                return;
-            }
-
-            try {
-
-                if (showLoader) {
-                    setLoading(true);
-                }
-
-                setError("");
-
-                const response =
-                    await api.get(
-                        "/client/holidays"
-                    );
-
-                const result =
-                    response?.data;
-
-                // ====================================================
-                // SUPPORT BOTH API RESPONSE FORMATS
-                //
-                // OLD:
-                // [ { ...holiday } ]
-                //
-                // NEW:
-                // {
-                //     success: true,
-                //     data: [ { ...holiday } ]
-                // }
-                // ====================================================
-
-                if (Array.isArray(result)) {
-
-                    setHolidays(result);
-
+                if (
+                    authLoading ||
+                    !session ||
+                    !user
+                ) {
                     return;
                 }
 
-                if (
-                    !result ||
-                    result.success !== true
-                ) {
+                try {
 
-                    throw new Error(
-                        result?.error ||
-                        result?.message ||
-                        "Failed to load holidays."
+                    if (showLoader) {
+                        setLoading(true);
+                    }
+
+                    setError("");
+
+                    const response =
+                        await api.get(
+                            "/client/holidays"
+                        );
+
+                    const result =
+                        response?.data;
+
+
+                    // ====================================================
+                    // SUPPORT BOTH API RESPONSE FORMATS
+                    //
+                    // OLD:
+                    // [ { ...holiday } ]
+                    //
+                    // NEW:
+                    // {
+                    //     success: true,
+                    //     data: [ { ...holiday } ]
+                    // }
+                    // ====================================================
+
+                    if (
+                        Array.isArray(
+                            result
+                        )
+                    ) {
+
+                        setHolidays(
+                            result
+                        );
+
+                        return;
+                    }
+
+
+                    if (
+                        !result ||
+                        result.success !==
+                            true
+                    ) {
+
+                        throw new Error(
+                            result?.error ||
+                            result?.message ||
+                            "Failed to load holidays."
+                        );
+                    }
+
+
+                    const records =
+                        Array.isArray(
+                            result.data
+                        )
+                            ? result.data
+                            : [];
+
+
+                    setHolidays(
+                        records
                     );
+
+                } catch (err) {
+
+                    if (
+                        err?.response
+                            ?.status ===
+                        401
+                    ) {
+
+                        setError(
+                            "Your session has expired. Please login again."
+                        );
+
+                    } else if (
+                        err?.response
+                            ?.status ===
+                        403
+                    ) {
+
+                        setError(
+                            "You do not have permission to manage the holiday calendar."
+                        );
+
+                    } else {
+
+                        setError(
+                            err?.response
+                                ?.data
+                                ?.error ||
+                            err?.response
+                                ?.data
+                                ?.message ||
+                            err?.message ||
+                            "Failed to load holidays."
+                        );
+                    }
+
+                    setHolidays([]);
+
+                } finally {
+
+                    if (showLoader) {
+                        setLoading(false);
+                    }
                 }
+            },
+            [
+                authLoading,
+                session,
+                user,
+            ]
+        );
 
-                const records =
-                    Array.isArray(
-                        result.data
-                    )
-                        ? result.data
-                        : [];
-
-                setHolidays(
-                    records
-                );
-
-            } catch (err) {
-
-                if (
-                    err?.response?.status ===
-                    401
-                ) {
-
-                    setError(
-                        "Your session has expired. Please login again."
-                    );
-
-                } else if (
-                    err?.response?.status ===
-                    403
-                ) {
-
-                    setError(
-                        "You do not have permission to manage the holiday calendar."
-                    );
-
-                } else {
-
-                    setError(
-                        err?.response?.data?.error ||
-                        err?.response?.data?.message ||
-                        err?.message ||
-                        "Failed to load holidays."
-                    );
-                }
-
-                setHolidays([]);
-
-            } finally {
-
-                if (showLoader) {
-                    setLoading(false);
-                }
-            }
-        },
-        [
-            authLoading,
-            session,
-            user,
-        ]
-    );
 
     // ========================================================
     // INITIAL FETCH
@@ -395,6 +422,7 @@ const HolidayCalendar = () => {
         fetchHolidays,
     ]);
 
+
     // ========================================================
     // REFRESH
     // ========================================================
@@ -415,6 +443,7 @@ const HolidayCalendar = () => {
         }
     };
 
+
     // ========================================================
     // FORM CHANGE
     // ========================================================
@@ -431,6 +460,7 @@ const HolidayCalendar = () => {
             })
         );
     };
+
 
     // ========================================================
     // OPEN ADD MODAL
@@ -451,6 +481,7 @@ const HolidayCalendar = () => {
 
         setShowModal(true);
     };
+
 
     // ========================================================
     // OPEN EDIT MODAL
@@ -493,6 +524,7 @@ const HolidayCalendar = () => {
         setShowModal(true);
     };
 
+
     // ========================================================
     // CLOSE MODAL
     // ========================================================
@@ -517,6 +549,7 @@ const HolidayCalendar = () => {
         });
     };
 
+
     // ========================================================
     // SAVE HOLIDAY
     //
@@ -536,6 +569,7 @@ const HolidayCalendar = () => {
         const holidayName =
             form.name.trim();
 
+
         if (!holidayDate) {
 
             setError(
@@ -544,6 +578,7 @@ const HolidayCalendar = () => {
 
             return;
         }
+
 
         if (!holidayName) {
 
@@ -554,13 +589,16 @@ const HolidayCalendar = () => {
             return;
         }
 
+
         try {
 
             setSaving(true);
 
             setError("");
 
+
             const payload = {
+
                 holiday_date:
                     holidayDate,
 
@@ -576,7 +614,9 @@ const HolidayCalendar = () => {
                     ),
             };
 
+
             let response;
+
 
             if (
                 editingHoliday?.id
@@ -597,19 +637,40 @@ const HolidayCalendar = () => {
                     );
             }
 
+
             const result =
-                response?.data || {};
+                response?.data;
+
 
             if (
-                result.success !== true
+                Array.isArray(
+                    result
+                )
+            ) {
+
+                closeModal();
+
+                await fetchHolidays(
+                    false
+                );
+
+                return;
+            }
+
+
+            if (
+                !result ||
+                result.success !==
+                    true
             ) {
 
                 throw new Error(
-                    result.error ||
-                    result.message ||
+                    result?.error ||
+                    result?.message ||
                     "Failed to save holiday."
                 );
             }
+
 
             closeModal();
 
@@ -619,14 +680,13 @@ const HolidayCalendar = () => {
 
         } catch (err) {
 
-            console.error(
-                "Save holiday error:",
-                err
-            );
-
             setError(
-                err?.response?.data?.error ||
-                err?.response?.data?.message ||
+                err?.response
+                    ?.data
+                    ?.error ||
+                err?.response
+                    ?.data
+                    ?.message ||
                 err?.message ||
                 "Failed to save holiday."
             );
@@ -636,6 +696,7 @@ const HolidayCalendar = () => {
             setSaving(false);
         }
     };
+
 
     // ========================================================
     // DELETE HOLIDAY
@@ -652,37 +713,46 @@ const HolidayCalendar = () => {
             return;
         }
 
+
         const confirmed =
             window.confirm(
                 `Delete "${holiday.name}" from the holiday calendar?`
             );
 
+
         if (!confirmed) {
             return;
         }
 
+
         try {
 
             setError("");
+
 
             const response =
                 await api.delete(
                     `/client/holidays/${holiday.id}`
                 );
 
+
             const result =
-                response?.data || {};
+                response?.data;
+
 
             if (
-                result.success !== true
+                !result ||
+                result.success !==
+                    true
             ) {
 
                 throw new Error(
-                    result.error ||
-                    result.message ||
+                    result?.error ||
+                    result?.message ||
                     "Failed to delete holiday."
                 );
             }
+
 
             await fetchHolidays(
                 false
@@ -690,68 +760,19 @@ const HolidayCalendar = () => {
 
         } catch (err) {
 
-            console.error(
-                "Delete holiday error:",
-                err
-            );
-
             setError(
-                err?.response?.data?.error ||
-                err?.response?.data?.message ||
+                err?.response
+                    ?.data
+                    ?.error ||
+                err?.response
+                    ?.data
+                    ?.message ||
                 err?.message ||
                 "Failed to delete holiday."
             );
         }
     };
 
-    // ========================================================
-    // AVAILABLE YEARS
-    // ========================================================
-
-    const availableYears =
-        useMemo(() => {
-
-            const years =
-                holidays
-                    .map(
-                        (holiday) => {
-
-                            const value =
-                                holiday?.holiday_date;
-
-                            if (!value) {
-                                return null;
-                            }
-
-                            return String(
-                                value
-                            ).slice(
-                                0,
-                                4
-                            );
-                        }
-                    )
-                    .filter(Boolean);
-
-            const currentYear =
-                String(
-                    new Date().getFullYear()
-                );
-
-            return [
-                ...new Set([
-                    currentYear,
-                    ...years,
-                ]),
-            ].sort(
-                (a, b) =>
-                    Number(b) -
-                    Number(a)
-            );
-
-        }, [
-            holidays,
-        ]);
 
     // ========================================================
     // FILTERED HOLIDAYS
@@ -764,6 +785,7 @@ const HolidayCalendar = () => {
                 searchHoliday
                     .trim()
                     .toLowerCase();
+
 
             return holidays
                 .filter(
@@ -778,11 +800,6 @@ const HolidayCalendar = () => {
                                 10
                             );
 
-                        const holidayYear =
-                            holidayDate.slice(
-                                0,
-                                4
-                            );
 
                         const holidayName =
                             String(
@@ -790,13 +807,12 @@ const HolidayCalendar = () => {
                                 ""
                             ).toLowerCase();
 
-                        const matchesYear =
-                            yearFilter ===
-                                "all" ||
-                            holidayYear ===
-                                String(
-                                    yearFilter
-                                );
+
+                        const matchesDate =
+                            !dateFilter ||
+                            holidayDate ===
+                                dateFilter;
+
 
                         const matchesSearch =
                             !search ||
@@ -807,8 +823,9 @@ const HolidayCalendar = () => {
                                 search
                             );
 
+
                         return (
-                            matchesYear &&
+                            matchesDate &&
                             matchesSearch
                         );
                     }
@@ -829,80 +846,88 @@ const HolidayCalendar = () => {
         }, [
             holidays,
             searchHoliday,
-            yearFilter,
+            dateFilter,
         ]);
+
 
     // ========================================================
     // SUMMARY
     // ========================================================
 
-    const summary = useMemo(() => {
+    const summary =
+        useMemo(() => {
 
-        const selectedYear =
-            yearFilter === "all"
-                ? null
-                : String(
-                      yearFilter
-                  );
+            const filtered =
+                holidays.filter(
+                    (holiday) => {
 
-        const yearHolidays =
-            holidays.filter(
-                (holiday) => {
+                        const holidayDate =
+                            String(
+                                holiday?.holiday_date ||
+                                ""
+                            ).slice(
+                                0,
+                                10
+                            );
 
-                    if (
-                        !selectedYear
-                    ) {
-                        return true;
+
+                        return (
+                            !dateFilter ||
+                            holidayDate ===
+                                dateFilter
+                        );
                     }
+                );
 
-                    return String(
-                        holiday?.holiday_date ||
-                            ""
-                    ).slice(
-                        0,
-                        4
-                    ) ===
-                        selectedYear;
-                }
-            );
 
-        const paid =
-            yearHolidays.filter(
-                (holiday) =>
-                    holiday?.is_paid !==
-                    false
-            ).length;
+            const paid =
+                filtered.filter(
+                    (holiday) =>
+                        holiday?.is_paid !==
+                        false
+                ).length;
 
-        const fullDay =
-            yearHolidays.filter(
-                (holiday) =>
-                    normalizeHolidayType(
-                        holiday?.holiday_type
-                    ) ===
-                    "full day"
-            ).length;
 
-        const halfDay =
-            yearHolidays.filter(
-                (holiday) =>
-                    normalizeHolidayType(
-                        holiday?.holiday_type
-                    ) ===
-                    "half day"
-            ).length;
+            const fullDay =
+                filtered.filter(
+                    (holiday) =>
+                        normalizeHolidayType(
+                            holiday?.holiday_type
+                        ) ===
+                        "full day"
+                ).length;
 
-        return {
-            total:
-                yearHolidays.length,
-            paid,
-            fullDay,
-            halfDay,
-        };
 
-    }, [
-        holidays,
-        yearFilter,
-    ]);
+            const halfDay =
+                filtered.filter(
+                    (holiday) =>
+                        normalizeHolidayType(
+                            holiday?.holiday_type
+                        ) ===
+                        "half day"
+                ).length;
+
+
+            return {
+
+                total:
+                    filtered.length,
+
+                paid:
+                    paid,
+
+                fullDay:
+                    fullDay,
+
+                halfDay:
+                    halfDay,
+            };
+
+        }, [
+            holidays,
+            dateFilter,
+        ]);
+
 
     // ========================================================
     // AUTH LOADING
@@ -929,6 +954,7 @@ const HolidayCalendar = () => {
             </div>
         );
     }
+
 
     // ========================================================
     // SESSION CHECK
@@ -969,12 +995,14 @@ const HolidayCalendar = () => {
         );
     }
 
+
     // ========================================================
     // MAIN UI
     // ========================================================
 
     return (
-        <div className="min-h-screen bg-slate-50">
+
+        <div className="flex min-h-screen bg-slate-50">
 
             {/* ==================================================
                 SIDEBAR
@@ -987,13 +1015,14 @@ const HolidayCalendar = () => {
                 onLogout={handleLogout}
             />
 
+
             {/* ==================================================
                 MAIN CONTENT
             ================================================== */}
 
-            <main className="min-h-screen ml-64">
+            <main className="min-w-0 flex-1">
 
-                <div className="mx-auto max-w-[1280px] px-6 py-6">
+                <div className="w-full px-6 py-6">
 
                     {/* ==================================================
                         HEADER
@@ -1022,11 +1051,14 @@ const HolidayCalendar = () => {
 
                         </div>
 
+
                         <div className="flex items-center gap-3">
 
                             <button
                                 type="button"
-                                onClick={handleRefresh}
+                                onClick={
+                                    handleRefresh
+                                }
                                 disabled={
                                     refreshing ||
                                     loading
@@ -1046,6 +1078,7 @@ const HolidayCalendar = () => {
                                 Refresh
 
                             </button>
+
 
                             <button
                                 type="button"
@@ -1067,6 +1100,7 @@ const HolidayCalendar = () => {
 
                     </div>
 
+
                     {/* ==================================================
                         FILTERS
                     ================================================== */}
@@ -1075,50 +1109,57 @@ const HolidayCalendar = () => {
 
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
-                            {/* Year */}
+                            {/* Holiday Date */}
 
                             <div>
 
                                 <label className="mb-2 block px-1 text-xs font-bold uppercase tracking-wide text-slate-500">
-                                    Year
+                                    Holiday Date
                                 </label>
 
-                                <select
-                                    value={
-                                        yearFilter
-                                    }
-                                    onChange={(e) =>
-                                        setYearFilter(
-                                            e.target.value
-                                        )
-                                    }
-                                    className="h-[43px] w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                >
+                                <div className="relative">
 
-                                    <option value="all">
-                                        All Years
-                                    </option>
+                                    <CalendarDays
+                                        size={17}
+                                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                                    />
 
-                                    {availableYears.map(
-                                        (
-                                            year
-                                        ) => (
-                                            <option
-                                                key={
-                                                    year
-                                                }
-                                                value={
-                                                    year
-                                                }
-                                            >
-                                                {year}
-                                            </option>
-                                        )
+                                    <input
+                                        type="date"
+                                        value={
+                                            dateFilter
+                                        }
+                                        onChange={(e) =>
+                                            setDateFilter(
+                                                e.target.value
+                                            )
+                                        }
+                                        className="h-[43px] w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                    />
+
+                                    {dateFilter && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setDateFilter(
+                                                    ""
+                                                )
+                                            }
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
+                                            title="Clear date"
+                                        >
+
+                                            <X
+                                                size={16}
+                                            />
+
+                                        </button>
                                     )}
 
-                                </select>
+                                </div>
 
                             </div>
+
 
                             {/* Search */}
 
@@ -1157,6 +1198,7 @@ const HolidayCalendar = () => {
 
                     </div>
 
+
                     {/* ==================================================
                         SUMMARY
                     ================================================== */}
@@ -1176,13 +1218,17 @@ const HolidayCalendar = () => {
                             </p>
 
                             <p className="mt-1 text-xs text-slate-500">
-                                {yearFilter ===
-                                "all"
-                                    ? "All calendar years"
-                                    : `For ${yearFilter}`}
+
+                                {dateFilter
+                                    ? `For ${formatDate(
+                                          dateFilter
+                                      )}`
+                                    : "All calendar dates"}
+
                             </p>
 
                         </div>
+
 
                         {/* Paid */}
 
@@ -1202,6 +1248,7 @@ const HolidayCalendar = () => {
 
                         </div>
 
+
                         {/* Full Day */}
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1219,6 +1266,7 @@ const HolidayCalendar = () => {
                             </p>
 
                         </div>
+
 
                         {/* Half Day */}
 
@@ -1240,11 +1288,13 @@ const HolidayCalendar = () => {
 
                     </div>
 
+
                     {/* ==================================================
                         ERROR
                     ================================================== */}
 
                     {error && (
+
                         <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
 
                             <AlertCircle
@@ -1257,7 +1307,9 @@ const HolidayCalendar = () => {
                             </span>
 
                         </div>
+
                     )}
+
 
                     {/* ==================================================
                         HOLIDAY TABLE
@@ -1358,6 +1410,7 @@ const HolidayCalendar = () => {
 
                                     </thead>
 
+
                                     <tbody>
 
                                         {filteredHolidays.map(
@@ -1371,7 +1424,9 @@ const HolidayCalendar = () => {
                                                         holiday?.holiday_type
                                                     );
 
+
                                                 return (
+
                                                     <tr
                                                         key={
                                                             holiday?.id ??
@@ -1415,6 +1470,7 @@ const HolidayCalendar = () => {
 
                                                         </td>
 
+
                                                         {/* Holiday Name */}
 
                                                         <td className="px-6 py-5">
@@ -1426,22 +1482,28 @@ const HolidayCalendar = () => {
 
                                                         </td>
 
+
                                                         {/* Type */}
 
                                                         <td className="px-6 py-5">
 
                                                             {holidayType ===
                                                             "half day" ? (
+
                                                                 <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
                                                                     Half Day
                                                                 </span>
+
                                                             ) : (
+
                                                                 <span className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
                                                                     Full Day
                                                                 </span>
+
                                                             )}
 
                                                         </td>
+
 
                                                         {/* Paid */}
 
@@ -1449,6 +1511,7 @@ const HolidayCalendar = () => {
 
                                                             {holiday?.is_paid !==
                                                             false ? (
+
                                                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
 
                                                                     <Check
@@ -1458,7 +1521,9 @@ const HolidayCalendar = () => {
                                                                     Paid
 
                                                                 </span>
+
                                                             ) : (
+
                                                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
 
                                                                     <X
@@ -1468,9 +1533,11 @@ const HolidayCalendar = () => {
                                                                     Unpaid
 
                                                                 </span>
+
                                                             )}
 
                                                         </td>
+
 
                                                         {/* Actions */}
 
@@ -1496,6 +1563,7 @@ const HolidayCalendar = () => {
 
                                                                 </button>
 
+
                                                                 <button
                                                                     type="button"
                                                                     onClick={() =>
@@ -1519,6 +1587,7 @@ const HolidayCalendar = () => {
                                                         </td>
 
                                                     </tr>
+
                                                 );
                                             }
                                         )}
@@ -1537,6 +1606,7 @@ const HolidayCalendar = () => {
 
             </main>
 
+
             {/* ==================================================
                 ADD / EDIT MODAL
             ================================================== */}
@@ -1554,9 +1624,11 @@ const HolidayCalendar = () => {
                             <div>
 
                                 <h2 className="text-lg font-bold text-slate-900">
+
                                     {editingHoliday
                                         ? "Edit Holiday"
                                         : "Add Holiday"}
+
                                 </h2>
 
                                 <p className="mt-1 text-xs text-slate-500">
@@ -1564,6 +1636,7 @@ const HolidayCalendar = () => {
                                 </p>
 
                             </div>
+
 
                             <button
                                 type="button"
@@ -1583,6 +1656,7 @@ const HolidayCalendar = () => {
                             </button>
 
                         </div>
+
 
                         {/* Modal Form */}
 
@@ -1619,6 +1693,7 @@ const HolidayCalendar = () => {
 
                                 </div>
 
+
                                 {/* Name */}
 
                                 <div>
@@ -1644,6 +1719,7 @@ const HolidayCalendar = () => {
                                     />
 
                                 </div>
+
 
                                 {/* Type */}
 
@@ -1678,6 +1754,7 @@ const HolidayCalendar = () => {
 
                                 </div>
 
+
                                 {/* Paid */}
 
                                 <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -1693,6 +1770,7 @@ const HolidayCalendar = () => {
                                         </p>
 
                                     </div>
+
 
                                     <input
                                         type="checkbox"
@@ -1712,6 +1790,7 @@ const HolidayCalendar = () => {
 
                             </div>
 
+
                             {/* Modal Footer */}
 
                             <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
@@ -1729,6 +1808,7 @@ const HolidayCalendar = () => {
                                     Cancel
                                 </button>
 
+
                                 <button
                                     type="submit"
                                     disabled={
@@ -1738,15 +1818,20 @@ const HolidayCalendar = () => {
                                 >
 
                                     {saving ? (
+
                                         <RefreshCw
                                             size={15}
                                             className="animate-spin"
                                         />
+
                                     ) : (
+
                                         <Check
                                             size={15}
                                         />
+
                                     )}
+
 
                                     {editingHoliday
                                         ? "Save Changes"
@@ -1768,4 +1853,6 @@ const HolidayCalendar = () => {
     );
 };
 
+
 export default HolidayCalendar;
+
