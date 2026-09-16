@@ -587,6 +587,100 @@ router.get("/monthly", async (req, res) => {
     }
 });
 
+
+/* =====================================================
+   EMPLOYEE PAYSLIPS
+=====================================================
+
+GET /api/employee/payroll/me
+===================================================== */
+
+router.get(
+    "/payroll/me",
+    ...employeeAuth,
+    async (req, res) => {
+        try {
+            const employeeId =
+                Number(req.profile?.employee_id);
+
+            console.log(
+                "Logged-in employee ID:",
+                employeeId
+            );
+
+            if (!employeeId) {
+                return res.status(403).json({
+                    success: false,
+                    message:
+                        "Employee profile is not linked to an employee.",
+                });
+            }
+
+            const {
+                data: payslips,
+                error,
+            } = await supabase
+                .from(
+                    "third_party_payroll"
+                )
+                .select("*")
+                .eq(
+                    "employee_ref_id",
+                    employeeId
+                )
+                .in("status", [
+                    "approved",
+                    "Approved",
+                    "locked",
+                    "Locked",
+                    "paid",
+                    "Paid",
+                ])
+                .order(
+                    "salary_month",
+                    {
+                        ascending: false,
+                    }
+                );
+
+            if (error) {
+                console.error(
+                    "Employee payslip database error:",
+                    error
+                );
+
+                return res.status(500).json({
+                    success: false,
+                    message:
+                        "Unable to load payslips.",
+                    error:
+                        error.message,
+                });
+            }
+
+            return res.json({
+                success: true,
+                payslips:
+                    payslips || [],
+            });
+
+        } catch (error) {
+            console.error(
+                "Employee payslip API error:",
+                error
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "Unable to load payslips.",
+                error:
+                    error.message,
+            });
+        }
+    }
+);
+
 // ============================================================
 // EXPORT
 // ============================================================
