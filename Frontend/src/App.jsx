@@ -61,7 +61,7 @@ import EmployeeAttendanceRectification from "./pages/Employee/components/Employe
 import EmployeeLeave from "./pages/Employee/components/EmployeeLeave";
 import EmployeeHolidayCalendar from "./pages/Employee/components/EmployeeHolidayCalendar";
 import EmployeeRoster from "./pages/Employee/components/EmployeeRoster";
-import EmployeeCompOff from "./pages/Employee/components/EmployeeCompOff";
+
 
 // =====================================================
 // CLIENT
@@ -69,7 +69,7 @@ import EmployeeCompOff from "./pages/Employee/components/EmployeeCompOff";
 
 import ClientPortalDashboard from "./pages/client/components/ClientPortalDashboard";
 
-import ClientAttendance from "./pages/client/components/AttedanceApproval/ClientAttendance";
+import {ClientAttendance} from "./pages/client/components/AttedanceApproval/ClientAttendance";
 
 import JobRequirementsClient from "./pages/client/components/Recruitment/JobRequirementsClient";
 
@@ -78,8 +78,6 @@ import ClientCandidates from "./pages/client/components/Recruitment/ClientCandid
 import ClientInvoiceManagement from "./pages/client/components/Billing/ClientInvoiceManagement";
 
 import AttendanceRectifications from "./pages/client/components/AttedanceApproval/AttendanceRectifications";
-import AttendancePolicy from "./pages/client/components/AttedanceApproval/AttendancePolicy";
-import CompOff from "./pages/client/components/AttedanceApproval/CompOff";
 import HolidayCalendar from "./pages/client/components/AttedanceApproval/HolidayCalendar";
 import Leave from "./pages/client/components/AttedanceApproval/Leave";
 import Roster from "./pages/client/components/AttedanceApproval/Roster";
@@ -370,15 +368,6 @@ function App() {
                             element={<Roster />}
                         />
 
-                        <Route
-                            path="/client/attendance-policy"
-                            element={<AttendancePolicy />}
-                        />
-
-                        <Route
-                            path="/client/compoff"
-                            element={<CompOff />}
-                        />
                     </Route>
 
                     {/* =====================================================

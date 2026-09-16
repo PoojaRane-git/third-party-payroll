@@ -82,18 +82,6 @@ function Sidebar({ clientName, onLogout }) {
           path: "/client/roster",
           icon: Users,
         },
-        {
-          id: "attendance-policy",
-          label: "Attendance Policy",
-          path: "/client/attendance-policy",
-          icon: Settings2,
-        },
-        {
-          id: "compoff",
-          label: "Comp-Off",
-          path: "/client/compoff",
-          icon: HandCoins,
-        },
       ],
     },
     {
