@@ -11,8 +11,7 @@ CheckCircle2,
 RefreshCw,
 Search,
 } from "lucide-react";
-
-import Sidebar from "../../components/Sidebar";
+import Sidebar from "../../Employee/components/EmployeeSidebar";
 import api from "../../services/api";
 import { useAuth } from "../../../auth/AuthProvider";
 
