@@ -32,11 +32,10 @@ const formatDateForDisplay = (dateString) => {
 
     const value = String(dateString).slice(0, 10);
 
-    const [year, month, day] =
-        value.split("-");
+    const [year, month, day] = value.split("-");
 
     if (!year || !month || !day) {
-        return dateString;
+        return String(dateString);
     }
 
     return `${day}/${month}/${year}`;
@@ -45,41 +44,33 @@ const formatDateForDisplay = (dateString) => {
 const formatDateLong = (dateString) => {
     if (!dateString) return "";
 
-    const value =
-        String(dateString).slice(0, 10);
+    const value = String(dateString).slice(0, 10);
 
-    const date =
-        new Date(`${value}T00:00:00`);
+    const date = new Date(`${value}T00:00:00`);
 
     if (Number.isNaN(date.getTime())) {
-        return dateString;
+        return String(dateString);
     }
 
-    return date.toLocaleDateString(
-        "en-IN",
-        {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        }
-    );
+    return date.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+    });
 };
 
 const getToday = () => {
     const date = new Date();
 
-    const year =
-        date.getFullYear();
+    const year = date.getFullYear();
 
-    const month =
-        String(
-            date.getMonth() + 1
-        ).padStart(2, "0");
+    const month = String(
+        date.getMonth() + 1
+    ).padStart(2, "0");
 
-    const day =
-        String(
-            date.getDate()
-        ).padStart(2, "0");
+    const day = String(
+        date.getDate()
+    ).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
 };
@@ -100,38 +91,58 @@ const normalizeStatus = (status) => {
 // ============================================================
 
 const getEmployeeName = (employee) => {
-    return (
-        employee?.employee_name ||
-        employee?.candidate_name ||
-        employee?.full_name ||
-        employee?.name ||
-        employee?.employee?.full_name ||
-        employee?.employee?.name ||
-        employee?.candidate?.full_name ||
-        employee?.candidate?.name ||
-        employee?.candidates?.full_name ||
-        employee?.candidates?.name ||
-        "Unknown Employee"
-    );
+    const name =
+        employee?.employee_name ??
+        employee?.candidate_name ??
+        employee?.full_name ??
+        employee?.name ??
+        employee?.employee?.employee_name ??
+        employee?.employee?.candidate_name ??
+        employee?.employee?.full_name ??
+        employee?.employee?.name ??
+        employee?.candidate?.employee_name ??
+        employee?.candidate?.candidate_name ??
+        employee?.candidate?.full_name ??
+        employee?.candidate?.name ??
+        employee?.candidates?.employee_name ??
+        employee?.candidates?.candidate_name ??
+        employee?.candidates?.full_name ??
+        employee?.candidates?.name ??
+        employee?.employee_user?.full_name ??
+        employee?.employee_user?.name ??
+        "Unknown Employee";
+
+    return String(name || "Unknown Employee");
 };
 
 // ============================================================
 // EMPLOYEE ID
 //
-// IMPORTANT:
-// Attendance table uses candidates_id.
+// Handles different possible API structures.
+// Attendance normally uses candidates_id.
 // ============================================================
 
 const getEmployeeId = (employee) => {
-    return (
+    const id =
         employee?.candidates_id ??
         employee?.candidate_id ??
         employee?.employee_id ??
-        employee?.employee?.id ??
+        employee?.candidates?.id ??
         employee?.candidate?.id ??
+        employee?.employee?.id ??
+        employee?.employee?.candidate_id ??
+        employee?.employee?.candidates_id ??
+        employee?.deployment?.candidates_id ??
+        employee?.deployment?.candidate_id ??
+        employee?.deployment?.candidate?.id ??
+        employee?.deployment?.candidate?.candidates_id ??
         employee?.id ??
-        ""
-    );
+        "";
+
+    return id === null ||
+        id === undefined
+        ? ""
+        : String(id);
 };
 
 // ============================================================
@@ -139,13 +150,12 @@ const getEmployeeId = (employee) => {
 // ============================================================
 
 const getOvertime = (record) => {
-    const value =
-        Number(
-            record?.overtime_hours ??
-            record?.overtime ??
-            record?.ot_hours ??
-            0
-        );
+    const value = Number(
+        record?.overtime_hours ??
+        record?.overtime ??
+        record?.ot_hours ??
+        0
+    );
 
     return Number.isFinite(value)
         ? value
@@ -157,12 +167,12 @@ const getOvertime = (record) => {
 // ============================================================
 
 const getWorkingHours = (record) => {
-    const value =
-        Number(
-            record?.working_hours ??
-            record?.hours_worked ??
-            0
-        );
+    const value = Number(
+        record?.working_hours ??
+        record?.hours_worked ??
+        record?.total_working_hours ??
+        0
+    );
 
     return Number.isFinite(value)
         ? value
@@ -184,17 +194,15 @@ const getStatus = (record) => {
 // ============================================================
 
 const isMissingPunch = (record) => {
-
     if (
         record?.is_missing_punch === true
     ) {
         return true;
     }
 
-    const status =
-        normalizeStatus(
-            record?.status
-        );
+    const status = normalizeStatus(
+        record?.status
+    );
 
     if (
         status === "missing_punch" ||
@@ -204,10 +212,6 @@ const isMissingPunch = (record) => {
         return true;
     }
 
-    /*
-     * If employee checked in but has no
-     * checkout, it is an incomplete punch.
-     */
     if (
         record?.check_in &&
         !record?.check_out
@@ -230,21 +234,19 @@ const formatBillingMonth = (
     const [
         year,
         month,
-    ] =
-        String(
-            billingMonth
-        ).split("-");
+    ] = String(
+        billingMonth
+    ).split("-");
 
     if (!year || !month) {
-        return billingMonth;
+        return String(billingMonth);
     }
 
-    const date =
-        new Date(
-            Number(year),
-            Number(month) - 1,
-            1
-        );
+    const date = new Date(
+        Number(year),
+        Number(month) - 1,
+        1
+    );
 
     return date.toLocaleDateString(
         "en-IN",
@@ -260,13 +262,11 @@ const formatBillingMonth = (
 // ============================================================
 
 const formatTime = (value) => {
-
     if (!value) {
         return "—";
     }
 
-    const date =
-        new Date(value);
+    const date = new Date(value);
 
     if (
         !Number.isNaN(
@@ -346,9 +346,6 @@ const ClientAttendance = () => {
 
     // ========================================================
     // ALL CLIENT EMPLOYEES
-    //
-    // This is required to display employees who have
-    // no attendance row for the selected date.
     // ========================================================
 
     const [
@@ -386,10 +383,9 @@ const ClientAttendance = () => {
 
     const clientId = useMemo(() => {
 
-        const numericId =
-            Number(
-                user?.client_id
-            );
+        const numericId = Number(
+            user?.client_id
+        );
 
         if (
             Number.isFinite(
@@ -409,7 +405,6 @@ const ClientAttendance = () => {
     // ========================================================
 
     const clientName = useMemo(() => {
-
         return (
             user?.company_name ||
             user?.companyName ||
@@ -417,7 +412,6 @@ const ClientAttendance = () => {
             user?.name ||
             ""
         );
-
     }, [user]);
 
     // ========================================================
@@ -425,22 +419,17 @@ const ClientAttendance = () => {
     // ========================================================
 
     useEffect(() => {
-
         console.log(
             "CLIENT ATTENDANCE AUTH:",
             {
                 authLoading,
-                hasSession:
-                    !!session,
+                hasSession: !!session,
                 user,
                 clientId,
-                role:
-                    user?.role,
-                status:
-                    user?.status,
+                role: user?.role,
+                status: user?.status,
             }
         );
-
     }, [
         authLoading,
         session,
@@ -452,42 +441,26 @@ const ClientAttendance = () => {
     // LOGOUT
     // ========================================================
 
-    const handleLogout =
-        async () => {
+    const handleLogout = async () => {
+        try {
+            await logout();
 
-            try {
+            window.location.href =
+                "/login";
 
-                await logout();
-
-                window.location.href =
-                    "/login";
-
-            } catch (
+        } catch (logoutError) {
+            console.error(
+                "Client attendance logout error:",
                 logoutError
-            ) {
+            );
 
-                console.error(
-                    "Client attendance logout error:",
-                    logoutError
-                );
-
-                window.location.href =
-                    "/login";
-            }
-        };
+            window.location.href =
+                "/login";
+        }
+    };
 
     // ========================================================
     // FETCH CLIENT EMPLOYEES
-    //
-    // GET /api/attendance/employees?client_id=1
-    //
-    // This allows the UI to show:
-    //
-    // Employee has attendance row
-    //       -> use actual attendance
-    //
-    // Employee has NO attendance row
-    //       -> show Absent
     // ========================================================
 
     const fetchClientEmployees =
@@ -525,12 +498,32 @@ const ClientAttendance = () => {
                         );
 
                     const result =
-                        response?.data ||
-                        {};
+                        response?.data || {};
 
                     console.log(
                         "CLIENT EMPLOYEES RESPONSE:",
                         result
+                    );
+
+                    const employees =
+                        Array.isArray(
+                            result?.employees
+                        )
+                            ? result.employees
+                            : Array.isArray(
+                                result?.data
+                            )
+                                ? result.data
+                                : [];
+
+                    console.log(
+                        "CLIENT EMPLOYEES ARRAY:",
+                        employees
+                    );
+
+                    console.log(
+                        "CLIENT EMPLOYEES COUNT:",
+                        employees.length
                     );
 
                     if (
@@ -543,17 +536,6 @@ const ClientAttendance = () => {
                             "Failed to load employees."
                         );
                     }
-
-                    const employees =
-                        Array.isArray(
-                            result.data
-                        )
-                            ? result.data
-                            : Array.isArray(
-                                result.employees
-                            )
-                                ? result.employees
-                                : [];
 
                     setClientEmployees(
                         employees
@@ -569,11 +551,10 @@ const ClientAttendance = () => {
                     );
 
                     /*
-                     * Do not destroy attendance data
-                     * if employee lookup fails.
+                     * Do not destroy attendance
+                     * data if employee lookup fails.
                      */
                 }
-
             },
             [
                 authLoading,
@@ -585,8 +566,6 @@ const ClientAttendance = () => {
 
     // ========================================================
     // FETCH ALL ATTENDANCE
-    //
-    // GET /api/attendance/all?client_id=1
     // ========================================================
 
     const fetchAllAttendance =
@@ -646,17 +625,49 @@ const ClientAttendance = () => {
                             }
                         );
 
+                    /*
+                     * IMPORTANT:
+                     *
+                     * Axios response:
+                     *
+                     * response.data
+                     *
+                     * is the backend object:
+                     *
+                     * {
+                     *   success: true,
+                     *   data: [...]
+                     * }
+                     */
+
                     const result =
-                        response?.data ||
-                        {};
+                        response?.data || {};
 
                     console.log(
-                        "ALL ATTENDANCE RESPONSE:",
+                        "FULL AXIOS RESPONSE DATA:",
                         result
                     );
-    console.log("FULL AXIOS RESPONSE:", result);
-console.log("RESULT.DATA:", result?.data);
-console.log("RESULT.DATA TYPE:", typeof result?.data);
+
+                    console.log(
+                        "RESULT.DATA:",
+                        result?.data
+                    );
+
+                    console.log(
+                        "RESULT.DATA IS ARRAY:",
+                        Array.isArray(
+                            result?.data
+                        )
+                    );
+
+                    console.log(
+                        "RESULT.DATA LENGTH:",
+                        Array.isArray(
+                            result?.data
+                        )
+                            ? result.data.length
+                            : 0
+                    );
 
                     if (
                         result.success !==
@@ -684,6 +695,40 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                             ? result.months
                             : [];
 
+                    console.log(
+                        "ATTENDANCE RECORDS:",
+                        records
+                    );
+
+                    console.log(
+                        "ATTENDANCE RECORD COUNT:",
+                        records.length
+                    );
+
+                    if (
+                        records.length > 0
+                    ) {
+
+                        console.log(
+                            "FIRST ATTENDANCE RECORD:",
+                            records[0]
+                        );
+
+                        console.log(
+                            "FIRST ATTENDANCE EMPLOYEE ID:",
+                            getEmployeeId(
+                                records[0]
+                            )
+                        );
+
+                        console.log(
+                            "FIRST ATTENDANCE EMPLOYEE NAME:",
+                            getEmployeeName(
+                                records[0]
+                            )
+                        );
+                    }
+
                     setAllAttendance(
                         records
                     );
@@ -697,8 +742,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                     // ==================================================
 
                     if (
-                        months.length >
-                        0
+                        months.length > 0
                     ) {
 
                         const available =
@@ -715,8 +759,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                                 .sort();
 
                         if (
-                            available.length >
-                            0
+                            available.length > 0
                         ) {
 
                             const latestMonth =
@@ -724,6 +767,13 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                                     available.length -
                                     1
                                 ];
+
+                            /*
+                             * If currently selected
+                             * month does not exist,
+                             * automatically use the
+                             * latest backend month.
+                             */
 
                             if (
                                 !available.includes(
@@ -825,9 +875,11 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
             return;
         }
 
-        fetchAllAttendance(
-            true
+        console.log(
+            "STARTING ATTENDANCE DATA LOAD"
         );
+
+        fetchAllAttendance(true);
 
         fetchClientEmployees();
 
@@ -849,22 +901,16 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
 
             try {
 
-                setRefreshing(
-                    true
-                );
+                setRefreshing(true);
 
                 await Promise.all([
-                    fetchAllAttendance(
-                        false
-                    ),
+                    fetchAllAttendance(false),
                     fetchClientEmployees(),
                 ]);
 
             } finally {
 
-                setRefreshing(
-                    false
-                );
+                setRefreshing(false);
             }
         };
 
@@ -887,16 +933,6 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
 
     // ========================================================
     // DAILY ATTENDANCE
-    //
-    // IMPORTANT:
-    //
-    // We start with ALL CLIENT EMPLOYEES.
-    //
-    // If an employee has a matching attendance row,
-    // use that attendance row.
-    //
-    // If no row exists:
-    // create an Absent record.
     // ========================================================
 
     const dailyAttendance =
@@ -904,11 +940,30 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
 
             const selectedDate =
                 String(
-                    attendanceDate
-                );
+                    attendanceDate || ""
+                ).slice(0, 10);
+
+            console.log(
+                "========== DAILY ATTENDANCE CALCULATION =========="
+            );
+
+            console.log(
+                "SELECTED DATE:",
+                selectedDate
+            );
+
+            console.log(
+                "ALL ATTENDANCE COUNT:",
+                allAttendance.length
+            );
+
+            console.log(
+                "CLIENT EMPLOYEES COUNT:",
+                clientEmployees.length
+            );
 
             // -------------------------------------------------
-            // Actual attendance records for selected date
+            // Actual attendance records
             // -------------------------------------------------
 
             const dateAttendance =
@@ -928,8 +983,18 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                     }
                 );
 
+            console.log(
+                "DATE ATTENDANCE:",
+                dateAttendance
+            );
+
+            console.log(
+                "DATE ATTENDANCE COUNT:",
+                dateAttendance.length
+            );
+
             // -------------------------------------------------
-            // Map actual attendance by candidate ID
+            // Attendance map
             // -------------------------------------------------
 
             const attendanceMap =
@@ -939,57 +1004,82 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 (record) => {
 
                     const employeeId =
-                        String(
-                            getEmployeeId(
-                                record
-                            )
+                        getEmployeeId(
+                            record
                         );
 
                     if (
-                        employeeId &&
-                        employeeId !==
-                            "undefined"
+                        employeeId
                     ) {
 
                         attendanceMap.set(
-                            employeeId,
+                            String(
+                                employeeId
+                            ),
                             record
                         );
                     }
                 }
             );
 
+            console.log(
+                "ATTENDANCE MAP:",
+                attendanceMap
+            );
+
             // -------------------------------------------------
-            // Start with employees
+            // Result
             // -------------------------------------------------
 
             const result = [];
+
+            // -------------------------------------------------
+            // Add client employees
+            // -------------------------------------------------
 
             clientEmployees.forEach(
                 (employee) => {
 
                     const employeeId =
-                        String(
-                            getEmployeeId(
-                                employee
-                            )
+                        getEmployeeId(
+                            employee
                         );
 
-                    if (
-                        !employeeId ||
-                        employeeId ===
-                            "undefined"
-                    ) {
+                    console.log(
+                        "EMPLOYEE:",
+                        employee
+                    );
+
+                    console.log(
+                        "EMPLOYEE ID:",
+                        employeeId
+                    );
+
+                    console.log(
+                        "EMPLOYEE NAME:",
+                        getEmployeeName(
+                            employee
+                        )
+                    );
+
+                    if (!employeeId) {
+                        console.warn(
+                            "Employee skipped because ID was not found:",
+                            employee
+                        );
+
                         return;
                     }
 
                     const actualRecord =
                         attendanceMap.get(
-                            employeeId
+                            String(
+                                employeeId
+                            )
                         );
 
                     // -----------------------------------------
-                    // Actual attendance exists
+                    // Actual attendance
                     // -----------------------------------------
 
                     if (
@@ -1004,9 +1094,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                     }
 
                     // -----------------------------------------
-                    // NO ATTENDANCE RECORD
-                    //
-                    // Create virtual ABSENT record.
+                    // No attendance
                     // -----------------------------------------
 
                     result.push({
@@ -1014,19 +1102,13 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                             `absent-${employeeId}-${selectedDate}`,
 
                         candidates_id:
-                            getEmployeeId(
-                                employee
-                            ),
+                            employeeId,
 
                         candidate_id:
-                            getEmployeeId(
-                                employee
-                            ),
+                            employeeId,
 
                         employee_id:
-                            getEmployeeId(
-                                employee
-                            ),
+                            employeeId,
 
                         employee_name:
                             getEmployeeName(
@@ -1039,18 +1121,18 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                             ),
 
                         employee_email:
-                            employee?.employee_email ||
-                            employee?.email ||
+                            employee?.employee_email ??
+                            employee?.email ??
                             null,
 
                         employee_phone:
-                            employee?.employee_phone ||
-                            employee?.phone ||
-                            employee?.mobile ||
+                            employee?.employee_phone ??
+                            employee?.phone ??
+                            employee?.mobile ??
                             null,
 
                         designation:
-                            employee?.designation ||
+                            employee?.designation ??
                             null,
 
                         attendance_date:
@@ -1082,22 +1164,21 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
             );
 
             // -------------------------------------------------
-            // Safety:
-            //
-            // If backend returned attendance for an employee
-            // that is not currently returned by /employees,
-            // don't hide that attendance.
+            // Add backend records that were not found
+            // in clientEmployees.
             // -------------------------------------------------
 
             dateAttendance.forEach(
                 (record) => {
 
                     const employeeId =
-                        String(
-                            getEmployeeId(
-                                record
-                            )
+                        getEmployeeId(
+                            record
                         );
+
+                    if (!employeeId) {
+                        return;
+                    }
 
                     const alreadyExists =
                         result.some(
@@ -1107,7 +1188,9 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                                         item
                                     )
                                 ) ===
-                                employeeId
+                                String(
+                                    employeeId
+                                )
                         );
 
                     if (
@@ -1119,6 +1202,16 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                         );
                     }
                 }
+            );
+
+            console.log(
+                "FINAL DAILY ATTENDANCE:",
+                result
+            );
+
+            console.log(
+                "FINAL DAILY ATTENDANCE COUNT:",
+                result.length
             );
 
             return result;
@@ -1137,7 +1230,9 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
         useMemo(() => {
 
             const search =
-                searchEmployee
+                String(
+                    searchEmployee || ""
+                )
                     .trim()
                     .toLowerCase();
 
@@ -1145,15 +1240,17 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 (record) => {
 
                     const employeeName =
-                        getEmployeeName(
-                            record
+                        String(
+                            getEmployeeName(
+                                record
+                            ) || ""
                         ).toLowerCase();
 
                     const employeeId =
                         String(
                             getEmployeeId(
                                 record
-                            )
+                            ) || ""
                         ).toLowerCase();
 
                     const matchesSearch =
@@ -1215,21 +1312,39 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
     const selectedMonthAttendance =
         useMemo(() => {
 
-            return allAttendance.filter(
-                (record) => {
+            const result =
+                allAttendance.filter(
+                    (record) => {
 
-                    const date =
-                        String(
-                            record?.attendance_date ||
-                            ""
-                        ).slice(0, 10);
+                        const date =
+                            String(
+                                record?.attendance_date ||
+                                ""
+                            ).slice(0, 10);
 
-                    return (
-                        date.slice(0, 7) ===
-                        billingMonth
-                    );
-                }
+                        return (
+                            date.slice(0, 7) ===
+                            billingMonth
+                        );
+                    }
+                );
+
+            console.log(
+                "SELECTED MONTH:",
+                billingMonth
             );
+
+            console.log(
+                "SELECTED MONTH RECORDS:",
+                result
+            );
+
+            console.log(
+                "SELECTED MONTH RECORD COUNT:",
+                result.length
+            );
+
+            return result;
 
         }, [
             allAttendance,
@@ -1252,38 +1367,33 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
             ) {
 
                 const employeeId =
-                    String(
-                        getEmployeeId(
-                            record
-                        )
+                    getEmployeeId(
+                        record
                     );
 
-                if (
-                    !employeeId ||
-                    employeeId ===
-                        "undefined"
-                ) {
+                if (!employeeId) {
                     continue;
                 }
 
+                const employeeKey =
+                    String(
+                        employeeId
+                    );
+
                 if (
                     !employeeMap.has(
-                        employeeId
+                        employeeKey
                     )
                 ) {
 
                     employeeMap.set(
-                        employeeId,
+                        employeeKey,
                         {
                             employee_id:
-                                getEmployeeId(
-                                    record
-                                ),
+                                employeeId,
 
                             candidates_id:
-                                getEmployeeId(
-                                    record
-                                ),
+                                employeeId,
 
                             employee_name:
                                 getEmployeeName(
@@ -1297,40 +1407,51 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
 
                             employee_email:
                                 record?.employee_email ??
+                                record?.email ??
                                 null,
 
                             employee_phone:
                                 record?.employee_phone ??
+                                record?.phone ??
                                 null,
 
                             designation:
                                 record?.designation ??
                                 null,
 
-                            present_days: 0,
+                            present_days:
+                                0,
 
-                            absent_days: 0,
+                            absent_days:
+                                0,
 
-                            leave_days: 0,
+                            leave_days:
+                                0,
 
-                            half_days: 0,
+                            half_days:
+                                0,
 
-                            working_days: 0,
+                            working_days:
+                                0,
 
-                            lop_days: 0,
+                            lop_days:
+                                0,
 
-                            overtime_hours: 0,
+                            overtime_hours:
+                                0,
 
-                            total_records: 0,
+                            total_records:
+                                0,
 
-                            total_working_hours: 0,
+                            total_working_hours:
+                                0,
                         }
                     );
                 }
 
                 const employee =
                     employeeMap.get(
-                        employeeId
+                        employeeKey
                     );
 
                 const status =
@@ -1339,7 +1460,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                     );
 
                 // ---------------------------------------------
-                // EVERY DAILY RECORD COUNTS
+                // EVERY RECORD
                 // ---------------------------------------------
 
                 employee.total_records++;
@@ -1367,10 +1488,6 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
 
                     employee.absent_days++;
 
-                    /*
-                     * Absent is also treated as LOP
-                     * for payroll calculation.
-                     */
                     employee.lop_days++;
                 }
 
@@ -1391,12 +1508,9 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 // ---------------------------------------------
 
                 if (
-                    status ===
-                        "leave" ||
-                    status ===
-                        "on_leave" ||
-                    status ===
-                        "approved_leave"
+                    status === "leave" ||
+                    status === "on_leave" ||
+                    status === "approved_leave"
                 ) {
 
                     employee.leave_days++;
@@ -1407,10 +1521,8 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 // ---------------------------------------------
 
                 if (
-                    status ===
-                        "half_day" ||
-                    status ===
-                        "halfday"
+                    status === "half_day" ||
+                    status === "halfday"
                 ) {
 
                     employee.half_days++;
@@ -1429,10 +1541,8 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 }
 
                 if (
-                    status ===
-                        "half_day" ||
-                    status ===
-                        "halfday"
+                    status === "half_day" ||
+                    status === "halfday"
                 ) {
 
                     employee.working_days +=
@@ -1458,25 +1568,38 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                     );
             }
 
-            return Array.from(
-                employeeMap.values()
-            ).map(
-                (employee) => ({
-                    ...employee,
+            const result =
+                Array.from(
+                    employeeMap.values()
+                ).map(
+                    (employee) => ({
+                        ...employee,
 
-                    overtime_hours:
-                        Math.round(
-                            employee.overtime_hours *
+                        overtime_hours:
+                            Math.round(
+                                employee.overtime_hours *
                                 100
-                        ) / 100,
+                            ) / 100,
 
-                    total_working_hours:
-                        Math.round(
-                            employee.total_working_hours *
+                        total_working_hours:
+                            Math.round(
+                                employee.total_working_hours *
                                 100
-                        ) / 100,
-                })
+                            ) / 100,
+                    })
+                );
+
+            console.log(
+                "FINAL MONTHLY ATTENDANCE:",
+                result
             );
+
+            console.log(
+                "FINAL MONTHLY ATTENDANCE COUNT:",
+                result.length
+            );
+
+            return result;
 
         }, [
             selectedMonthAttendance,
@@ -1490,7 +1613,9 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
         useMemo(() => {
 
             const search =
-                searchEmployee
+                String(
+                    searchEmployee || ""
+                )
                     .trim()
                     .toLowerCase();
 
@@ -1498,15 +1623,17 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 (record) => {
 
                     const employeeName =
-                        getEmployeeName(
-                            record
+                        String(
+                            getEmployeeName(
+                                record
+                            ) || ""
                         ).toLowerCase();
 
                     const employeeId =
                         String(
                             getEmployeeId(
                                 record
-                            )
+                            ) || ""
                         ).toLowerCase();
 
                     return (
@@ -1561,12 +1688,9 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                     }
 
                     if (
-                        status ===
-                            "leave" ||
-                        status ===
-                            "on_leave" ||
-                        status ===
-                            "approved_leave"
+                        status === "leave" ||
+                        status === "on_leave" ||
+                        status === "approved_leave"
                     ) {
                         leave++;
                     }
@@ -1579,7 +1703,6 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
             );
 
             return {
-
                 employees:
                     dailyAttendance.length,
 
@@ -1614,34 +1737,25 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
             monthlyAttendance.forEach(
                 (record) => {
 
-                    present +=
-                        Number(
-                            record?.present_days ||
-                            0
-                        );
+                    present += Number(
+                        record?.present_days || 0
+                    );
 
-                    absent +=
-                        Number(
-                            record?.absent_days ||
-                            0
-                        );
+                    absent += Number(
+                        record?.absent_days || 0
+                    );
 
-                    leave +=
-                        Number(
-                            record?.leave_days ||
-                            0
-                        );
+                    leave += Number(
+                        record?.leave_days || 0
+                    );
 
-                    overtime +=
-                        Number(
-                            record?.overtime_hours ||
-                            0
-                        );
+                    overtime += Number(
+                        record?.overtime_hours || 0
+                    );
                 }
             );
 
             return {
-
                 employees:
                     monthlyAttendance.length,
 
@@ -1682,10 +1796,6 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
             normalizeStatus(
                 record?.status
             );
-
-        // ----------------------------------------------------
-        // MISSING PUNCH HAS PRIORITY
-        // ----------------------------------------------------
 
         if (
             isMissingPunch(
@@ -1730,7 +1840,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
 
         } else if (
             normalized ===
-                "absent"
+            "absent"
         ) {
 
             className =
@@ -1740,12 +1850,9 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 "Absent";
 
         } else if (
-            normalized ===
-                "leave" ||
-            normalized ===
-                "on_leave" ||
-            normalized ===
-                "approved_leave"
+            normalized === "leave" ||
+            normalized === "on_leave" ||
+            normalized === "approved_leave"
         ) {
 
             className =
@@ -1755,10 +1862,8 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 "Leave";
 
         } else if (
-            normalized ===
-                "half_day" ||
-            normalized ===
-                "halfday"
+            normalized === "half_day" ||
+            normalized === "halfday"
         ) {
 
             className =
@@ -1768,8 +1873,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 "Half Day";
 
         } else if (
-            normalized ===
-            "lop"
+            normalized === "lop"
         ) {
 
             className =
@@ -1779,8 +1883,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 "LOP";
 
         } else if (
-            normalized ===
-            "weekly_off"
+            normalized === "weekly_off"
         ) {
 
             className =
@@ -1790,8 +1893,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 "Weekly Off";
 
         } else if (
-            normalized ===
-            "holiday"
+            normalized === "holiday"
         ) {
 
             className =
@@ -1801,8 +1903,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 "Holiday";
 
         } else if (
-            normalized ===
-            "holiday_worked"
+            normalized === "holiday_worked"
         ) {
 
             className =
@@ -1812,8 +1913,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 "Holiday Worked";
 
         } else if (
-            normalized ===
-            "weekly_off_worked"
+            normalized === "weekly_off_worked"
         ) {
 
             className =
@@ -1823,8 +1923,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                 "Weekly Off Worked";
 
         } else if (
-            normalized ===
-            "in_progress"
+            normalized === "in_progress"
         ) {
 
             className =
@@ -1917,20 +2016,12 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
     return (
         <div className="min-h-screen bg-slate-50">
 
-            {/* ==================================================
-                SIDEBAR
-            ================================================== */}
-
             <Sidebar
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 clientName={clientName}
                 onLogout={handleLogout}
             />
-
-            {/* ==================================================
-                MAIN CONTENT
-            ================================================== */}
 
             <main className="min-h-screen pl-64">
 
@@ -2314,9 +2405,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                                     <p className="mt-2 text-2xl font-bold text-slate-950">
                                         {Number(
                                             stats.overtime
-                                        ).toFixed(
-                                            2
-                                        )}{" "}
+                                        ).toFixed(2)}{" "}
                                         hrs
                                     </p>
 
@@ -2401,9 +2490,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
 
                         </div>
 
-                        {/* ==================================================
-                            ERROR
-                        ================================================== */}
+                        {/* ERROR */}
 
                         {error && (
                             <div className="mx-5 mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -2411,9 +2498,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                             </div>
                         )}
 
-                        {/* ==================================================
-                            DAILY STATUS FILTER
-                        ================================================== */}
+                        {/* DAILY STATUS FILTER */}
 
                         {activeTab ===
                             "daily" && (
@@ -2514,10 +2599,6 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
 
                         ) : activeTab ===
                             "daily" ? (
-
-                            /* ==================================================
-                               DAILY TABLE
-                            ================================================== */
 
                             filteredDailyAttendance.length ===
                             0 ? (
@@ -2663,8 +2744,9 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
 
                                                         <td className="px-6 py-4 text-sm font-medium text-slate-700">
 
-                                                            {record?.working_hours ??
-                                                                "—"}
+                                                            {getWorkingHours(
+                                                                record
+                                                            )}
 
                                                         </td>
 
@@ -2672,9 +2754,7 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
 
                                                             {getOvertime(
                                                                 record
-                                                            ).toFixed(
-                                                                2
-                                                            )}{" "}
+                                                            ).toFixed(2)}{" "}
                                                             hrs
 
                                                         </td>
@@ -2713,10 +2793,6 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                             )
 
                         ) : (
-
-                            /* ==================================================
-                               MONTHLY TABLE
-                            ================================================== */
 
                             filteredMonthlyAttendance.length ===
                             0 ? (
@@ -2838,45 +2914,27 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-emerald-700">
-
-                                                            {record?.present_days ??
-                                                                0}
-
+                                                            {record?.present_days ?? 0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-red-600">
-
-                                                            {record?.absent_days ??
-                                                                0}
-
+                                                            {record?.absent_days ?? 0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-blue-600">
-
-                                                            {record?.leave_days ??
-                                                                0}
-
+                                                            {record?.leave_days ?? 0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-amber-600">
-
-                                                            {record?.half_days ??
-                                                                0}
-
+                                                            {record?.half_days ?? 0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-slate-700">
-
-                                                            {record?.working_days ??
-                                                                0}
-
+                                                            {record?.working_days ?? 0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-red-600">
-
-                                                            {record?.lop_days ??
-                                                                0}
-
+                                                            {record?.lop_days ?? 0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-indigo-600">
@@ -2884,18 +2942,13 @@ console.log("RESULT.DATA TYPE:", typeof result?.data);
                                                             {Number(
                                                                 record?.overtime_hours ??
                                                                 0
-                                                            ).toFixed(
-                                                                2
-                                                            )}{" "}
+                                                            ).toFixed(2)}{" "}
                                                             hrs
 
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm text-slate-600">
-
-                                                            {record?.total_records ??
-                                                                0}
-
+                                                            {record?.total_records ?? 0}
                                                         </td>
 
                                                     </tr>
