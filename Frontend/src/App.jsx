@@ -56,11 +56,11 @@ import EmployeeAttendance from "./pages/Employee/components/EmployeeAttendance";
 import EmployeeMonthlyAttendance from "./pages/Employee/components/EmployeeMonthlyAttendance";
 import EmployeePayslip from "./pages/Employee/components/EmployeePayslip";
 import EmployeeProfile from "./pages/Employee/components/EmployeeProfile";
-import AttendanceRectification from "./pages/Employee/AttendanceRectification";
-import Leave from "./pages/Employee/Leave";
-import HolidayCalendar from "./pages/Employee/HolidayCalendar";
-import Roster from "./pages/Employee/Roster";
-import CompOff from "./pages/Employee/CompOff";
+import EmployeeAttendanceRectification from "./pages/Employee/EmployeeAttendanceRectification";
+import EmployeeLeave from "./pages/Employee/EmployeeLeave";
+import EmployeeHolidayCalendar from "./pages/Employee/EmployeeHolidayCalendar";
+import EmployeeRoster from "./pages/Employee/EmployeeRoster";
+import EmployeeCompOff from "./pages/Employee/EmployeeCompOff";
 
 // =====================================================
 // CLIENT

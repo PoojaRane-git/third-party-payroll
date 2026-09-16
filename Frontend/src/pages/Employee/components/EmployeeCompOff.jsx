@@ -17,7 +17,7 @@ import Sidebar from "../../components/Sidebar";
 import api from "../../api/api";
 import { useAuth } from "../../auth/AuthProvider";
 
-const CompOff = () => {
+const EmployeeCompOff = () => {
 const { user } = useAuth();
 
 
@@ -581,4 +581,4 @@ return (
 
 };
 
-export default CompOff;
+export default EmployeeCompOff;

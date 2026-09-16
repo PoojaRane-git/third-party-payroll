@@ -40,7 +40,7 @@ import { useAuth } from "../../auth/AuthProvider";
 //   - Directly edit attendance
 // ============================================================
 
-const AttendanceRectification = () => {
+const EmployeeAttendanceRectification = () => {
 const { user } = useAuth();
 
 
@@ -1799,4 +1799,4 @@ return (
     </div>
 );
 }
-export default AttendanceRectification;
+export default EmployeeAttendanceRectification;

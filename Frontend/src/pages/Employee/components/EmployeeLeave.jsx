@@ -21,7 +21,7 @@ import Sidebar from "../../components/Sidebar";
 import api from "../../services/api";
 import { useAuth } from "../../auth/AuthProvider";
 
-const Leave = () => {
+const EmployeeLeave = () => {
 const { user } = useAuth();
 
 

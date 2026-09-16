@@ -14,7 +14,7 @@ import Sidebar from "../../components/Sidebar";
 import api from "../../api/api";
 import { useAuth } from "../../auth/AuthProvider";
 
-const Roster = () => {
+const EmployeeRoster = () => {
 const { user } = useAuth();
 
 
@@ -321,4 +321,4 @@ return (
 
 };
 
-export default Roster;
+export default EmployeeRoster;

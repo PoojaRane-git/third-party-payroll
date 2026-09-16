@@ -16,7 +16,7 @@ import Sidebar from "../../components/Sidebar";
 import api from "../../services/api";
 import { useAuth } from "../../auth/AuthProvider";
 
-const HolidayCalendar = () => {
+const EmployeeHolidayCalendar = () => {
 const { user } = useAuth();
 
 
@@ -452,4 +452,4 @@ return (
 
 };
 
-export default HolidayCalendar;
+export default EmployeeHolidayCalendar;
