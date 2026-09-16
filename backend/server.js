@@ -330,10 +330,24 @@ app.use(
 
 // =====================================================
 // EMPLOYEE ATTENDANCE
+//
+// Mounted at BOTH paths:
+//   /api/emp-attendance  -> existing check-in/check-out/
+//                            today/monthly calls already
+//                            used across the app
+//   /api/employee        -> so /payroll/me resolves at
+//                            /api/employee/payroll/me,
+//                            matching the frontend's
+//                            api.get("/employee/payroll/me")
 // =====================================================
 
 app.use(
   "/api/emp-attendance",
+  employeeAttendanceRoutes
+);
+
+app.use(
+  "/api/employee",
   employeeAttendanceRoutes
 );
 
@@ -527,11 +541,6 @@ console.log(
 console.log(
   "candidateRoutes:",
   typeof candidateRoutes
-);
-
-console.log(
-  "employee_attdanceRoutes:",
-  typeof employee_attdanceRoutes
 );
 
 console.log(
