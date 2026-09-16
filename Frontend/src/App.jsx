@@ -76,8 +76,8 @@ import JobRequirementsClient from "./pages/client/components/Recruitment/JobRequ
 import ClientCandidates from "./pages/client/components/Recruitment/ClientCandidates";
 
 import ClientInvoiceManagement from "./pages/client/components/Billing/ClientInvoiceManagement";
-import AttendanceRectifications from "./pages/client/components/AttedanceApproval/AttendanceRectifications";
 
+import AttendanceRectifications from "./pages/client/components/AttedanceApproval/AttendanceRectifications";
 import AttendancePolicy from "./pages/client/components/AttedanceApproval/AttendancePolicy";
 import CompOff from "./pages/client/components/AttedanceApproval/CompOff";
 import HolidayCalendar from "./pages/client/components/AttedanceApproval/HolidayCalendar";
@@ -306,7 +306,6 @@ function App() {
                     {/* =====================================================
                         CLIENT PORTAL
                     ===================================================== */}
-
                     <Route
                         element={
                             <ProtectedRoute
@@ -316,7 +315,6 @@ function App() {
                             />
                         }
                     >
-
                         <Route
                             path="/client-dashboard"
                             element={
@@ -352,66 +350,36 @@ function App() {
                             }
                         />
 
-
-                        ```jsx
-                        {/* =====================================================
-    NEW CLIENT ATTENDANCE RECTIFICATION
-    Client approves/rejects attendance corrections
-===================================================== */}
                         <Route
                             path="/client/attendance-rectifications"
                             element={<AttendanceRectifications />}
                         />
 
-                        {/* =====================================================
-    NEW CLIENT LEAVE
-    Client approves/rejects leave requests
-===================================================== */}
                         <Route
                             path="/client/leave"
                             element={<Leave />}
                         />
 
-                        {/* =====================================================
-    NEW CLIENT HOLIDAY CALENDAR
-    Client directly manages holidays
-===================================================== */}
                         <Route
                             path="/client/holiday-calendar"
                             element={<HolidayCalendar />}
                         />
 
-                        {/* =====================================================
-    NEW CLIENT ROSTER
-    Client directly manages employee working days
-===================================================== */}
                         <Route
                             path="/client/roster"
                             element={<Roster />}
                         />
 
-                        {/* =====================================================
-    NEW CLIENT ATTENDANCE POLICY
-    Client directly configures attendance rules
-===================================================== */}
                         <Route
                             path="/client/attendance-policy"
                             element={<AttendancePolicy />}
                         />
 
-                        {/* =====================================================
-    NEW CLIENT COMP-OFF
-    Client views automatically generated comp-off
-===================================================== */}
                         <Route
                             path="/client/compoff"
                             element={<CompOff />}
                         />
-                        ```
-
-
                     </Route>
-
 
                     {/* =====================================================
                         OTHER SECTIONS

@@ -49,7 +49,6 @@ function Sidebar({ clientName, onLogout }) {
         },
       ],
     },
-
     {
       groupLabel: "Workforce",
       items: [
@@ -62,42 +61,41 @@ function Sidebar({ clientName, onLogout }) {
         {
           id: "attendance-rectifications",
           label: "Rectification Requests",
-          path: "/client-dashboard/attendance/rectifications",
+          path: "/client/attendance-rectifications",
           icon: FileWarning,
         },
         {
           id: "leave",
           label: "Leave Requests",
-          path: "/client-dashboard/leave",
+          path: "/client/leave",
           icon: CalendarDays,
         },
         {
           id: "holiday-calendar",
           label: "Holiday Calendar",
-          path: "/client-dashboard/holidays",
+          path: "/client/holiday-calendar",
           icon: CalendarDays,
         },
         {
           id: "roster",
           label: "Roster",
-          path: "/client-dashboard/roster",
+          path: "/client/roster",
           icon: Users,
         },
         {
           id: "attendance-policy",
           label: "Attendance Policy",
-          path: "/client-dashboard/attendance-policy",
+          path: "/client/attendance-policy",
           icon: Settings2,
         },
         {
           id: "compoff",
           label: "Comp-Off",
-          path: "/client-dashboard/compoff",
+          path: "/client/compoff",
           icon: HandCoins,
         },
       ],
     },
-
     {
       groupLabel: "Finance",
       items: [
@@ -166,24 +164,22 @@ function Sidebar({ clientName, onLogout }) {
                 (item.id === "attendance" &&
                   location.pathname.startsWith("/client-dashboard/attendance") &&
                   location.pathname !==
-                    "/client-dashboard/attendance/rectifications");
+                  "/client-dashboard/attendance/rectifications");
 
               return (
                 <button
                   key={item.id}
                   onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                    isActive
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${isActive
                       ? "bg-indigo-600/15 text-indigo-400 border border-indigo-500/30 shadow-inner"
                       : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
-                  }`}
+                    }`}
                 >
                   <Icon
-                    className={`h-4 w-4 shrink-0 ${
-                      isActive
+                    className={`h-4 w-4 shrink-0 ${isActive
                         ? "text-indigo-400"
                         : "text-slate-400"
-                    }`}
+                      }`}
                   />
 
                   {item.label}
