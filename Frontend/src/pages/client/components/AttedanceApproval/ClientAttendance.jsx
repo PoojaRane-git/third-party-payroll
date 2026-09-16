@@ -1,3 +1,4 @@
+
 import React, {
     useCallback,
     useEffect,
@@ -31,7 +32,6 @@ const formatDateForDisplay = (dateString) => {
     if (!dateString) return "";
 
     const value = String(dateString).slice(0, 10);
-
     const [year, month, day] = value.split("-");
 
     if (!year || !month || !day) {
@@ -45,7 +45,6 @@ const formatDateLong = (dateString) => {
     if (!dateString) return "";
 
     const value = String(dateString).slice(0, 10);
-
     const date = new Date(`${value}T00:00:00`);
 
     if (Number.isNaN(date.getTime())) {
@@ -97,19 +96,14 @@ const getEmployeeName = (employee) => {
         employee?.full_name ??
         employee?.name ??
         employee?.employee?.employee_name ??
-        employee?.employee?.candidate_name ??
         employee?.employee?.full_name ??
         employee?.employee?.name ??
-        employee?.candidate?.employee_name ??
         employee?.candidate?.candidate_name ??
         employee?.candidate?.full_name ??
         employee?.candidate?.name ??
-        employee?.candidates?.employee_name ??
         employee?.candidates?.candidate_name ??
         employee?.candidates?.full_name ??
         employee?.candidates?.name ??
-        employee?.employee_user?.full_name ??
-        employee?.employee_user?.name ??
         "Unknown Employee";
 
     return String(name || "Unknown Employee");
@@ -117,9 +111,6 @@ const getEmployeeName = (employee) => {
 
 // ============================================================
 // EMPLOYEE ID
-//
-// Handles different possible API structures.
-// Attendance normally uses candidates_id.
 // ============================================================
 
 const getEmployeeId = (employee) => {
@@ -127,20 +118,16 @@ const getEmployeeId = (employee) => {
         employee?.candidates_id ??
         employee?.candidate_id ??
         employee?.employee_id ??
-        employee?.candidates?.id ??
-        employee?.candidate?.id ??
         employee?.employee?.id ??
-        employee?.employee?.candidate_id ??
-        employee?.employee?.candidates_id ??
-        employee?.deployment?.candidates_id ??
-        employee?.deployment?.candidate_id ??
-        employee?.deployment?.candidate?.id ??
-        employee?.deployment?.candidate?.candidates_id ??
+        employee?.employee?.employee_id ??
+        employee?.candidate?.id ??
+        employee?.candidate?.employee_id ??
+        employee?.candidates?.id ??
+        employee?.candidates?.employee_id ??
         employee?.id ??
         "";
 
-    return id === null ||
-        id === undefined
+    return id === null || id === undefined
         ? ""
         : String(id);
 };
@@ -170,7 +157,6 @@ const getWorkingHours = (record) => {
     const value = Number(
         record?.working_hours ??
         record?.hours_worked ??
-        record?.total_working_hours ??
         0
     );
 
@@ -268,11 +254,7 @@ const formatTime = (value) => {
 
     const date = new Date(value);
 
-    if (
-        !Number.isNaN(
-            date.getTime()
-        )
-    ) {
+    if (!Number.isNaN(date.getTime())) {
         return date.toLocaleTimeString(
             "en-IN",
             {
@@ -335,18 +317,10 @@ const ClientAttendance = () => {
         setActiveTab,
     ] = useState("daily");
 
-    // ========================================================
-    // ALL ATTENDANCE DATA
-    // ========================================================
-
     const [
         allAttendance,
         setAllAttendance,
     ] = useState([]);
-
-    // ========================================================
-    // ALL CLIENT EMPLOYEES
-    // ========================================================
 
     const [
         clientEmployees,
@@ -357,10 +331,6 @@ const ClientAttendance = () => {
         allMonths,
         setAllMonths,
     ] = useState([]);
-
-    // ========================================================
-    // LOADING / ERROR
-    // ========================================================
 
     const [
         loading,
@@ -382,22 +352,18 @@ const ClientAttendance = () => {
     // ========================================================
 
     const clientId = useMemo(() => {
-
         const numericId = Number(
             user?.client_id
         );
 
         if (
-            Number.isFinite(
-                numericId
-            ) &&
+            Number.isFinite(numericId) &&
             numericId > 0
         ) {
             return numericId;
         }
 
         return null;
-
     }, [user]);
 
     // ========================================================
@@ -447,7 +413,6 @@ const ClientAttendance = () => {
 
             window.location.href =
                 "/login";
-
         } catch (logoutError) {
             console.error(
                 "Client attendance logout error:",
@@ -477,7 +442,6 @@ const ClientAttendance = () => {
                 }
 
                 try {
-
                     console.log(
                         "FETCH CLIENT EMPLOYEES:",
                         {
@@ -498,7 +462,8 @@ const ClientAttendance = () => {
                         );
 
                     const result =
-                        response?.data || {};
+                        response?.data ||
+                        {};
 
                     console.log(
                         "CLIENT EMPLOYEES RESPONSE:",
@@ -507,11 +472,11 @@ const ClientAttendance = () => {
 
                     const employees =
                         Array.isArray(
-                            result?.employees
+                            result.employees
                         )
                             ? result.employees
                             : Array.isArray(
-                                result?.data
+                                result.data
                             )
                                 ? result.data
                                 : [];
@@ -527,8 +492,7 @@ const ClientAttendance = () => {
                     );
 
                     if (
-                        result.success ===
-                        false
+                        result.success === false
                     ) {
                         throw new Error(
                             result.error ||
@@ -541,18 +505,15 @@ const ClientAttendance = () => {
                         employees
                     );
 
-                } catch (
-                    employeeError
-                ) {
-
+                } catch (employeeError) {
                     console.error(
                         "Fetch client employees error:",
                         employeeError
                     );
 
                     /*
-                     * Do not destroy attendance
-                     * data if employee lookup fails.
+                     * Do not destroy attendance data
+                     * if employee lookup fails.
                      */
                 }
             },
@@ -583,7 +544,6 @@ const ClientAttendance = () => {
                 }
 
                 if (!clientId) {
-
                     setError(
                         "Client ID not found for the logged-in user."
                     );
@@ -595,13 +555,8 @@ const ClientAttendance = () => {
                 }
 
                 try {
-
-                    if (
-                        showLoader
-                    ) {
-                        setLoading(
-                            true
-                        );
+                    if (showLoader) {
+                        setLoading(true);
                     }
 
                     setError("");
@@ -625,23 +580,9 @@ const ClientAttendance = () => {
                             }
                         );
 
-                    /*
-                     * IMPORTANT:
-                     *
-                     * Axios response:
-                     *
-                     * response.data
-                     *
-                     * is the backend object:
-                     *
-                     * {
-                     *   success: true,
-                     *   data: [...]
-                     * }
-                     */
-
                     const result =
-                        response?.data || {};
+                        response?.data ||
+                        {};
 
                     console.log(
                         "FULL AXIOS RESPONSE DATA:",
@@ -670,10 +611,8 @@ const ClientAttendance = () => {
                     );
 
                     if (
-                        result.success !==
-                        true
+                        result.success !== true
                     ) {
-
                         throw new Error(
                             result.error ||
                             result.message ||
@@ -708,7 +647,6 @@ const ClientAttendance = () => {
                     if (
                         records.length > 0
                     ) {
-
                         console.log(
                             "FIRST ATTENDANCE RECORD:",
                             records[0]
@@ -744,13 +682,10 @@ const ClientAttendance = () => {
                     if (
                         months.length > 0
                     ) {
-
                         const available =
                             months
                                 .map(
-                                    (
-                                        month
-                                    ) =>
+                                    (month) =>
                                         month?.billing_month
                                 )
                                 .filter(
@@ -761,26 +696,17 @@ const ClientAttendance = () => {
                         if (
                             available.length > 0
                         ) {
-
                             const latestMonth =
                                 available[
                                     available.length -
                                     1
                                 ];
 
-                            /*
-                             * If currently selected
-                             * month does not exist,
-                             * automatically use the
-                             * latest backend month.
-                             */
-
                             if (
                                 !available.includes(
                                     billingMonth
                                 )
                             ) {
-
                                 setBillingMonth(
                                     latestMonth
                                 );
@@ -800,10 +726,8 @@ const ClientAttendance = () => {
                     if (
                         attendanceError
                             ?.response
-                            ?.status ===
-                        401
+                            ?.status === 401
                     ) {
-
                         setError(
                             "Your session has expired. Please login again."
                         );
@@ -811,16 +735,13 @@ const ClientAttendance = () => {
                     } else if (
                         attendanceError
                             ?.response
-                            ?.status ===
-                        403
+                            ?.status === 403
                     ) {
-
                         setError(
                             "You do not have permission to view this attendance."
                         );
 
                     } else {
-
                         setError(
                             attendanceError
                                 ?.response
@@ -840,12 +761,8 @@ const ClientAttendance = () => {
 
                 } finally {
 
-                    if (
-                        showLoader
-                    ) {
-                        setLoading(
-                            false
-                        );
+                    if (showLoader) {
+                        setLoading(false);
                     }
                 }
 
@@ -875,12 +792,7 @@ const ClientAttendance = () => {
             return;
         }
 
-        console.log(
-            "STARTING ATTENDANCE DATA LOAD"
-        );
-
         fetchAllAttendance(true);
-
         fetchClientEmployees();
 
     }, [
@@ -900,16 +812,16 @@ const ClientAttendance = () => {
         async () => {
 
             try {
-
                 setRefreshing(true);
 
                 await Promise.all([
-                    fetchAllAttendance(false),
+                    fetchAllAttendance(
+                        false
+                    ),
                     fetchClientEmployees(),
                 ]);
 
             } finally {
-
                 setRefreshing(false);
             }
         };
@@ -940,8 +852,8 @@ const ClientAttendance = () => {
 
             const selectedDate =
                 String(
-                    attendanceDate || ""
-                ).slice(0, 10);
+                    attendanceDate
+                );
 
             console.log(
                 "========== DAILY ATTENDANCE CALCULATION =========="
@@ -963,7 +875,7 @@ const ClientAttendance = () => {
             );
 
             // -------------------------------------------------
-            // Actual attendance records
+            // Actual attendance for selected date
             // -------------------------------------------------
 
             const dateAttendance =
@@ -994,7 +906,7 @@ const ClientAttendance = () => {
             );
 
             // -------------------------------------------------
-            // Attendance map
+            // Map attendance by employee ID
             // -------------------------------------------------
 
             const attendanceMap =
@@ -1008,10 +920,7 @@ const ClientAttendance = () => {
                             record
                         );
 
-                    if (
-                        employeeId
-                    ) {
-
+                    if (employeeId) {
                         attendanceMap.set(
                             String(
                                 employeeId
@@ -1028,14 +937,10 @@ const ClientAttendance = () => {
             );
 
             // -------------------------------------------------
-            // Result
+            // Start with all employees
             // -------------------------------------------------
 
             const result = [];
-
-            // -------------------------------------------------
-            // Add client employees
-            // -------------------------------------------------
 
             clientEmployees.forEach(
                 (employee) => {
@@ -1063,11 +968,6 @@ const ClientAttendance = () => {
                     );
 
                     if (!employeeId) {
-                        console.warn(
-                            "Employee skipped because ID was not found:",
-                            employee
-                        );
-
                         return;
                     }
 
@@ -1078,14 +978,10 @@ const ClientAttendance = () => {
                             )
                         );
 
-                    // -----------------------------------------
                     // Actual attendance
-                    // -----------------------------------------
-
                     if (
                         actualRecord
                     ) {
-
                         result.push(
                             actualRecord
                         );
@@ -1093,9 +989,14 @@ const ClientAttendance = () => {
                         return;
                     }
 
-                    // -----------------------------------------
-                    // No attendance
-                    // -----------------------------------------
+                    // -------------------------------------------------
+                    // Virtual absent
+                    // -------------------------------------------------
+
+                    const employeeName =
+                        getEmployeeName(
+                            employee
+                        );
 
                     result.push({
                         id:
@@ -1111,28 +1012,24 @@ const ClientAttendance = () => {
                             employeeId,
 
                         employee_name:
-                            getEmployeeName(
-                                employee
-                            ),
+                            employeeName,
 
                         full_name:
-                            getEmployeeName(
-                                employee
-                            ),
+                            employeeName,
 
                         employee_email:
-                            employee?.employee_email ??
-                            employee?.email ??
+                            employee?.employee_email ||
+                            employee?.email ||
                             null,
 
                         employee_phone:
-                            employee?.employee_phone ??
-                            employee?.phone ??
-                            employee?.mobile ??
+                            employee?.employee_phone ||
+                            employee?.phone ||
+                            employee?.mobile ||
                             null,
 
                         designation:
-                            employee?.designation ??
+                            employee?.designation ||
                             null,
 
                         attendance_date:
@@ -1164,8 +1061,7 @@ const ClientAttendance = () => {
             );
 
             // -------------------------------------------------
-            // Add backend records that were not found
-            // in clientEmployees.
+            // Add backend attendance records not in employee list
             // -------------------------------------------------
 
             dateAttendance.forEach(
@@ -1196,7 +1092,6 @@ const ClientAttendance = () => {
                     if (
                         !alreadyExists
                     ) {
-
                         result.push(
                             record
                         );
@@ -1279,12 +1174,9 @@ const ClientAttendance = () => {
                         statusFilter ===
                         "missing_punch"
                     ) {
-
                         matchesStatus =
                             missingPunch;
-
                     } else {
-
                         matchesStatus =
                             statusFilter ===
                                 "all" ||
@@ -1324,7 +1216,9 @@ const ClientAttendance = () => {
 
                         return (
                             date.slice(0, 7) ===
-                            billingMonth
+                            String(
+                                billingMonth
+                            )
                         );
                     }
                 );
@@ -1375,19 +1269,24 @@ const ClientAttendance = () => {
                     continue;
                 }
 
-                const employeeKey =
+                const mapKey =
                     String(
                         employeeId
                     );
 
                 if (
                     !employeeMap.has(
-                        employeeKey
+                        mapKey
                     )
                 ) {
 
+                    const employeeName =
+                        getEmployeeName(
+                            record
+                        );
+
                     employeeMap.set(
-                        employeeKey,
+                        mapKey,
                         {
                             employee_id:
                                 employeeId,
@@ -1396,14 +1295,10 @@ const ClientAttendance = () => {
                                 employeeId,
 
                             employee_name:
-                                getEmployeeName(
-                                    record
-                                ),
+                                employeeName,
 
                             full_name:
-                                getEmployeeName(
-                                    record
-                                ),
+                                employeeName,
 
                             employee_email:
                                 record?.employee_email ??
@@ -1419,39 +1314,30 @@ const ClientAttendance = () => {
                                 record?.designation ??
                                 null,
 
-                            present_days:
-                                0,
+                            present_days: 0,
 
-                            absent_days:
-                                0,
+                            absent_days: 0,
 
-                            leave_days:
-                                0,
+                            leave_days: 0,
 
-                            half_days:
-                                0,
+                            half_days: 0,
 
-                            working_days:
-                                0,
+                            working_days: 0,
 
-                            lop_days:
-                                0,
+                            lop_days: 0,
 
-                            overtime_hours:
-                                0,
+                            overtime_hours: 0,
 
-                            total_records:
-                                0,
+                            total_records: 0,
 
-                            total_working_hours:
-                                0,
+                            total_working_hours: 0,
                         }
                     );
                 }
 
                 const employee =
                     employeeMap.get(
-                        employeeKey
+                        mapKey
                     );
 
                 const status =
@@ -1459,108 +1345,71 @@ const ClientAttendance = () => {
                         record
                     );
 
-                // ---------------------------------------------
-                // EVERY RECORD
-                // ---------------------------------------------
-
                 employee.total_records++;
-
-                // ---------------------------------------------
-                // PRESENT
-                // ---------------------------------------------
 
                 if (
                     status ===
                     "present"
                 ) {
-
                     employee.present_days++;
                 }
-
-                // ---------------------------------------------
-                // ABSENT
-                // ---------------------------------------------
 
                 if (
                     status ===
                     "absent"
                 ) {
-
                     employee.absent_days++;
-
                     employee.lop_days++;
                 }
-
-                // ---------------------------------------------
-                // LOP
-                // ---------------------------------------------
 
                 if (
                     status ===
                     "lop"
                 ) {
-
                     employee.lop_days++;
                 }
 
-                // ---------------------------------------------
-                // LEAVE
-                // ---------------------------------------------
-
                 if (
-                    status === "leave" ||
-                    status === "on_leave" ||
-                    status === "approved_leave"
+                    status ===
+                        "leave" ||
+                    status ===
+                        "on_leave" ||
+                    status ===
+                        "approved_leave"
                 ) {
-
                     employee.leave_days++;
                 }
 
-                // ---------------------------------------------
-                // HALF DAY
-                // ---------------------------------------------
-
                 if (
-                    status === "half_day" ||
-                    status === "halfday"
+                    status ===
+                        "half_day" ||
+                    status ===
+                        "halfday"
                 ) {
-
                     employee.half_days++;
                 }
-
-                // ---------------------------------------------
-                // WORKING DAYS
-                // ---------------------------------------------
 
                 if (
                     status ===
                     "present"
                 ) {
-
                     employee.working_days++;
                 }
 
                 if (
-                    status === "half_day" ||
-                    status === "halfday"
+                    status ===
+                        "half_day" ||
+                    status ===
+                        "halfday"
                 ) {
-
                     employee.working_days +=
                         0.5;
                 }
-
-                // ---------------------------------------------
-                // OVERTIME
-                // ---------------------------------------------
 
                 employee.overtime_hours +=
                     getOvertime(
                         record
                     );
-
-                // ---------------------------------------------
-                // WORKING HOURS
-                // ---------------------------------------------
 
                 employee.total_working_hours +=
                     getWorkingHours(
@@ -1688,9 +1537,12 @@ const ClientAttendance = () => {
                     }
 
                     if (
-                        status === "leave" ||
-                        status === "on_leave" ||
-                        status === "approved_leave"
+                        status ===
+                            "leave" ||
+                        status ===
+                            "on_leave" ||
+                        status ===
+                            "approved_leave"
                     ) {
                         leave++;
                     }
@@ -1738,19 +1590,23 @@ const ClientAttendance = () => {
                 (record) => {
 
                     present += Number(
-                        record?.present_days || 0
+                        record?.present_days ||
+                        0
                     );
 
                     absent += Number(
-                        record?.absent_days || 0
+                        record?.absent_days ||
+                        0
                     );
 
                     leave += Number(
-                        record?.leave_days || 0
+                        record?.leave_days ||
+                        0
                     );
 
                     overtime += Number(
-                        record?.overtime_hours || 0
+                        record?.overtime_hours ||
+                        0
                     );
                 }
             );
@@ -1802,20 +1658,14 @@ const ClientAttendance = () => {
                 record
             )
         ) {
-
             return (
                 <div className="flex flex-col gap-1">
-
                     <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-
                         <AlertTriangle
                             size={13}
                         />
-
                         Missing Punch
-
                     </span>
-
                 </div>
             );
         }
@@ -1831,7 +1681,6 @@ const ClientAttendance = () => {
             normalized ===
             "present"
         ) {
-
             className =
                 "bg-emerald-50 text-emerald-700";
 
@@ -1842,7 +1691,6 @@ const ClientAttendance = () => {
             normalized ===
             "absent"
         ) {
-
             className =
                 "bg-red-50 text-red-600";
 
@@ -1854,7 +1702,6 @@ const ClientAttendance = () => {
             normalized === "on_leave" ||
             normalized === "approved_leave"
         ) {
-
             className =
                 "bg-blue-50 text-blue-600";
 
@@ -1865,7 +1712,6 @@ const ClientAttendance = () => {
             normalized === "half_day" ||
             normalized === "halfday"
         ) {
-
             className =
                 "bg-amber-50 text-amber-700";
 
@@ -1875,7 +1721,6 @@ const ClientAttendance = () => {
         } else if (
             normalized === "lop"
         ) {
-
             className =
                 "bg-red-50 text-red-600";
 
@@ -1885,7 +1730,6 @@ const ClientAttendance = () => {
         } else if (
             normalized === "weekly_off"
         ) {
-
             className =
                 "bg-slate-100 text-slate-600";
 
@@ -1895,7 +1739,6 @@ const ClientAttendance = () => {
         } else if (
             normalized === "holiday"
         ) {
-
             className =
                 "bg-purple-50 text-purple-700";
 
@@ -1905,7 +1748,6 @@ const ClientAttendance = () => {
         } else if (
             normalized === "holiday_worked"
         ) {
-
             className =
                 "bg-indigo-50 text-indigo-700";
 
@@ -1915,7 +1757,6 @@ const ClientAttendance = () => {
         } else if (
             normalized === "weekly_off_worked"
         ) {
-
             className =
                 "bg-indigo-50 text-indigo-700";
 
@@ -1925,7 +1766,6 @@ const ClientAttendance = () => {
         } else if (
             normalized === "in_progress"
         ) {
-
             className =
                 "bg-yellow-50 text-yellow-700";
 
@@ -1949,12 +1789,9 @@ const ClientAttendance = () => {
     // ========================================================
 
     if (authLoading) {
-
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-50">
-
                 <div className="flex flex-col items-center gap-3">
-
                     <RefreshCw
                         size={26}
                         className="animate-spin text-indigo-600"
@@ -1963,9 +1800,7 @@ const ClientAttendance = () => {
                     <p className="text-sm text-slate-500">
                         Loading attendance...
                     </p>
-
                 </div>
-
             </div>
         );
     }
@@ -1978,10 +1813,8 @@ const ClientAttendance = () => {
         !session ||
         !user
     ) {
-
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-
                 <div className="rounded-2xl border border-red-200 bg-white p-8 text-center shadow-sm">
 
                     <h2 className="text-lg font-bold text-slate-900">
@@ -1995,16 +1828,16 @@ const ClientAttendance = () => {
                     <button
                         type="button"
                         onClick={() =>
-                            (window.location.href =
-                                "/login")
+                            (
+                                window.location.href =
+                                "/login"
+                            )
                         }
                         className="mt-5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
                     >
                         Login Again
                     </button>
-
                 </div>
-
             </div>
         );
     }
@@ -2016,6 +1849,8 @@ const ClientAttendance = () => {
     return (
         <div className="min-h-screen bg-slate-50">
 
+            {/* SIDEBAR */}
+
             <Sidebar
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
@@ -2023,13 +1858,13 @@ const ClientAttendance = () => {
                 onLogout={handleLogout}
             />
 
+            {/* MAIN */}
+
             <main className="min-h-screen pl-64">
 
                 <div className="mx-auto max-w-[1280px] px-6 py-6">
 
-                    {/* ==================================================
-                        HEADER
-                    ================================================== */}
+                    {/* HEADER */}
 
                     <div className="mb-6 flex items-start justify-between">
 
@@ -2082,15 +1917,13 @@ const ClientAttendance = () => {
 
                     </div>
 
-                    {/* ==================================================
-                        FILTERS
-                    ================================================== */}
+                    {/* FILTERS */}
 
                     <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
-                            {/* Billing Month */}
+                            {/* BILLING MONTH */}
 
                             <div>
 
@@ -2163,7 +1996,7 @@ const ClientAttendance = () => {
 
                             </div>
 
-                            {/* Attendance Date */}
+                            {/* ATTENDANCE DATE */}
 
                             <div>
 
@@ -2195,7 +2028,7 @@ const ClientAttendance = () => {
 
                             </div>
 
-                            {/* Search */}
+                            {/* SEARCH */}
 
                             <div>
 
@@ -2232,13 +2065,9 @@ const ClientAttendance = () => {
 
                     </div>
 
-                    {/* ==================================================
-                        SUMMARY CARDS
-                    ================================================== */}
+                    {/* SUMMARY */}
 
                     <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-
-                        {/* Employees */}
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -2264,19 +2093,15 @@ const ClientAttendance = () => {
                                 </div>
 
                                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50">
-
                                     <Users
                                         size={21}
                                         className="text-indigo-600"
                                     />
-
                                 </div>
 
                             </div>
 
                         </div>
-
-                        {/* Present */}
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -2302,19 +2127,15 @@ const ClientAttendance = () => {
                                 </div>
 
                                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
-
                                     <UserCheck
                                         size={21}
                                         className="text-emerald-600"
                                     />
-
                                 </div>
 
                             </div>
 
                         </div>
-
-                        {/* Absent */}
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -2340,19 +2161,15 @@ const ClientAttendance = () => {
                                 </div>
 
                                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50">
-
                                     <UserX
                                         size={21}
                                         className="text-red-600"
                                     />
-
                                 </div>
 
                             </div>
 
                         </div>
-
-                        {/* Leave */}
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -2378,19 +2195,15 @@ const ClientAttendance = () => {
                                 </div>
 
                                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50">
-
                                     <Coffee
                                         size={21}
                                         className="text-blue-600"
                                     />
-
                                 </div>
 
                             </div>
 
                         </div>
-
-                        {/* Overtime */}
 
                         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -2416,12 +2229,10 @@ const ClientAttendance = () => {
                                 </div>
 
                                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50">
-
                                     <Timer
                                         size={21}
                                         className="text-indigo-600"
                                     />
-
                                 </div>
 
                             </div>
@@ -2430,13 +2241,11 @@ const ClientAttendance = () => {
 
                     </div>
 
-                    {/* ==================================================
-                        MAIN CARD
-                    ================================================== */}
+                    {/* MAIN CARD */}
 
                     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-                        {/* Tabs */}
+                        {/* TABS */}
 
                         <div className="flex border-b border-slate-200">
 
@@ -2454,14 +2263,12 @@ const ClientAttendance = () => {
                                         : "text-slate-500 hover:text-slate-800"
                                 }`}
                             >
-
                                 Daily Attendance
 
                                 {activeTab ===
                                     "daily" && (
                                     <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />
                                 )}
-
                             </button>
 
                             <button
@@ -2478,14 +2285,12 @@ const ClientAttendance = () => {
                                         : "text-slate-500 hover:text-slate-800"
                                 }`}
                             >
-
                                 Monthly Attendance
 
                                 {activeTab ===
                                     "monthly" && (
                                     <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />
                                 )}
-
                             </button>
 
                         </div>
@@ -2498,7 +2303,7 @@ const ClientAttendance = () => {
                             </div>
                         )}
 
-                        {/* DAILY STATUS FILTER */}
+                        {/* DAILY FILTER */}
 
                         {activeTab ===
                             "daily" && (
@@ -2574,9 +2379,7 @@ const ClientAttendance = () => {
                             </div>
                         )}
 
-                        {/* ==================================================
-                            CONTENT
-                        ================================================== */}
+                        {/* CONTENT */}
 
                         {loading ? (
 
@@ -2719,56 +2522,43 @@ const ClientAttendance = () => {
                                                         </td>
 
                                                         <td className="px-6 py-4 text-sm text-slate-600">
-
                                                             {formatDateForDisplay(
                                                                 record?.attendance_date
                                                             )}
-
                                                         </td>
 
                                                         <td className="px-6 py-4 text-sm text-slate-600">
-
                                                             {formatTime(
                                                                 record?.check_in
                                                             )}
-
                                                         </td>
 
                                                         <td className="px-6 py-4 text-sm text-slate-600">
-
                                                             {formatTime(
                                                                 record?.check_out
                                                             )}
-
                                                         </td>
 
                                                         <td className="px-6 py-4 text-sm font-medium text-slate-700">
-
                                                             {getWorkingHours(
                                                                 record
-                                                            )}
-
+                                                            ).toFixed(2)}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-sm font-medium text-slate-700">
-
                                                             {getOvertime(
                                                                 record
                                                             ).toFixed(2)}{" "}
                                                             hrs
-
                                                         </td>
 
                                                         <td className="px-6 py-4">
-
                                                             {getStatusBadge(
                                                                 record
                                                             )}
-
                                                         </td>
 
                                                         <td className="px-6 py-4 text-sm capitalize text-slate-600">
-
                                                             {String(
                                                                 record?.work_mode ||
                                                                 "—"
@@ -2776,7 +2566,6 @@ const ClientAttendance = () => {
                                                                 /_/g,
                                                                 " "
                                                             )}
-
                                                         </td>
 
                                                     </tr>
@@ -2914,41 +2703,48 @@ const ClientAttendance = () => {
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-emerald-700">
-                                                            {record?.present_days ?? 0}
+                                                            {record?.present_days ??
+                                                                0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-red-600">
-                                                            {record?.absent_days ?? 0}
+                                                            {record?.absent_days ??
+                                                                0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-blue-600">
-                                                            {record?.leave_days ?? 0}
+                                                            {record?.leave_days ??
+                                                                0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-amber-600">
-                                                            {record?.half_days ?? 0}
+                                                            {record?.half_days ??
+                                                                0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-slate-700">
-                                                            {record?.working_days ?? 0}
+                                                            {record?.working_days ??
+                                                                0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-red-600">
-                                                            {record?.lop_days ?? 0}
+                                                            {record?.lop_days ??
+                                                                0}
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm font-semibold text-indigo-600">
-
                                                             {Number(
                                                                 record?.overtime_hours ??
                                                                 0
-                                                            ).toFixed(2)}{" "}
+                                                            ).toFixed(
+                                                                2
+                                                            )}{" "}
                                                             hrs
-
                                                         </td>
 
                                                         <td className="px-6 py-4 text-center text-sm text-slate-600">
-                                                            {record?.total_records ?? 0}
+                                                            {record?.total_records ??
+                                                                0}
                                                         </td>
 
                                                     </tr>
