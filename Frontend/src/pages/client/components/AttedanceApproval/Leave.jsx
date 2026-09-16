@@ -976,7 +976,7 @@ const Leave = () => {
 
             <main className="ml-64 min-h-0 flex-1 overflow-y-auto">
 
-                <div className="mx-auto max-w-[1280px] px-6 py-6">
+                <div className="mx-auto max-w-[1280px] px-1 py-6">
 
                     {/* ==================================================
                         HEADER
