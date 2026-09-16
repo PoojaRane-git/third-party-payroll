@@ -4,12 +4,20 @@
 // SOURCE OF TRUTH:
 //   1. third_party_emp_daily_attendance
 //   2. third_party_attendance_summary
+//   3. candidates (for /me profile + payslip employee info)
 //
 // AUTH:
 //   authenticate -> sets req.user (Supabase auth user)
 //   authorize("employee") -> looks up employee_users by
 //   req.user.id and attaches the row as req.profile
 //   (req.profile.employee_id is the candidates.id to use)
+//
+// MOUNTED (see server.js) at BOTH:
+//   /api/emp-attendance
+//   /api/employee
+// So every route below is reachable under either prefix,
+// e.g. GET /api/employee/me and GET /api/emp-attendance/me
+// both hit the handler defined here.
 // ============================================================
 
 const express = require("express");
@@ -76,6 +84,41 @@ const getEmployeeId = (req) => {
 
     return employeeId;
 };
+
+// ============================================================
+// GET LOGGED-IN EMPLOYEE PROFILE
+// GET /me
+//
+// Reads the employee's own record from `candidates`,
+// keyed by req.profile.employee_id.
+// ============================================================
+
+router.get("/me", async (req, res) => {
+    try {
+        const employeeId = getEmployeeId(req);
+
+        const { data: employee, error } = await supabase
+            .from("candidates")
+            .select("*")
+            .eq("id", employeeId)
+            .maybeSingle();
+
+        if (error) {
+            return sendError(res, 500, "Failed to fetch employee profile.", error);
+        }
+
+        if (!employee) {
+            return res.status(404).json({
+                success: false,
+                message: "Employee profile not found.",
+            });
+        }
+
+        return res.json({ success: true, employee });
+    } catch (error) {
+        return sendError(res, 500, "Failed to fetch employee profile.", error);
+    }
+});
 
 // ============================================================
 // RECALCULATE MONTHLY SUMMARY
@@ -597,7 +640,6 @@ GET /api/employee/payroll/me
 
 router.get(
     "/payroll/me",
-    ...employeeAuth,
     async (req, res) => {
         try {
             const employeeId =
