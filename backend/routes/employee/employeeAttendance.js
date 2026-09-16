@@ -23,9 +23,9 @@
 const express = require("express");
 const router = express.Router();
 
-const supabase = require("../config/supabase");
-const authenticate = require("../middleware/authenticate");
-const authorize = require("../middleware/authorize");
+const supabase = require("../../config/supabase");
+const authenticate = require("../../middleware/authenticate");
+const authorize = require("../../middleware/authorize");
 
 const employeeAuth = [authenticate, authorize("employee")];
 
@@ -397,7 +397,7 @@ router.post("/check-in", async (req, res) => {
                     check_out: null,
                     working_hours: 0,
                     overtime_hours: 0,
-                    status: "Present",
+                    status: "In Progress",
                     work_mode: workMode,
                     remarks,
                     updated_at: now,
@@ -514,7 +514,15 @@ router.patch("/:id/check-out", async (req, res) => {
         const hours = milliseconds / (1000 * 60 * 60);
         const workingHours = Math.max(0, Number(hours.toFixed(2)));
 
-        const status = workingHours >= 8 ? "Present" : "Half Day";
+        let status;
+
+        if (workingHours >= 8) {
+            status = "Present";
+        } else if (workingHours >= 4) {
+            status = "Half Day";
+        } else {
+            status = "Absent";
+        }
         const overtimeHours = workingHours > 8 ? Number((workingHours - 8).toFixed(2)) : 0;
 
         const { data: updatedAttendance, error: updateError } = await supabase

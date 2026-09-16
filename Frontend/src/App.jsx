@@ -56,6 +56,11 @@ import EmployeeAttendance from "./pages/Employee/components/EmployeeAttendance";
 import EmployeeMonthlyAttendance from "./pages/Employee/components/EmployeeMonthlyAttendance";
 import EmployeePayslip from "./pages/Employee/components/EmployeePayslip";
 import EmployeeProfile from "./pages/Employee/components/EmployeeProfile";
+import AttendanceRectification from "./pages/Employee/AttendanceRectification";
+import Leave from "./pages/Employee/Leave";
+import HolidayCalendar from "./pages/Employee/HolidayCalendar";
+import Roster from "./pages/Employee/Roster";
+import CompOff from "./pages/Employee/CompOff";
 
 // =====================================================
 // CLIENT
@@ -70,6 +75,15 @@ import JobRequirementsClient from "./pages/client/components/Recruitment/JobRequ
 import ClientCandidates from "./pages/client/components/Recruitment/ClientCandidates";
 
 import ClientInvoiceManagement from "./pages/client/components/Billing/ClientInvoiceManagement";
+import AttendanceRectifications from "./pages/client/components/AttedanceApproval/AttendanceRectifications";
+
+import AttendancePolicy from "./pages/client/components/AttedanceApproval/AttendancePolicy";
+import CompOff from "./pages/client/components/AttedanceApproval/CompOff";
+import HolidayCalendar from "./pages/client/components/AttedanceApproval/HolidayCalendar";
+import Leave from "./pages/client/components/AttedanceApproval/Leave";
+import Roster from "./pages/client/components/AttedanceApproval/Roster";
+
+
 
 // =====================================================
 // APP
@@ -260,6 +274,36 @@ function App() {
                             }
                         />
 
+                        <Route
+                            path="/employee/attendance-rectification"
+                            element={<AttendanceRectification />}
+                        />
+
+                        <Route
+                            path="/employee/attendance-rectification"
+                            element={<AttendanceRectification />}
+                        />
+
+                        <Route
+                            path="/employee/leave"
+                            element={<Leave />}
+                        />
+
+                        <Route
+                            path="/employee/holiday-calendar"
+                            element={<HolidayCalendar />}
+                        />
+
+                        <Route
+                            path="/employee/roster"
+                            element={<Roster />}
+                        />
+
+                        <Route
+                            path="/employee/compoff"
+                            element={<CompOff />}
+                        />
+
                     </Route>
 
 
@@ -311,6 +355,64 @@ function App() {
                                 <ClientInvoiceManagement />
                             }
                         />
+
+
+                        ```jsx
+                        {/* =====================================================
+    NEW CLIENT ATTENDANCE RECTIFICATION
+    Client approves/rejects attendance corrections
+===================================================== */}
+                        <Route
+                            path="/client/attendance-rectifications"
+                            element={<AttendanceRectifications />}
+                        />
+
+                        {/* =====================================================
+    NEW CLIENT LEAVE
+    Client approves/rejects leave requests
+===================================================== */}
+                        <Route
+                            path="/client/leave"
+                            element={<Leave />}
+                        />
+
+                        {/* =====================================================
+    NEW CLIENT HOLIDAY CALENDAR
+    Client directly manages holidays
+===================================================== */}
+                        <Route
+                            path="/client/holiday-calendar"
+                            element={<HolidayCalendar />}
+                        />
+
+                        {/* =====================================================
+    NEW CLIENT ROSTER
+    Client directly manages employee working days
+===================================================== */}
+                        <Route
+                            path="/client/roster"
+                            element={<Roster />}
+                        />
+
+                        {/* =====================================================
+    NEW CLIENT ATTENDANCE POLICY
+    Client directly configures attendance rules
+===================================================== */}
+                        <Route
+                            path="/client/attendance-policy"
+                            element={<AttendancePolicy />}
+                        />
+
+                        {/* =====================================================
+    NEW CLIENT COMP-OFF
+    Client views automatically generated comp-off
+===================================================== */}
+                        <Route
+                            path="/client/compoff"
+                            element={<CompOff />}
+                        />
+                        ```
+
 
                     </Route>
 

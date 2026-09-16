@@ -1,14 +1,17 @@
+
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   SendHorizontal,
   UserPlus,
-  Users,
-  History,
   ClipboardCheck,
+  FileWarning,
+  CalendarDays,
+  Users,
+  Settings2,
+  HandCoins,
   Wallet,
-  FileText,
   LogOut,
 } from "lucide-react";
 
@@ -41,7 +44,7 @@ function Sidebar({ clientName, onLogout }) {
         {
           id: "candidates",
           label: "Candidates",
-          path: "//client-dashboard/candidates",
+          path: "/client-dashboard/candidates",
           icon: UserPlus,
         },
       ],
@@ -51,10 +54,46 @@ function Sidebar({ clientName, onLogout }) {
       groupLabel: "Workforce",
       items: [
         {
-          id: "attendance-approval",
+          id: "attendance",
           label: "Attendance",
           path: "/client-dashboard/attendance",
           icon: ClipboardCheck,
+        },
+        {
+          id: "attendance-rectifications",
+          label: "Rectification Requests",
+          path: "/client-dashboard/attendance/rectifications",
+          icon: FileWarning,
+        },
+        {
+          id: "leave",
+          label: "Leave Requests",
+          path: "/client-dashboard/leave",
+          icon: CalendarDays,
+        },
+        {
+          id: "holiday-calendar",
+          label: "Holiday Calendar",
+          path: "/client-dashboard/holidays",
+          icon: CalendarDays,
+        },
+        {
+          id: "roster",
+          label: "Roster",
+          path: "/client-dashboard/roster",
+          icon: Users,
+        },
+        {
+          id: "attendance-policy",
+          label: "Attendance Policy",
+          path: "/client-dashboard/attendance-policy",
+          icon: Settings2,
+        },
+        {
+          id: "compoff",
+          label: "Comp-Off",
+          path: "/client-dashboard/compoff",
+          icon: HandCoins,
         },
       ],
     },
@@ -67,7 +106,7 @@ function Sidebar({ clientName, onLogout }) {
           label: "Invoices",
           path: "/client-dashboard/invoices",
           icon: Wallet,
-        }
+        },
       ],
     },
   ];
@@ -116,7 +155,18 @@ function Sidebar({ clientName, onLogout }) {
 
             {group.items.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+
+              /*
+               * Exact match for Dashboard.
+               * For child pages, keep Attendance highlighted
+               * when the user is inside the Attendance section.
+               */
+              const isActive =
+                location.pathname === item.path ||
+                (item.id === "attendance" &&
+                  location.pathname.startsWith("/client-dashboard/attendance") &&
+                  location.pathname !==
+                    "/client-dashboard/attendance/rectifications");
 
               return (
                 <button

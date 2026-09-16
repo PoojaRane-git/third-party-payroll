@@ -560,7 +560,7 @@ router.get(
                 )
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     attendance_date,
@@ -859,7 +859,7 @@ router.get(
                 )
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     attendance_date,
@@ -1102,7 +1102,7 @@ router.get(
                 )
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     attendance_date,
@@ -1447,7 +1447,7 @@ router.get(
                 .from(DAILY_ATTENDANCE_TABLE)
                 .select(`
                     id,
-                    employee_id,
+                    candidates_id,
                     deployment_id,
                     client_id,
                     attendance_date,

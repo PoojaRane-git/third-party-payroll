@@ -3290,7 +3290,7 @@ const summary = useMemo(() => {
                                         Payment Proof URL
                                         <span className="text-slate-400 font-normal">
                                             {" "}
-                                            (optional)
+                                            (required)
                                         </span>
                                     </label>
 
@@ -3300,6 +3300,7 @@ const summary = useMemo(() => {
 
                                         <input
                                             type="url"
+                                            required
                                             placeholder="https://..."
                                             value={
                                                 paymentForm.payment_proof_url

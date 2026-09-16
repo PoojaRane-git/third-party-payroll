@@ -118,7 +118,7 @@ const candidateRoutes = require("./routes/candidates");
 const deploymentRoutes = require("./routes/deployments");
 const timesheetRoutes = require("./routes/timesheets");
 const thirdPartyAttendanceRoutes = require("./routes/thirdPartyAttendance");
-const employeeAttendanceRoutes = require("./routes/employeeAttendance"); // Route for emp daily attedance .
+const employeeAttendanceRoutes = require("./routes/employee/employeeAttendance"); // Route for emp daily attedance .
 const payrollRoutes = require("./routes/payroll");
 const billingRoutes = require("./routes/billing");
 const paymentRoutes = require("./routes/payments");
@@ -227,6 +227,49 @@ app.get("/api/health", (req, res) => {
 // first). It has been removed so routes/auth.js is the
 // single source of truth for this endpoint.
 // =====================================================
+
+// ============================================================
+// CLIENT NEW ROUTES
+// ============================================================
+
+const clientAttendanceRectificationRoutes =
+    require("./routes/client/attendanceRectification");
+
+const clientLeaveRoutes =
+    require("./routes/client/leave");
+
+const clientHolidayRoutes =
+    require("./routes/client/holiday");
+
+const clientRosterRoutes =
+    require("./routes/client/roster");
+
+const clientAttendancePolicyRoutes =
+    require("./routes/client/attendancePolicy");
+
+const clientCompoffRoutes =
+    require("./routes/client/compoff");
+
+
+// ============================================================
+// EMPLOYEE NEW ROUTES
+// ============================================================
+
+const employeeAttendanceRectificationRoutes =
+    require("./routes/employee/attendanceRectification");
+
+const employeeLeaveRoutes =
+    require("./routes/employee/leave");
+
+const employeeHolidayRoutes =
+    require("./routes/employee/holiday");
+
+const employeeRosterRoutes =
+    require("./routes/employee/roster");
+
+const employeeCompoffRoutes =
+    require("./routes/employee/compoff");
+
 
 // =====================================================
 // ADMIN / COMMON ROUTES
@@ -464,6 +507,71 @@ app.use(
 app.use(
   "/api/client",
   clientPaymentActionsRouter
+);
+
+
+// ============================================================
+// CLIENT NEW ROUTES
+// ============================================================
+
+app.use(
+    "/api/client/attendance/rectifications",
+    clientAttendanceRectificationRoutes
+);
+
+app.use(
+    "/api/client/leave",
+    clientLeaveRoutes
+);
+
+app.use(
+    "/api/client/holidays",
+    clientHolidayRoutes
+);
+
+app.use(
+    "/api/client/roster",
+    clientRosterRoutes
+);
+
+app.use(
+    "/api/client/attendance-policy",
+    clientAttendancePolicyRoutes
+);
+
+app.use(
+    "/api/client/compoff",
+    clientCompoffRoutes
+);
+
+
+// ============================================================
+// EMPLOYEE NEW ROUTES
+// ============================================================
+
+app.use(
+    "/api/employee/attendance",
+    employeeAttendanceRectificationRoutes
+);
+
+app.use(
+    "/api/employee/leave",
+    employeeLeaveRoutes
+);
+
+app.use(
+    "/api/employee/holidays",
+    employeeHolidayRoutes
+);
+
+app.use(
+    "/api/employee/roster",
+    employeeRosterRoutes
+);
+
+app.use(
+    "/api/employee/compoff",
+    employeeCompoffRoutes
 );
 
 // =====================================================
