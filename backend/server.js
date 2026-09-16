@@ -126,6 +126,13 @@ const invoiceDisputeRoutes = require("./routes/invoiceDisputes");
 const reportsRoutes = require("./routes/reports");
 const ClientjobRequirementRoutes = require("./routes/client/ClientjobRequirements")
 
+const clientAttendanceRoutes =
+  require("./routes/client/attendanceApprovalRouter");
+
+app.use(
+  "/api/attendance",
+  clientAttendanceRoutes
+);
 
 
 const AdminjobRequirementRoutes =
