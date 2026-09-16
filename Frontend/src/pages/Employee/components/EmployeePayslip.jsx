@@ -270,7 +270,7 @@ const EmployeePayslip = () => {
       return "N/A";
     }
 
-    return value;
+    return String(value);
   };
 
   // =====================================================
