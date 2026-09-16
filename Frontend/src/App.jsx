@@ -293,11 +293,6 @@ function App() {
                             element={<EmployeeRoster />}
                         />
 
-                        <Route
-                            path="/employee/compoff"
-                            element={<EmployeeCompOff />}
-                        />
-
                     </Route>
 
 
