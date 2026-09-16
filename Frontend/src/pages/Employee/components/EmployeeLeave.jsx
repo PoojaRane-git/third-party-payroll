@@ -972,4 +972,4 @@ return (
 
 };
 
-export default Leave;
+export default EmployeeLeave;
