@@ -3,6 +3,7 @@ const router = express.Router();
 
 const supabase = require("../config/supabase");
 
+
 // =====================================================
 // HELPERS
 // =====================================================
@@ -23,6 +24,12 @@ const sendError = (res, status, message) => {
         message,
     });
 };
+
+// =====================================================
+// GET ALL CONTRACTS
+// GET /api/contracts
+// GET /api/contracts?client_id=1
+// =====================================================
 
 // =====================================================
 // GET ALL CONTRACTS
