@@ -10,7 +10,7 @@ import {
 
 import Sidebar from "../../components/Sidebar";
 import api from "../../services/api";
-import { useAuth } from "../../auth/AuthProvider";
+import { useAuth } from "../../../auth/AuthProvider";
 
 
 // =====================================================

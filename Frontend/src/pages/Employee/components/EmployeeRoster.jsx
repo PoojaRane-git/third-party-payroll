@@ -11,8 +11,9 @@ RefreshCw,
 } from "lucide-react";
 
 import Sidebar from "../../components/Sidebar";
-import api from "../../api/api";
-import { useAuth } from "../../auth/AuthProvider";
+import api from "../../services/api";
+import { useAuth } from "../../../auth/AuthProvider";
+
 
 const EmployeeRoster = () => {
 const { user } = useAuth();
