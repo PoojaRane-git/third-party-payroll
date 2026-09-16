@@ -97,8 +97,8 @@ function App() {
                 <Routes>
 
                     {/* =====================================================
-                        PUBLIC ROUTES
-                    ===================================================== */}
+                            PUBLIC ROUTES
+                        ===================================================== */}
 
                     <Route
                         path="/"
@@ -132,8 +132,8 @@ function App() {
 
 
                     {/* =====================================================
-                        ADMIN PORTAL
-                    ===================================================== */}
+                            ADMIN PORTAL
+                        ===================================================== */}
 
                     <Route
                         element={
@@ -225,8 +225,8 @@ function App() {
 
 
                     {/* =====================================================
-                        EMPLOYEE PORTAL
-                    ===================================================== */}
+                            EMPLOYEE PORTAL
+                        ===================================================== */}
 
                     <Route
                         element={
@@ -273,32 +273,35 @@ function App() {
                             }
                         />
 
+
                         <Route
-                            path="/employee/attendance-rectification"
+                            path="/employee-portal/rectification"
                             element={<EmployeeAttendanceRectification />}
                         />
 
                         <Route
-                            path="/employee/leave"
+                            path="/employee-portal/leave"
                             element={<EmployeeLeave />}
                         />
 
                         <Route
-                            path="/employee/holiday-calendar"
+                            path="/employee-portal/holidays"
                             element={<EmployeeHolidayCalendar />}
                         />
 
                         <Route
-                            path="/employee/roster"
+                            path="/employee-portal/roster"
                             element={<EmployeeRoster />}
                         />
+
+
 
                     </Route>
 
 
                     {/* =====================================================
-                        CLIENT PORTAL
-                    ===================================================== */}
+                            CLIENT PORTAL
+                        ===================================================== */}
                     <Route
                         element={
                             <ProtectedRoute
@@ -366,8 +369,8 @@ function App() {
                     </Route>
 
                     {/* =====================================================
-                        OTHER SECTIONS
-                    ===================================================== */}
+                            OTHER SECTIONS
+                        ===================================================== */}
 
                     <Route
                         element={
@@ -417,8 +420,8 @@ function App() {
 
 
                     {/* =====================================================
-                        UNKNOWN URL
-                    ===================================================== */}
+                            UNKNOWN URL
+                        ===================================================== */}
 
                     <Route
                         path="*"
