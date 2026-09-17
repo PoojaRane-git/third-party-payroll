@@ -211,25 +211,7 @@ const EMPTY_PAYROLL_FORM = {
   bank_name: "",
   account_number: "",
   ifsc_code: "",
-};
-
-console.log("VALUES BEING SENT TO FORM:", {
-  basic_salary: earnBasicSalary,
-  hra: earnHRA,
-  conveyance: earnConveyance,
-  medical_allowance: earnMedicalAllowance,
-  other_allowance: earnOtherAllowance,
-  overtime,
-  bonus,
-  pf,
-  esic,
-  professional_tax: professionalTax,
-  employer_pf: employerPf,
-  employer_esic: employerEsic,
-  gratuity,
-  pf_wages: pfWages,
-});
-
+};  
 // =====================================================
 // COMPONENT
 // =====================================================
@@ -1173,149 +1155,114 @@ const handleSelectEmployee = async (deploymentId) => {
     }
 
     setPrefillInfo(info);
+const payRate = Number(info.pay_rate || 0);
+const daysInMonth = Number(info.total_days || 0);
 
-    // =================================================
-    // CALCULATE PAYROLL VALUES FOR DISPLAY
-    // SAME LOGIC AS BACKEND
-    // =================================================
+let payableDays = Number(info.payable_days);
 
-    const payRate = Number(info.pay_rate || 0);
-    const daysInMonth = Number(info.total_days || 0);
+if (!Number.isFinite(payableDays) || payableDays <= 0) {
+  payableDays =
+    Number(info.present_days || 0) +
+    Number(info.leave_days || 0) +
+    Number(info.half_days || 0) * 0.5;
+}
 
-    const payableDays =
-      info.payable_days !== null &&
-      info.payable_days !== undefined
-        ? Number(info.payable_days)
-        : Number(info.present_days || 0) +
-          Number(info.leave_days || 0) +
-          Number(info.half_days || 0) * 0.5;
+const basicSalary = Math.round(payRate);
 
-    const basicSalary = Math.round(payRate);
+const hra = Math.round(basicSalary * 0.5);
+const conveyance = 1200;
+const medicalAllowance = 1000;
+const otherAllowance = 0;
 
-    const hra = Math.round(basicSalary * 0.5);
+const earnBasicSalary = Math.round(
+  (basicSalary / daysInMonth) * payableDays
+);
 
-    const conveyance = 1200;
+const earnHRA = Math.round(
+  (hra / daysInMonth) * payableDays
+);
 
-    const medicalAllowance = 1000;
+const earnConveyance = Math.round(
+  (conveyance / daysInMonth) * payableDays
+);
 
-    const otherAllowance = Math.max(
-      0,
-      Math.round(
-        payRate -
-          basicSalary -
-          hra -
-          conveyance -
-          medicalAllowance
-      )
-    );
+const earnMedicalAllowance = Math.round(
+  (medicalAllowance / daysInMonth) * payableDays
+);
 
-    const earnBasicSalary = Math.round(
-      (basicSalary / daysInMonth) * payableDays
-    );
+const earnOtherAllowance = Math.round(
+  (otherAllowance / daysInMonth) * payableDays
+);
 
-    const earnHRA = Math.round(
-      (hra / daysInMonth) * payableDays
-    );
+const earnedFixedGross =
+  earnBasicSalary +
+  earnHRA +
+  earnConveyance +
+  earnMedicalAllowance +
+  earnOtherAllowance;
 
-    const earnConveyance = Math.round(
-      (conveyance / daysInMonth) * payableDays
-    );
+const overtimeHours = Number(info.overtime_hours || 0);
 
-    const earnMedicalAllowance = Math.round(
-      (medicalAllowance / daysInMonth) * payableDays
-    );
+const overtime = Math.round(
+  (basicSalary / 26 / 8) * 1.5 * overtimeHours
+);
 
-    const earnOtherAllowance = Math.round(
-      (otherAllowance / daysInMonth) * payableDays
-    );
+const department = String(info.department || "")
+  .trim()
+  .toLowerCase();
 
-    const earnedFixedGross =
-      earnBasicSalary +
-      earnHRA +
-      earnConveyance +
-      earnMedicalAllowance +
-      earnOtherAllowance;
+const bonus = ["admin", "accounts"].includes(department)
+  ? Math.round(earnedFixedGross * 0.0833)
+  : 0;
 
-    const overtimeHours = Number(
-      info.overtime_hours || 0
-    );
+const grossSalary = Math.round(
+  earnedFixedGross + overtime + bonus
+);
 
-    const overtime = Math.round(
-      (basicSalary / 26 / 8) *
-        1.5 *
-        overtimeHours
-    );
+const pfWages = Math.max(
+  0,
+  Math.round(grossSalary - earnHRA)
+);
 
-    const department = String(
-      info.department || ""
-    )
-      .trim()
-      .toLowerCase();
+const pf = Math.round(
+  Math.min(pfWages, 15000) * 0.12
+);
 
-    const bonus = [
-      "admin",
-      "accounts",
-    ].includes(department)
-      ? Math.round(earnedFixedGross * 0.0833)
-      : 0;
+const esic = 0;
 
-    const grossSalary = Math.round(
-      earnedFixedGross +
-        overtime +
-        bonus
-    );
+const professionalTax =
+  grossSalary > 25000 ? 200 : 0;
 
-    const pfWages = Math.max(
-      0,
-      Math.round(
-        grossSalary - earnHRA
-      )
-    );
+const tax = 0;
+const lop = 0;
 
-    const pf = Math.round(
-      Math.min(pfWages, 15000) * 0.12
-    );
+const totalDeductions =
+  pf +
+  esic +
+  tax +
+  professionalTax +
+  lop;
 
-    // Prefill endpoint currently doesn't return ESIC number,
-    // so ESIC will remain 0 in the preview.
-    const esic = 0;
+const netSalary = Math.max(
+  0,
+  Math.round(grossSalary - totalDeductions)
+);
 
-    const professionalTax =
-      grossSalary > 25000 ? 200 : 0;
+const gratuity = Math.round(
+  earnBasicSalary * 0.0481
+);
 
-    const tax = 0;
+const employerPf = pf;
+const employerEsic = 0;
 
-    const lop = 0;
+const totalEmployerContribution =
+  employerPf + employerEsic;
 
-    const totalDeductions =
-      pf +
-      esic +
-      tax +
-      professionalTax;
-
-    const netSalary = Math.max(
-      0,
-      Math.round(
-        grossSalary - totalDeductions
-      )
-    );
-
-    const gratuity = Math.round(
-      earnBasicSalary * 0.0481
-    );
-
-    const employerPf = pf;
-
-    const employerEsic = 0;
-
-    const totalEmployerContribution =
-      employerPf + employerEsic;
-
-    const totalEmployerCost = Math.round(
-      grossSalary +
-        totalEmployerContribution +
-        gratuity
-    );
+const totalEmployerCost = Math.round(
+  grossSalary +
+  totalEmployerContribution +
+  gratuity
+);
 
     // =================================================
     // POPULATE FORM
