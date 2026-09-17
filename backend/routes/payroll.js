@@ -969,7 +969,6 @@ router.get("/:id", async (req, res) => {
         );
     }
 });
-
 // ============================================================
 // GENERATE PAYROLL
 //
@@ -979,10 +978,24 @@ router.get("/:id", async (req, res) => {
 //   client_id: 1,
 //   salary_month: "2026-08"
 // }
+//
+// Salary source:
+// candidates.pay_rate
+//
+// Attendance source:
+// third_party_emp_attendance
+//
+// Deployment pay_rate is NOT used for payroll.
+// Deployment bill_rate is NOT used for employee salary.
 // ============================================================
+
 router.post("/generate", async (req, res) => {
 
     try {
+
+        // ========================================================
+        // CLIENT ID
+        // ========================================================
 
         const clientId =
             getId(
@@ -997,6 +1010,10 @@ router.post("/generate", async (req, res) => {
                 "Valid client_id is required"
             );
         }
+
+        // ========================================================
+        // SALARY MONTH
+        // ========================================================
 
         let validMonth;
 
@@ -1016,9 +1033,9 @@ router.post("/generate", async (req, res) => {
             );
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // CLIENT
-        // --------------------------------------------------------
+        // ========================================================
 
         const {
             data: client,
@@ -1048,14 +1065,14 @@ router.post("/generate", async (req, res) => {
             );
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // ATTENDANCE
         //
-        // Uses:
+        // Source:
         // third_party_emp_attendance
         //
-        // NO ATTENDANCE APPROVAL TABLE
-        // --------------------------------------------------------
+        // No attendance approval table.
+        // ========================================================
 
         const {
             data: attendanceRows,
@@ -1087,6 +1104,10 @@ router.post("/generate", async (req, res) => {
             throw attendanceError;
         }
 
+        // ========================================================
+        // NO ATTENDANCE
+        // ========================================================
+
         if (
             !attendanceRows ||
             attendanceRows.length === 0
@@ -1115,38 +1136,41 @@ router.post("/generate", async (req, res) => {
             });
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // CALENDAR DAYS
-        // --------------------------------------------------------
+        // ========================================================
 
         const calendarDays =
             getDaysInMonth(
                 validMonth
             );
 
-        // --------------------------------------------------------
-        // PAYROLL DIVISOR
+        // ========================================================
+        // OVERTIME DIVISOR
         //
-        // 26 is retained for overtime calculation,
-        // matching your existing payroll logic.
-        // --------------------------------------------------------
+        // Existing project rule:
+        // 26 working days
+        // ========================================================
 
         const salaryDivisor = 26;
 
         const generated = [];
+
         const skipped = [];
 
-        // --------------------------------------------------------
-        // PROCESS ATTENDANCE
-        // --------------------------------------------------------
+        // ========================================================
+        // PROCESS EACH ATTENDANCE RECORD
+        // ========================================================
 
-        for (const attendance of attendanceRows) {
+        for (
+            const attendance of attendanceRows
+        ) {
 
             try {
 
-                // ------------------------------------------------
-                // EMPLOYEE
-                // ------------------------------------------------
+                // ==================================================
+                // EMPLOYEE ID
+                // ==================================================
 
                 const employeeId =
                     getId(
@@ -1167,9 +1191,9 @@ router.post("/generate", async (req, res) => {
                     continue;
                 }
 
-                // ------------------------------------------------
-                // DEPLOYMENT
-                // ------------------------------------------------
+                // ==================================================
+                // DEPLOYMENT ID
+                // ==================================================
 
                 const deploymentId =
                     getId(
@@ -1193,9 +1217,14 @@ router.post("/generate", async (req, res) => {
                     continue;
                 }
 
-                // ------------------------------------------------
+                // ==================================================
                 // DEPLOYMENT
-                // ------------------------------------------------
+                //
+                // pay_rate is intentionally NOT selected.
+                //
+                // Employee salary comes from:
+                // candidates.pay_rate
+                // ==================================================
 
                 const {
                     data: deployment,
@@ -1206,7 +1235,6 @@ router.post("/generate", async (req, res) => {
                         id,
                         candidate_id,
                         client_id,
-                        pay_rate,
                         bill_rate,
                         project_name,
                         billing_model,
@@ -1239,9 +1267,9 @@ router.post("/generate", async (req, res) => {
                     continue;
                 }
 
-                // ------------------------------------------------
+                // ==================================================
                 // CLIENT VALIDATION
-                // ------------------------------------------------
+                // ==================================================
 
                 if (
                     Number(
@@ -1264,9 +1292,9 @@ router.post("/generate", async (req, res) => {
                     continue;
                 }
 
-                // ------------------------------------------------
+                // ==================================================
                 // EMPLOYEE VALIDATION
-                // ------------------------------------------------
+                // ==================================================
 
                 if (
                     Number(
@@ -1289,15 +1317,17 @@ router.post("/generate", async (req, res) => {
                     continue;
                 }
 
-                // ------------------------------------------------
+                // ==================================================
                 // ACTIVE DEPLOYMENT
-                // ------------------------------------------------
+                // ==================================================
 
                 if (
                     deployment.status &&
                     String(
                         deployment.status
-                    ).toLowerCase() !==
+                    )
+                        .trim()
+                        .toLowerCase() !==
                     "active"
                 ) {
 
@@ -1316,9 +1346,9 @@ router.post("/generate", async (req, res) => {
                     continue;
                 }
 
-                // ------------------------------------------------
+                // ==================================================
                 // DUPLICATE PAYROLL CHECK
-                // ------------------------------------------------
+                // ==================================================
 
                 const {
                     data: existingRows,
@@ -1372,9 +1402,11 @@ router.post("/generate", async (req, res) => {
                     continue;
                 }
 
-                // ------------------------------------------------
+                // ==================================================
                 // CANDIDATE
-                // ------------------------------------------------
+                //
+                // pay_rate is the ONLY salary source.
+                // ==================================================
 
                 const {
                     data: candidate,
@@ -1425,24 +1457,27 @@ router.post("/generate", async (req, res) => {
                     continue;
                 }
 
-                // ------------------------------------------------
-                // PAY RATE
+                // ==================================================
+                // BASIC SALARY
                 //
-                // Pay rate represents fixed monthly gross salary.
-                // ------------------------------------------------
+                // IMPORTANT:
+                //
+                // candidates.pay_rate
+                // is the employee's monthly basic salary.
+                //
+                // deployment.pay_rate is NOT used.
+                // ==================================================
 
-                const fixedGrossSalary =
+                const basicSalary =
                     Number(
-                        deployment.pay_rate ||
-                        candidate.pay_rate ||
-                        0
+                        candidate.pay_rate || 0
                     );
 
                 if (
                     !Number.isFinite(
-                        fixedGrossSalary
+                        basicSalary
                     ) ||
-                    fixedGrossSalary <= 0
+                    basicSalary <= 0
                 ) {
 
                     skipped.push({
@@ -1454,15 +1489,15 @@ router.post("/generate", async (req, res) => {
                             employeeId,
 
                         reason:
-                            "Invalid pay rate"
+                            "Invalid employee pay rate in candidates table"
                     });
 
                     continue;
                 }
 
-                // ------------------------------------------------
-                // ATTENDANCE
-                // ------------------------------------------------
+                // ==================================================
+                // ATTENDANCE VALUES
+                // ==================================================
 
                 const totalDays =
                     calendarDays;
@@ -1503,12 +1538,14 @@ router.post("/generate", async (req, res) => {
                         )
                     );
 
-                // ------------------------------------------------
+                // ==================================================
                 // PAYABLE DAYS
                 //
-                // Use attendance payable_days when available.
-                // This is the authoritative attendance result.
-                // ------------------------------------------------
+                // Prefer attendance.payable_days.
+                //
+                // If unavailable, calculate from:
+                // present + leave + half days
+                // ==================================================
 
                 let payableDays =
                     Number(
@@ -1526,7 +1563,9 @@ router.post("/generate", async (req, res) => {
                             0,
                             presentDays +
                             leaveDays +
-                            halfDays * 0.5
+                            (
+                                halfDays * 0.5
+                            )
                         );
                 }
 
@@ -1539,26 +1578,27 @@ router.post("/generate", async (req, res) => {
                         )
                     );
 
-                // ------------------------------------------------
+                // ==================================================
                 // SALARY STRUCTURE
                 //
-                // Fixed Gross
-                //     ↓
-                // Basic = 50%
-                // HRA = 50% of Basic
-                // Conveyance = 1200
-                // Medical = 1000
-                // Other = remaining amount
-                // ------------------------------------------------
+                // Basic       = candidates.pay_rate
+                // HRA         = 50% of Basic
+                // Conveyance  = ₹1200
+                // Medical     = ₹1000
+                // Other       = ₹0
+                //
+                // These are system-defined payroll components.
+                // ==================================================
 
                 const monthlyBasic =
                     Math.round(
-                        fixedGrossSalary * 0.5
+                        basicSalary
                     );
 
                 const monthlyHRA =
                     Math.round(
-                        monthlyBasic * 0.5
+                        monthlyBasic *
+                        0.5
                     );
 
                 const monthlyConveyance =
@@ -1568,22 +1608,11 @@ router.post("/generate", async (req, res) => {
                     1000;
 
                 const monthlyOtherAllowance =
-                    Math.max(
-                        0,
-                        Math.round(
-                            fixedGrossSalary -
-                            monthlyBasic -
-                            monthlyHRA -
-                            monthlyConveyance -
-                            monthlyMedicalAllowance
-                        )
-                    );
+                    0;
 
-                // ------------------------------------------------
-                // EARNED SALARY COMPONENTS
-                //
-                // Prorated using attendance payable days.
-                // ------------------------------------------------
+                // ==================================================
+                // EARNED BASIC
+                // ==================================================
 
                 const earnBasicSalary =
                     Math.round(
@@ -1594,6 +1623,10 @@ router.post("/generate", async (req, res) => {
                         payableDays
                     );
 
+                // ==================================================
+                // EARNED HRA
+                // ==================================================
+
                 const earnHRA =
                     Math.round(
                         (
@@ -1602,6 +1635,10 @@ router.post("/generate", async (req, res) => {
                         ) *
                         payableDays
                     );
+
+                // ==================================================
+                // EARNED CONVEYANCE
+                // ==================================================
 
                 const earnConveyance =
                     Math.round(
@@ -1612,6 +1649,10 @@ router.post("/generate", async (req, res) => {
                         payableDays
                     );
 
+                // ==================================================
+                // EARNED MEDICAL
+                // ==================================================
+
                 const earnMedicalAllowance =
                     Math.round(
                         (
@@ -1620,6 +1661,10 @@ router.post("/generate", async (req, res) => {
                         ) *
                         payableDays
                     );
+
+                // ==================================================
+                // EARNED OTHER ALLOWANCE
+                // ==================================================
 
                 const earnOtherAllowance =
                     Math.round(
@@ -1630,12 +1675,11 @@ router.post("/generate", async (req, res) => {
                         payableDays
                     );
 
-                // ------------------------------------------------
+                // ==================================================
                 // OVERTIME
                 //
-                // Existing project rule:
-                // monthly basic / 26 / 8 * 1.5
-                // ------------------------------------------------
+                // Basic / 26 / 8 × 1.5 × OT hours
+                // ==================================================
 
                 const normalHourlyRate =
                     monthlyBasic /
@@ -1652,12 +1696,9 @@ router.post("/generate", async (req, res) => {
                         overtimeRate
                     );
 
-                // ------------------------------------------------
-                // BONUS
-                //
-                // Existing PaySlip rule:
-                // Admin / Accounts = 8.33%
-                // ------------------------------------------------
+                // ==================================================
+                // DEPARTMENT
+                // ==================================================
 
                 const department =
                     String(
@@ -1666,12 +1707,25 @@ router.post("/generate", async (req, res) => {
                         .trim()
                         .toLowerCase();
 
+                // ==================================================
+                // EARNED FIXED GROSS
+                //
+                // Does not include overtime or bonus.
+                // ==================================================
+
                 const earnedFixedGross =
                     earnBasicSalary +
                     earnHRA +
                     earnConveyance +
                     earnMedicalAllowance +
                     earnOtherAllowance;
+
+                // ==================================================
+                // BONUS
+                //
+                // Existing project rule:
+                // Admin / Accounts = 8.33%
+                // ==================================================
 
                 const bonus =
                     (
@@ -1684,24 +1738,22 @@ router.post("/generate", async (req, res) => {
                         )
                         : 0;
 
-                // ------------------------------------------------
-                // GROSS
-                // ------------------------------------------------
+                // ==================================================
+                // GROSS SALARY
+                // ==================================================
 
                 const grossSalary =
                     earnedFixedGross +
                     overtimeAmount +
                     bonus;
 
-                // ------------------------------------------------
+                // ==================================================
                 // PF WAGES
                 //
-                // Same concept as old PaySlip:
-                // earned gross excluding HRA.
+                // Gross excluding HRA.
                 //
-                // Overtime and bonus are included because they
-                // are part of the third-party payroll gross.
-                // ------------------------------------------------
+                // Overtime and bonus remain included.
+                // ==================================================
 
                 const pfWages =
                     Math.max(
@@ -1710,12 +1762,11 @@ router.post("/generate", async (req, res) => {
                         earnHRA
                     );
 
-                // ------------------------------------------------
-                // EMPLOYEE PF
+                // ==================================================
+                // PF BASE
                 //
-                // Existing project rule:
-                // 12% of PF wages capped at 15,000.
-                // ------------------------------------------------
+                // Maximum PF wage considered = ₹15,000.
+                // ==================================================
 
                 const pfBase =
                     Math.min(
@@ -1723,21 +1774,32 @@ router.post("/generate", async (req, res) => {
                         15000
                     );
 
+                // ==================================================
+                // EMPLOYEE PF
+                //
+                // 12%
+                // ==================================================
+
                 const employeePF =
                     Math.round(
                         pfBase *
                         0.12
                     );
 
-                // ------------------------------------------------
-                // ESIC
+                // ==================================================
+                // ESIC APPLICABILITY
                 //
-                // Existing project rule:
-                // 0.75% when gross <= 21,000.
-                // ------------------------------------------------
+                // Candidate must have ESIC number.
+                // ==================================================
 
                 const esicApplicable =
                     !!candidate.esic_number;
+
+                // ==================================================
+                // EMPLOYEE ESIC
+                //
+                // 0.75% when gross <= ₹21,000.
+                // ==================================================
 
                 const employeeESIC =
                     (
@@ -1750,54 +1812,52 @@ router.post("/generate", async (req, res) => {
                         )
                         : 0;
 
-                // ------------------------------------------------
+                // ==================================================
                 // PROFESSIONAL TAX
                 //
-                // Existing PaySlip rule:
                 // ₹200 when gross > ₹25,000.
-                // ------------------------------------------------
+                // ==================================================
+
+                const gender =
+                    String(
+                        candidate.gender || ""
+                    )
+                        .trim()
+                        .toLowerCase();
 
                 const professionalTax =
                     (
                         grossSalary > 25000 &&
                         (
-                            String(
-                                candidate.gender || ""
-                            )
-                                .toLowerCase() ===
-                            "female" ||
-
-                            String(
-                                candidate.gender || ""
-                            )
-                                .toLowerCase() ===
-                            "male"
+                            gender === "female" ||
+                            gender === "male"
                         )
                     )
                         ? 200
                         : 0;
 
-                // ------------------------------------------------
+                // ==================================================
                 // TDS
-                // ------------------------------------------------
+                //
+                // Currently zero.
+                // ==================================================
 
-                const taxTds = 0;
+                const taxTds =
+                    0;
 
-                // ------------------------------------------------
+                // ==================================================
                 // LOP
                 //
-                // payable_days already reflects attendance.
-                // Therefore the salary components are already
-                // prorated for unpaid days.
-                //
-                // We do not deduct LOP a second time.
-                // ------------------------------------------------
+                // Payable days already prorate salary.
+                // Therefore do not deduct LOP again.
+                // ==================================================
 
-                const lopDeduction = 0;
+                const lopDeduction =
+                    0;
 
-                // ------------------------------------------------
-                // TOTAL DEDUCTIONS
-                // ------------------------------------------------
+                // ==================================================
+                // TOTAL EMPLOYEE DEDUCTIONS
+                // ==================================================
 
                 const totalDeductions =
                     employeePF +
@@ -1806,9 +1866,9 @@ router.post("/generate", async (req, res) => {
                     professionalTax +
                     lopDeduction;
 
-                // ------------------------------------------------
-                // NET
-                // ------------------------------------------------
+                // ==================================================
+                // NET SALARY
+                // ==================================================
 
                 const netSalary =
                     Math.max(
@@ -1817,12 +1877,11 @@ router.post("/generate", async (req, res) => {
                         totalDeductions
                     );
 
-                // ------------------------------------------------
+                // ==================================================
                 // GRATUITY
                 //
-                // Existing PaySlip rule:
                 // 4.81% of earned basic.
-                // ------------------------------------------------
+                // ==================================================
 
                 const gratuity =
                     Math.round(
@@ -1830,9 +1889,11 @@ router.post("/generate", async (req, res) => {
                         0.0481
                     );
 
-                // ------------------------------------------------
+                // ==================================================
                 // EMPLOYER PF
-                // ------------------------------------------------
+                //
+                // Same PF base and 12%.
+                // ==================================================
 
                 const employerPF =
                     Math.round(
@@ -1840,9 +1901,12 @@ router.post("/generate", async (req, res) => {
                         0.12
                     );
 
-                // ------------------------------------------------
+                // ==================================================
                 // EMPLOYER ESIC
-                // ------------------------------------------------
+                //
+                // 3.25% when ESIC applicable
+                // and gross <= ₹21,000.
+                // ==================================================
 
                 const employerESIC =
                     (
@@ -1855,38 +1919,49 @@ router.post("/generate", async (req, res) => {
                         )
                         : 0;
 
-                // ------------------------------------------------
-                // EMPLOYER CONTRIBUTION
-                // ------------------------------------------------
+                // ==================================================
+                // TOTAL EMPLOYER CONTRIBUTION
+                // ==================================================
 
                 const totalEmployerContribution =
                     employerPF +
                     employerESIC;
 
-                // ------------------------------------------------
-                // EMPLOYER COST
-                // ------------------------------------------------
+                // ==================================================
+                // TOTAL EMPLOYER COST
+                // ==================================================
 
                 const totalEmployerCost =
                     grossSalary +
                     totalEmployerContribution +
                     gratuity;
 
-                // ------------------------------------------------
+                // ==================================================
                 // PAYROLL OBJECT
-                // ------------------------------------------------
+                // ==================================================
 
                 generated.push({
+
+                    // ------------------------------------------------
+                    // EMPLOYEE
+                    // ------------------------------------------------
 
                     employee_name:
                         candidate.full_name ||
                         attendance.employee_name,
 
+                    employee_ref_id:
+                        employeeId,
+
+                    // ------------------------------------------------
+                    // MONTH
+                    // ------------------------------------------------
+
                     salary_month:
                         validMonth,
 
                     // ------------------------------------------------
-                    // FIXED / EARNED SALARY
+                    // BASIC
                     // ------------------------------------------------
 
                     basic_salary:
@@ -1894,38 +1969,79 @@ router.post("/generate", async (req, res) => {
                             earnBasicSalary.toFixed(2)
                         ),
 
+                    // ------------------------------------------------
+                    // TOTAL ALLOWANCES
+                    //
+                    // HRA + Conveyance + Medical + Other
+                    // ------------------------------------------------
+
                     allowances:
-                        0,
+                        Number(
+                            (
+                                earnHRA +
+                                earnConveyance +
+                                earnMedicalAllowance +
+                                earnOtherAllowance
+                            ).toFixed(2)
+                        ),
+
+                    // ------------------------------------------------
+                    // HRA
+                    // ------------------------------------------------
 
                     hra:
                         Number(
                             earnHRA.toFixed(2)
                         ),
 
+                    // ------------------------------------------------
+                    // CONVEYANCE
+                    // ------------------------------------------------
+
                     conveyance:
                         Number(
                             earnConveyance.toFixed(2)
                         ),
+
+                    // ------------------------------------------------
+                    // MEDICAL
+                    // ------------------------------------------------
 
                     medical_allowance:
                         Number(
                             earnMedicalAllowance.toFixed(2)
                         ),
 
+                    // ------------------------------------------------
+                    // OTHER
+                    // ------------------------------------------------
+
                     other_allowance:
                         Number(
                             earnOtherAllowance.toFixed(2)
                         ),
+
+                    // ------------------------------------------------
+                    // OVERTIME
+                    // ------------------------------------------------
 
                     overtime:
                         Number(
                             overtimeAmount.toFixed(2)
                         ),
 
+                    // ------------------------------------------------
+                    // BONUS
+                    // ------------------------------------------------
+
                     bonus:
                         Number(
                             bonus.toFixed(2)
                         ),
+
+                    // ------------------------------------------------
+                    // GROSS
+                    // ------------------------------------------------
 
                     gross_salary:
                         Number(
@@ -1933,7 +2049,7 @@ router.post("/generate", async (req, res) => {
                         ),
 
                     // ------------------------------------------------
-                    // EMPLOYEE DEDUCTIONS
+                    // EMPLOYEE PF
                     // ------------------------------------------------
 
                     pf:
@@ -1941,30 +2057,54 @@ router.post("/generate", async (req, res) => {
                             employeePF.toFixed(2)
                         ),
 
+                    // ------------------------------------------------
+                    // EMPLOYEE ESIC
+                    // ------------------------------------------------
+
                     esic:
                         Number(
                             employeeESIC.toFixed(2)
                         ),
+
+                    // ------------------------------------------------
+                    // TDS
+                    // ------------------------------------------------
 
                     tax:
                         Number(
                             taxTds.toFixed(2)
                         ),
 
+                    // ------------------------------------------------
+                    // PROFESSIONAL TAX
+                    // ------------------------------------------------
+
                     professional_tax:
                         Number(
                             professionalTax.toFixed(2)
                         ),
+
+                    // ------------------------------------------------
+                    // LOP
+                    // ------------------------------------------------
 
                     lop:
                         Number(
                             lopDeduction.toFixed(2)
                         ),
 
+                    // ------------------------------------------------
+                    // TOTAL DEDUCTIONS
+                    // ------------------------------------------------
+
                     total_deductions:
                         Number(
                             totalDeductions.toFixed(2)
                         ),
+
+                    // ------------------------------------------------
+                    // NET SALARY
+                    // ------------------------------------------------
 
                     net_salary:
                         Number(
@@ -1972,7 +2112,7 @@ router.post("/generate", async (req, res) => {
                         ),
 
                     // ------------------------------------------------
-                    // EMPLOYER
+                    // EMPLOYER PF
                     // ------------------------------------------------
 
                     employer_pf:
@@ -1980,20 +2120,27 @@ router.post("/generate", async (req, res) => {
                             employerPF.toFixed(2)
                         ),
 
+                    // ------------------------------------------------
+                    // EMPLOYER ESIC
+                    // ------------------------------------------------
+
                     employer_esic:
                         Number(
                             employerESIC.toFixed(2)
                         ),
+
+                    // ------------------------------------------------
+                    // TOTAL EMPLOYER CONTRIBUTION
+                    // ------------------------------------------------
 
                     total_employer_contribution:
                         Number(
                             totalEmployerContribution.toFixed(2)
                         ),
 
-                    total_employer_cost:
-                        Number(
-                            totalEmployerCost.toFixed(2)
-                        ),
+                    // ------------------------------------------------
+                    // GRATUITY
+                    // ------------------------------------------------
 
                     gratuity:
                         Number(
@@ -2001,21 +2148,44 @@ router.post("/generate", async (req, res) => {
                         ),
 
                     // ------------------------------------------------
-                    // EMPLOYEE INFORMATION
+                    // TOTAL EMPLOYER COST
+                    // ------------------------------------------------
+
+                    total_employer_cost:
+                        Number(
+                            totalEmployerCost.toFixed(2)
+                        ),
+
+                    // ------------------------------------------------
+                    // PF WAGES
+                    // ------------------------------------------------
+
+                    pf_wages:
+                        Number(
+                            pfWages.toFixed(2)
+                        ),
+
+                    // ------------------------------------------------
+                    // JOINING DATE
                     // ------------------------------------------------
 
                     joining_date:
                         candidate.date_of_joining ||
                         null,
 
+                    // ------------------------------------------------
+                    // PRAN
+                    //
+                    // Do NOT use UAN as PRAN.
+                    // Candidate table currently has no PRAN field.
+                    // ------------------------------------------------
+
                     pran:
-                        candidate.uan_number ||
                         null,
 
-                    pf_wages:
-                        Number(
-                            pfWages.toFixed(2)
-                        ),
+                    // ------------------------------------------------
+                    // BANK
+                    // ------------------------------------------------
 
                     bank_name:
                         candidate.bank_name ||
@@ -2029,11 +2199,16 @@ router.post("/generate", async (req, res) => {
                         candidate.ifsc_code ||
                         null,
 
+                    // ------------------------------------------------
+                    // PAYROLL STATUS
+                    // ------------------------------------------------
+
                     status:
                         "Pending",
 
-                    employee_ref_id:
-                        employeeId,
+                    // ------------------------------------------------
+                    // RELATIONSHIPS
+                    // ------------------------------------------------
 
                     attendance_id:
                         attendance.id,
@@ -2069,9 +2244,9 @@ router.post("/generate", async (req, res) => {
             }
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // NOTHING GENERATED
-        // --------------------------------------------------------
+        // ========================================================
 
         if (
             generated.length === 0
@@ -2105,9 +2280,9 @@ router.post("/generate", async (req, res) => {
             });
         }
 
-        // --------------------------------------------------------
-        // INSERT
-        // --------------------------------------------------------
+        // ========================================================
+        // INSERT PAYROLL
+        // ========================================================
 
         const {
             data: insertedPayroll,
@@ -2125,9 +2300,9 @@ router.post("/generate", async (req, res) => {
             throw insertError;
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // RESPONSE
-        // --------------------------------------------------------
+        // ========================================================
 
         return res.status(201).json({
 
@@ -5847,1188 +6022,8 @@ router.get("/lookup/prefill", async (req, res) => {
         );
     }
 });
-// ============================================================
-// CREATE PAYROLL
-//
-// POST /api/payroll
-//
-// Admin selects:
-// - client_id
-// - deployment_id
-// - employee_ref_id
-// - salary_month
-//
-// System automatically fetches:
-// Employee + Deployment + Attendance
-//
-// Then calculates:
-// Basic, HRA, Conveyance, Medical, Other Allowance,
-// Overtime, Bonus, PF, ESIC, PT, LWF, Gratuity,
-// Employer PF, Employer ESIC, Employer LWF,
-// Gross, Net Salary and Employer Cost.
-//
-// Admin does NOT type salary components.
-// ============================================================
 
-router.post("/", async (req, res) => {
-    try {
-        const clientId = getId(req.body.client_id);
-        const deploymentId = getId(req.body.deployment_id);
-        const employeeId = getId(req.body.employee_ref_id);
 
-        if (!clientId) {
-            return sendError(
-                res,
-                400,
-                "Valid client_id is required"
-            );
-        }
-
-        if (!deploymentId) {
-            return sendError(
-                res,
-                400,
-                "Valid deployment_id is required"
-            );
-        }
-
-        if (!employeeId) {
-            return sendError(
-                res,
-                400,
-                "Valid employee_ref_id is required"
-            );
-        }
-
-        // --------------------------------------------------------
-        // SALARY MONTH
-        // --------------------------------------------------------
-
-        let salaryMonth;
-
-        try {
-            salaryMonth = validateSalaryMonth(
-                req.body.salary_month
-            );
-        } catch (err) {
-            return sendError(
-                res,
-                400,
-                err.message
-            );
-        }
-
-        // --------------------------------------------------------
-        // FETCH DEPLOYMENT
-        // --------------------------------------------------------
-
-        const { data: deployment, error: deploymentError } =
-            await supabase
-                .from("deployments")
-                .select(`
-                    id,
-                    candidate_id,
-                    client_id,
-                    pay_rate,
-                    status
-                `)
-                .eq("id", deploymentId)
-                .maybeSingle();
-
-        if (deploymentError) {
-            throw deploymentError;
-        }
-
-        if (!deployment) {
-            return sendError(
-                res,
-                404,
-                "Deployment not found"
-            );
-        }
-
-        // --------------------------------------------------------
-        // VALIDATE CLIENT
-        // --------------------------------------------------------
-
-        if (
-            Number(deployment.client_id) !==
-            Number(clientId)
-        ) {
-            return sendError(
-                res,
-                400,
-                "Deployment does not belong to selected client"
-            );
-        }
-
-        // --------------------------------------------------------
-        // VALIDATE EMPLOYEE
-        // --------------------------------------------------------
-
-        if (
-            Number(deployment.candidate_id) !==
-            Number(employeeId)
-        ) {
-            return sendError(
-                res,
-                400,
-                "Employee does not belong to selected deployment"
-            );
-        }
-
-        // --------------------------------------------------------
-        // DUPLICATE CHECK
-        // --------------------------------------------------------
-
-        const {
-            data: existingRows,
-            error: existingError
-        } = await supabase
-            .from("third_party_payroll")
-            .select("id")
-            .eq(
-                "employee_ref_id",
-                employeeId
-            )
-            .eq(
-                "deployment_id",
-                deploymentId
-            )
-            .eq(
-                "salary_month",
-                salaryMonth
-            )
-            .limit(1);
-
-        if (existingError) {
-            throw existingError;
-        }
-
-        if (
-            existingRows &&
-            existingRows.length > 0
-        ) {
-            return sendError(
-                res,
-                409,
-                "A payroll record already exists for this employee, deployment, and month",
-                {
-                    existing_payroll_id:
-                        existingRows[0].id
-                }
-            );
-        }
-
-        // --------------------------------------------------------
-        // FETCH EMPLOYEE
-        // --------------------------------------------------------
-
-        const {
-            data: candidate,
-            error: candidateError
-        } = await supabase
-            .from("candidates")
-            .select(`
-                id,
-                full_name,
-                gender,
-                department,
-                pay_rate,
-                bank_name,
-                bank_account_number,
-                ifsc_code,
-                pan_number,
-                uan_number,
-                esic_number,
-                date_of_joining
-            `)
-            .eq("id", employeeId)
-            .maybeSingle();
-
-        if (candidateError) {
-            throw candidateError;
-        }
-
-        if (!candidate) {
-            return sendError(
-                res,
-                404,
-                "Candidate not found"
-            );
-        }
-
-        // --------------------------------------------------------
-        // FETCH ATTENDANCE
-        //
-        // IMPORTANT:
-        // We use the attendance record for the selected
-        // employee + deployment + month.
-        //
-        // We do NOT use third_party_attendance_approval.
-        // --------------------------------------------------------
-
-        const {
-            data: attendanceRows,
-            error: attendanceError
-        } = await supabase
-            .from("third_party_emp_attendance")
-            .select(`
-                id,
-                employee_id,
-                deployment_id,
-                billing_month,
-                present_days,
-                absent_days,
-                leave_days,
-                half_days,
-                lop_days,
-                payable_days,
-                overtime_hours,
-                advance
-            `)
-            .eq(
-                "employee_id",
-                employeeId
-            )
-            .eq(
-                "deployment_id",
-                deploymentId
-            )
-            .eq(
-                "billing_month",
-                salaryMonth
-            )
-            .order("id", {
-                ascending: false
-            })
-            .limit(1);
-
-        if (attendanceError) {
-            throw attendanceError;
-        }
-
-        if (
-            !attendanceRows ||
-            attendanceRows.length === 0
-        ) {
-            return sendError(
-                res,
-                404,
-                `Attendance not found for ${candidate.full_name} for ${salaryMonth}`
-            );
-        }
-
-        const attendance =
-            attendanceRows[0];
-
-        // --------------------------------------------------------
-        // ATTENDANCE VALUES
-        // --------------------------------------------------------
-
-        const presentDays = Number(
-            attendance.present_days || 0
-        );
-
-        const absentDays = Number(
-            attendance.absent_days || 0
-        );
-
-        const leaveDays = Number(
-            attendance.leave_days || 0
-        );
-
-        const halfDays = Number(
-            attendance.half_days || 0
-        );
-
-        const lopDays = Number(
-            attendance.lop_days || 0
-        );
-
-        const overtimeHours = Number(
-            attendance.overtime_hours || 0
-        );
-
-       const advanceDeduction = 0;
-
-        // --------------------------------------------------------
-        // DAYS IN MONTH
-        // --------------------------------------------------------
-
-        const [year, month] =
-            salaryMonth
-                .split("-")
-                .map(Number);
-
-        const daysInMonth =
-            new Date(
-                year,
-                month,
-                0
-            ).getDate();
-
-        // --------------------------------------------------------
-        // PAYABLE DAYS
-        //
-        // Use attendance.payable_days if already calculated.
-        //
-        // Otherwise:
-        // Present + Leave + Half Day × 0.5
-        // --------------------------------------------------------
-
-        let payableDays;
-
-        if (
-            attendance.payable_days !== null &&
-            attendance.payable_days !== undefined
-        ) {
-            payableDays = Number(
-                attendance.payable_days
-            );
-        } else {
-            payableDays =
-                presentDays +
-                leaveDays +
-                halfDays * 0.5;
-        }
-
-        payableDays = Math.max(
-            0,
-            Math.min(
-                payableDays,
-                daysInMonth
-            )
-        );
-
-        // --------------------------------------------------------
-        // MONTHLY PAY RATE
-        //
-        // Deployment pay_rate takes priority.
-        // Candidate pay_rate is fallback.
-        // --------------------------------------------------------
-
-        const fixedGrossSalary = Math.round(
-            Number(
-                deployment.pay_rate ??
-                candidate.pay_rate ??
-                0
-            )
-        );
-
-        if (fixedGrossSalary <= 0) {
-            return sendError(
-                res,
-                400,
-                `Pay rate is not configured for ${candidate.full_name}`
-            );
-        }
-
-        // ========================================================
-        // SALARY CALCULATION
-        // ========================================================
-
-        // --------------------------------------------------------
-        // BASIC
-        //
-        // Basic = 50% of fixed gross
-        // --------------------------------------------------------
-
-        const basicSalary = Math.round(
-            fixedGrossSalary * 0.50
-        );
-
-        // --------------------------------------------------------
-        // HRA
-        //
-        // HRA = 50% of Basic
-        // --------------------------------------------------------
-
-        const hra = Math.round(
-            basicSalary * 0.50
-        );
-
-        // --------------------------------------------------------
-        // CONVEYANCE
-        // --------------------------------------------------------
-
-        const conveyance = 1200;
-
-        // --------------------------------------------------------
-        // MEDICAL
-        // --------------------------------------------------------
-
-        const medicalAllowance = 1000;
-
-        // --------------------------------------------------------
-        // OTHER ALLOWANCE
-        //
-        // Remaining amount
-        // --------------------------------------------------------
-
-        const otherAllowance = Math.max(
-            0,
-            Math.round(
-                fixedGrossSalary -
-                basicSalary -
-                hra -
-                conveyance -
-                medicalAllowance
-            )
-        );
-
-        // --------------------------------------------------------
-        // EARNED BASIC
-        // --------------------------------------------------------
-
-        const earnBasicSalary =
-            Math.round(
-                (
-                    basicSalary /
-                    daysInMonth
-                ) *
-                payableDays
-            );
-
-        // --------------------------------------------------------
-        // EARNED HRA
-        // --------------------------------------------------------
-
-        const earnHRA =
-            Math.round(
-                (
-                    hra /
-                    daysInMonth
-                ) *
-                payableDays
-            );
-
-        // --------------------------------------------------------
-        // EARNED CONVEYANCE
-        // --------------------------------------------------------
-
-        const earnConveyance =
-            Math.round(
-                (
-                    conveyance /
-                    daysInMonth
-                ) *
-                payableDays
-            );
-
-        // --------------------------------------------------------
-        // EARNED MEDICAL
-        // --------------------------------------------------------
-
-        const earnMedicalAllowance =
-            Math.round(
-                (
-                    medicalAllowance /
-                    daysInMonth
-                ) *
-                payableDays
-            );
-
-        // --------------------------------------------------------
-        // EARNED OTHER ALLOWANCE
-        // --------------------------------------------------------
-
-        const earnOtherAllowance =
-            Math.round(
-                (
-                    otherAllowance /
-                    daysInMonth
-                ) *
-                payableDays
-            );
-
-        // --------------------------------------------------------
-        // EARNED FIXED GROSS
-        // --------------------------------------------------------
-
-        const earnedFixedGross =
-            Math.round(
-                earnBasicSalary +
-                earnHRA +
-                earnConveyance +
-                earnMedicalAllowance +
-                earnOtherAllowance
-            );
-
-        // --------------------------------------------------------
-        // OVERTIME
-        //
-        // Basic / 26 / 8 × 1.5 × OT Hours
-        // --------------------------------------------------------
-
-        const overtime =
-            Math.round(
-                (
-                    basicSalary /
-                    26 /
-                    8
-                ) *
-                1.5 *
-                overtimeHours
-            );
-
-        // --------------------------------------------------------
-        // BONUS
-        //
-        // Admin / Accounts = 8.33%
-        // --------------------------------------------------------
-
-        const department =
-            String(
-                candidate.department || ""
-            )
-                .trim()
-                .toLowerCase();
-
-        const bonus =
-            [
-                "admin",
-                "accounts"
-            ].includes(department)
-                ? Math.round(
-                    earnedFixedGross *
-                    0.0833
-                )
-                : 0;
-
-        // --------------------------------------------------------
-        // GROSS SALARY
-        // --------------------------------------------------------
-
-        const grossSalary =
-            Math.round(
-                earnedFixedGross +
-                overtime +
-                bonus
-            );
-
-        // --------------------------------------------------------
-        // PF WAGES
-        //
-        // Gross - Earned HRA
-        // --------------------------------------------------------
-
-        const pfWages =
-            Math.max(
-                0,
-                Math.round(
-                    grossSalary -
-                    earnHRA
-                )
-            );
-
-        // --------------------------------------------------------
-        // EMPLOYEE PF
-        //
-        // PF wage maximum = 15,000
-        // PF = 12%
-        // --------------------------------------------------------
-
-        const pfApplicableWages =
-            Math.min(
-                pfWages,
-                15000
-            );
-
-        const pf =
-            Math.round(
-                pfApplicableWages *
-                0.12
-            );
-
-        // --------------------------------------------------------
-        // ESIC
-        //
-        // ESIC applicable if employee has ESIC number
-        // AND gross <= 21,000
-        //
-        // Employee = 0.75%
-        // --------------------------------------------------------
-
-        const esicApplicable =
-            !!candidate.esic_number;
-
-        const esic =
-            esicApplicable &&
-            grossSalary <= 21000
-                ? Math.round(
-                    grossSalary *
-                    0.0075
-                )
-                : 0;
-
-        // --------------------------------------------------------
-        // PROFESSIONAL TAX
-        //
-        // Gross > 25,000 = ₹200
-        // --------------------------------------------------------
-
-        const gender =
-            String(
-                candidate.gender || ""
-            )
-                .trim()
-                .toLowerCase();
-
-        const professionalTax =
-            grossSalary > 25000 &&
-            (
-                gender === "male" ||
-                gender === "female"
-            )
-                ? 200
-                : 0;
-
-        // --------------------------------------------------------
-        // MONTH INDEX
-        //
-        // Apr = 0
-        // May = 1
-        // ...
-        // Jun = 2
-        // ...
-        // Dec = 8
-        // --------------------------------------------------------
-
-        const monthIndex =
-            month >= 4
-                ? month - 4
-                : month + 8;
-
-        const isJuneOrDecember =
-            [2, 8].includes(
-                monthIndex
-            );
-
-        // --------------------------------------------------------
-        // EMPLOYEE LWF
-        //
-        // Admin / Accounts
-        // June / December = ₹25
-        // --------------------------------------------------------
-
-        const lwf =
-            (
-                department === "admin" ||
-                department === "accounts"
-            ) &&
-            isJuneOrDecember
-                ? 25
-                : 0;
-
-        // --------------------------------------------------------
-        // INCENTIVE
-        //
-        // No revenue/incentive fields currently exist
-        // in your candidates/payroll structure.
-        //
-        // Therefore 0.
-        // --------------------------------------------------------
-
-        const incentive = 0;
-
-        // --------------------------------------------------------
-        // TDS
-        //
-        // Currently 0 because your existing system
-        // does not calculate TDS.
-        // --------------------------------------------------------
-
-        const tax = 0;
-
-        // --------------------------------------------------------
-        // LOP
-        //
-        // Salary is already prorated using payable_days.
-        // Therefore LOP is not deducted again.
-        // --------------------------------------------------------
-
-        const lop = 0;
-
-        // --------------------------------------------------------
-        // TOTAL DEDUCTIONS
-        // --------------------------------------------------------
-
-        const totalDeductions =
-            Math.round(
-                pf +
-                esic +
-                tax +
-                professionalTax +
-                lwf +
-                advanceDeduction +
-                lop
-            );
-
-        // --------------------------------------------------------
-        // NET SALARY
-        // --------------------------------------------------------
-
-        const netSalary =
-            Math.max(
-                0,
-                Math.round(
-                    grossSalary -
-                    totalDeductions
-                )
-            );
-
-        // --------------------------------------------------------
-        // GRATUITY
-        //
-        // Earned Basic × 4.81%
-        // --------------------------------------------------------
-
-        const gratuity =
-            Math.round(
-                earnBasicSalary *
-                0.0481
-            );
-
-        // --------------------------------------------------------
-        // EMPLOYER PF
-        // --------------------------------------------------------
-
-        const employerPf = pf;
-
-        // --------------------------------------------------------
-        // EMPLOYER ESIC
-        //
-        // 3.25%
-        // --------------------------------------------------------
-
-        const employerEsic =
-            esicApplicable &&
-            grossSalary <= 21000
-                ? Math.round(
-                    grossSalary *
-                    0.0325
-                )
-                : 0;
-
-        // --------------------------------------------------------
-        // EMPLOYER LWF
-        //
-        // June / December = ₹75
-        // --------------------------------------------------------
-
-        const employerLwf =
-            isJuneOrDecember
-                ? 75
-                : 0;
-
-        // --------------------------------------------------------
-        // TOTAL EMPLOYER CONTRIBUTION
-        // --------------------------------------------------------
-
-        const totalEmployerContribution =
-            Math.round(
-                employerPf +
-                employerEsic +
-                employerLwf
-            );
-
-        // --------------------------------------------------------
-        // TOTAL EMPLOYER COST / CTC
-        // --------------------------------------------------------
-
-        const totalEmployerCost =
-            Math.round(
-                grossSalary +
-                totalEmployerContribution +
-                gratuity
-            );
-
-        // ========================================================
-        // INSERT PAYROLL
-        // ========================================================
-
-        const { data: inserted, error: insertError } =
-            await supabase
-                .from("third_party_payroll")
-                .insert({
-
-                    // ------------------------------------------------
-                    // EMPLOYEE
-                    // ------------------------------------------------
-
-                    employee_name:
-                        candidate.full_name,
-
-                    employee_ref_id:
-                        employeeId,
-
-                    // ------------------------------------------------
-                    // MONTH
-                    // ------------------------------------------------
-
-                    salary_month:
-                        salaryMonth,
-
-                    // ------------------------------------------------
-                    // MONTHLY SALARY STRUCTURE
-                    // ------------------------------------------------
-
-                    basic_salary:
-                        Number(
-                            basicSalary.toFixed(2)
-                        ),
-
-                    hra:
-                        Number(
-                            hra.toFixed(2)
-                        ),
-
-                    conveyance:
-                        Number(
-                            conveyance.toFixed(2)
-                        ),
-
-                    medical_allowance:
-                        Number(
-                            medicalAllowance.toFixed(2)
-                        ),
-
-                    other_allowance:
-                        Number(
-                            otherAllowance.toFixed(2)
-                        ),
-
-                    allowances:
-                        Number(
-                            (
-                                hra +
-                                conveyance +
-                                medicalAllowance +
-                                otherAllowance
-                            ).toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // OVERTIME / BONUS
-                    // ------------------------------------------------
-
-                    overtime:
-                        Number(
-                            overtime.toFixed(2)
-                        ),
-
-                    bonus:
-                        Number(
-                            bonus.toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // GROSS
-                    // ------------------------------------------------
-
-                    gross_salary:
-                        Number(
-                            grossSalary.toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // PF
-                    // ------------------------------------------------
-
-                    pf_wages:
-                        Number(
-                            pfWages.toFixed(2)
-                        ),
-
-                    pf:
-                        Number(
-                            pf.toFixed(2)
-                        ),
-
-                    employer_pf:
-                        Number(
-                            employerPf.toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // ESIC
-                    // ------------------------------------------------
-
-                    esic:
-                        Number(
-                            esic.toFixed(2)
-                        ),
-
-                    employer_esic:
-                        Number(
-                            employerEsic.toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // TAX
-                    // ------------------------------------------------
-
-                    tax:
-                        Number(
-                            tax.toFixed(2)
-                        ),
-
-                    professional_tax:
-                        Number(
-                            professionalTax.toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // LOP
-                    // ------------------------------------------------
-
-                    lop:
-                        Number(
-                            lop.toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // TOTAL DEDUCTIONS
-                    // ------------------------------------------------
-
-                    total_deductions:
-                        Number(
-                            totalDeductions.toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // NET SALARY
-                    // ------------------------------------------------
-
-                    net_salary:
-                        Number(
-                            netSalary.toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // GRATUITY
-                    // ------------------------------------------------
-
-                    gratuity:
-                        Number(
-                            gratuity.toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // EMPLOYER CONTRIBUTION
-                    // ------------------------------------------------
-
-                    total_employer_contribution:
-                        Number(
-                            totalEmployerContribution.toFixed(2)
-                        ),
-
-                    total_employer_cost:
-                        Number(
-                            totalEmployerCost.toFixed(2)
-                        ),
-
-                    // ------------------------------------------------
-                    // BANK DETAILS
-                    // ------------------------------------------------
-
-                    bank_name:
-                        candidate.bank_name ||
-                        null,
-
-                    account_number:
-                        candidate.bank_account_number ||
-                        null,
-
-                    ifsc_code:
-                        candidate.ifsc_code ||
-                        null,
-
-                    // ------------------------------------------------
-                    // EMPLOYEE DETAILS
-                    // ------------------------------------------------
-
-                    joining_date:
-                        candidate.date_of_joining ||
-                        null,
-
-                    // PRAN is NOT UAN
-                    pran: null,
-
-                    // ------------------------------------------------
-                    // REFERENCES
-                    // ------------------------------------------------
-
-                    attendance_id:
-                        Number(attendance.id),
-
-                    deployment_id:
-                        Number(deployment.id),
-
-                    payroll_batch_id:
-                        null,
-
-                    client_id:
-                        Number(deployment.client_id),
-
-                    // ------------------------------------------------
-                    // STATUS
-                    // ------------------------------------------------
-
-                    status:
-                        "Pending"
-                })
-                .select()
-                .single();
-
-        if (insertError) {
-            throw insertError;
-        }
-
-        // ========================================================
-        // RESPONSE
-        // ========================================================
-
-        return res.status(201).json({
-            success: true,
-
-            message:
-                "Payroll calculated and created successfully",
-
-            data: inserted,
-
-            calculation: {
-                employee_id:
-                    employeeId,
-
-                employee_name:
-                    candidate.full_name,
-
-                salary_month:
-                    salaryMonth,
-
-                days_in_month:
-                    daysInMonth,
-
-                present_days:
-                    presentDays,
-
-                absent_days:
-                    absentDays,
-
-                leave_days:
-                    leaveDays,
-
-                half_days:
-                    halfDays,
-
-                lop_days:
-                    lopDays,
-
-                payable_days:
-                    payableDays,
-
-                fixed_gross_salary:
-                    fixedGrossSalary,
-
-                basic_salary:
-                    basicSalary,
-
-                hra:
-                    hra,
-
-                conveyance:
-                    conveyance,
-
-                medical_allowance:
-                    medicalAllowance,
-
-                other_allowance:
-                    otherAllowance,
-
-                earned_basic_salary:
-                    earnBasicSalary,
-
-                earned_hra:
-                    earnHRA,
-
-                earned_conveyance:
-                    earnConveyance,
-
-                earned_medical_allowance:
-                    earnMedicalAllowance,
-
-                earned_other_allowance:
-                    earnOtherAllowance,
-
-                overtime:
-                    overtime,
-
-                bonus:
-                    bonus,
-
-                gross_salary:
-                    grossSalary,
-
-                pf_wages:
-                    pfWages,
-
-                pf:
-                    pf,
-
-                esic:
-                    esic,
-
-                professional_tax:
-                    professionalTax,
-
-                lwf:
-                    lwf,
-
-                advance:
-                    advanceDeduction,
-
-                total_deductions:
-                    totalDeductions,
-
-                net_salary:
-                    netSalary,
-
-                gratuity:
-                    gratuity,
-
-                employer_pf:
-                    employerPf,
-
-                employer_esic:
-                    employerEsic,
-
-                employer_lwf:
-                    employerLwf,
-
-                total_employer_contribution:
-                    totalEmployerContribution,
-
-                total_employer_cost:
-                    totalEmployerCost
-            }
-        });
-
-    } catch (error) {
-        console.error(
-            "POST /api/payroll:",
-            error
-        );
-
-        return sendError(
-            res,
-            500,
-            "Failed to create payroll record",
-            error.message
-        );
-    }
-});
 
 // ============================================================
 // EDIT PAYROLL
@@ -7481,9 +6476,8 @@ router.patch("/:id", async (req, res) => {
         );
     }
 });
-
 // ============================================================
-// CREATE PAYROLL MANUALLY
+// CREATE PAYROLL
 //
 // POST /api/payroll
 //
@@ -7493,26 +6487,17 @@ router.patch("/:id", async (req, res) => {
 // - Salary Month
 //
 // Automatically gets:
-// - Employee name
-// - Employee email
-// - Pay rate
+// - Employee details
+// - Basic Salary from candidates.pay_rate
 // - Attendance
-//
-// Admin manually enters:
-// - Basic Salary
-// - Allowances
+// - Salary components
 // - Overtime
-// - Bonus
 // - PF
 // - ESIC
-// - Tax
 // - Professional Tax
-// - LOP
-// - Employer PF
-// - Employer ESIC
-// - Bank Name
-// - Account Number
-// - IFSC
+// - Gratuity
+// - Employer contributions
+// - Bank details
 //
 // New payroll always starts as Pending.
 // ============================================================
@@ -7520,6 +6505,10 @@ router.patch("/:id", async (req, res) => {
 router.post("/", async (req, res) => {
 
     try {
+
+        // ========================================================
+        // IDS
+        // ========================================================
 
         const clientId =
             getId(
@@ -7560,9 +6549,10 @@ router.post("/", async (req, res) => {
             );
         }
 
-        // --------------------------------------------------------
+
+        // ========================================================
         // MONTH
-        // --------------------------------------------------------
+        // ========================================================
 
         let salaryMonth;
 
@@ -7582,9 +6572,10 @@ router.post("/", async (req, res) => {
             );
         }
 
-        // --------------------------------------------------------
+
+        // ========================================================
         // DEPLOYMENT
-        // --------------------------------------------------------
+        // ========================================================
 
         const {
             data: deployment,
@@ -7612,6 +6603,7 @@ router.post("/", async (req, res) => {
         }
 
         if (!deployment) {
+
             return sendError(
                 res,
                 404,
@@ -7619,9 +6611,10 @@ router.post("/", async (req, res) => {
             );
         }
 
-        // --------------------------------------------------------
+
+        // ========================================================
         // VALIDATE CLIENT
-        // --------------------------------------------------------
+        // ========================================================
 
         if (
             Number(
@@ -7636,9 +6629,10 @@ router.post("/", async (req, res) => {
             );
         }
 
-        // --------------------------------------------------------
+
+        // ========================================================
         // VALIDATE EMPLOYEE
-        // --------------------------------------------------------
+        // ========================================================
 
         if (
             Number(
@@ -7653,9 +6647,13 @@ router.post("/", async (req, res) => {
             );
         }
 
-        // --------------------------------------------------------
+
+        // ========================================================
         // CANDIDATE
-        // --------------------------------------------------------
+        //
+        // IMPORTANT:
+        // candidates.pay_rate = BASIC SALARY
+        // ========================================================
 
         const {
             data: candidate,
@@ -7667,7 +6665,17 @@ router.post("/", async (req, res) => {
                 full_name,
                 email,
                 phone,
-                designation
+                designation,
+                pay_rate,
+                gender,
+                department,
+                bank_name,
+                bank_account_number,
+                ifsc_code,
+                pan_number,
+                uan_number,
+                esic_number,
+                date_of_joining
             `)
             .eq(
                 "id",
@@ -7680,6 +6688,7 @@ router.post("/", async (req, res) => {
         }
 
         if (!candidate) {
+
             return sendError(
                 res,
                 404,
@@ -7687,9 +6696,37 @@ router.post("/", async (req, res) => {
             );
         }
 
-        // --------------------------------------------------------
+
+        // ========================================================
+        // BASIC SALARY
+        //
+        // ALWAYS FETCHED FROM candidates.pay_rate
+        //
+        // Example:
+        // Priya Sharma -> pay_rate = 40000
+        // Basic Salary = 40000
+        // ========================================================
+
+        const basicSalary =
+            Math.round(
+                Number(
+                    candidate.pay_rate || 0
+                )
+            );
+
+        if (basicSalary <= 0) {
+
+            return sendError(
+                res,
+                400,
+                "Basic Salary is not configured for this employee in candidates.pay_rate"
+            );
+        }
+
+
+        // ========================================================
         // DUPLICATE CHECK
-        // --------------------------------------------------------
+        // ========================================================
 
         const {
             data: existingRows,
@@ -7737,12 +6774,18 @@ router.post("/", async (req, res) => {
             );
         }
 
-        // --------------------------------------------------------
+
+        // ========================================================
         // ATTENDANCE
         //
-        // Uses the SAME table as your current payroll system:
-        // third_party_emp_attendance
-        // --------------------------------------------------------
+        // TEMPORARY TESTING SOURCE
+        //
+        // Attendance does NOT determine Basic Salary.
+        //
+        // It is currently used for:
+        // - payable_days
+        // - overtime_hours
+        // ========================================================
 
         const {
             data: attendanceRows,
@@ -7794,177 +6837,354 @@ router.post("/", async (req, res) => {
             attendanceRows?.[0] ||
             null;
 
-        // --------------------------------------------------------
-        // NUMERIC INPUT
-        // --------------------------------------------------------
 
-        const getNumber =
-            (
-                field,
-                fallback = 0
-            ) => {
+        // ========================================================
+        // CALENDAR DAYS
+        // ========================================================
 
-                const raw =
-                    req.body[field];
-
-                if (
-                    raw === undefined ||
-                    raw === null ||
-                    raw === ""
-                ) {
-                    return Number(
-                        fallback
-                    );
-                }
-
-                const value =
-                    Number(raw);
-
-                if (
-                    !Number.isFinite(value) ||
-                    value < 0
-                ) {
-                    throw new Error(
-                        `Invalid value for ${field}`
-                    );
-                }
-
-                return value;
-            };
-
-        let basicSalary;
-        let allowances;
-        let overtime;
-        let bonus;
-
-        let pf;
-        let esic;
-        let tax;
-        let professionalTax;
-        let lop;
-
-        let employerPF;
-        let employerESIC;
-
-        try {
-
-            // ----------------------------------------------------
-            // If admin leaves Basic Salary blank,
-            // automatically use deployment pay rate.
-            // ----------------------------------------------------
-
-            basicSalary =
-                getNumber(
-                    "basic_salary",
-                    deployment.pay_rate || 0
-                );
-
-            allowances =
-                getNumber(
-                    "allowances"
-                );
-
-            overtime =
-                getNumber(
-                    "overtime"
-                );
-
-            bonus =
-                getNumber(
-                    "bonus"
-                );
-
-            pf =
-                getNumber(
-                    "pf"
-                );
-
-            esic =
-                getNumber(
-                    "esic"
-                );
-
-            tax =
-                getNumber(
-                    "tax"
-                );
-
-            professionalTax =
-                getNumber(
-                    "professional_tax"
-                );
-
-            lop =
-                getNumber(
-                    "lop"
-                );
-
-            employerPF =
-                getNumber(
-                    "employer_pf"
-                );
-
-            employerESIC =
-                getNumber(
-                    "employer_esic"
-                );
-
-        } catch (error) {
-
-            return sendError(
-                res,
-                400,
-                error.message
-            );
-        }
-
-        // --------------------------------------------------------
-        // BANK
-        // --------------------------------------------------------
-
-        const bankName =
-            req.body.bank_name
-                ? String(
-                    req.body.bank_name
-                ).trim()
-                : null;
-
-        const accountNumber =
-            req.body.account_number
-                ? String(
-                    req.body.account_number
-                ).trim()
-                : null;
-
-        const ifscCode =
-            req.body.ifsc_code
-                ? String(
-                    req.body.ifsc_code
+        const salaryYear =
+            Number(
+                salaryMonth.substring(
+                    0,
+                    4
                 )
-                    .trim()
-                    .toUpperCase()
-                : null;
+            );
 
-        // --------------------------------------------------------
-        // ATTENDANCE VALUES
+        const salaryMonthNumber =
+            Number(
+                salaryMonth.substring(
+                    5,
+                    7
+                )
+            );
+
+        const calendarDays =
+            new Date(
+                salaryYear,
+                salaryMonthNumber,
+                0
+            ).getDate();
+
+
+        // ========================================================
+        // PAYABLE DAYS
         //
-        // These are not manually entered here.
-        // They are automatically pulled from attendance.
-        // --------------------------------------------------------
+        // If attendance has payable_days,
+        // use it.
+        //
+        // Otherwise use calendar days.
+        // ========================================================
 
-        const attendanceId =
-            attendance?.id ||
-            null;
+        const attendancePayableDays =
+            Number(
+                attendance?.payable_days || 0
+            );
 
-        // --------------------------------------------------------
-        // SALARY CALCULATIONS
-        // --------------------------------------------------------
+        const payableDays =
+            attendancePayableDays > 0
+                ? Math.min(
+                    attendancePayableDays,
+                    calendarDays
+                )
+                : calendarDays;
+
+
+        // ========================================================
+        // OVERTIME HOURS
+        // ========================================================
+
+        const overtimeHours =
+            Math.max(
+                0,
+                Number(
+                    attendance?.overtime_hours || 0
+                )
+            );
+
+
+        // ========================================================
+        // SALARY COMPONENTS
+        //
+        // Basic = candidates.pay_rate
+        //
+        // HRA = 50% Basic
+        // Conveyance = 1200
+        // Medical = 1000
+        // Other Allowance = 0
+        // ========================================================
+
+        const hra =
+            Math.round(
+                basicSalary * 0.50
+            );
+
+        const conveyance =
+            1200;
+
+        const medicalAllowance =
+            1000;
+
+        const otherAllowance =
+            0;
+
+
+        // ========================================================
+        // EARNED SALARY
+        //
+        // Salary is prorated according to payable days.
+        // ========================================================
+
+        const earnedBasicSalary =
+            Math.round(
+                (
+                    basicSalary /
+                    calendarDays
+                ) *
+                payableDays
+            );
+
+        const earnedHRA =
+            Math.round(
+                (
+                    hra /
+                    calendarDays
+                ) *
+                payableDays
+            );
+
+        const earnedConveyance =
+            Math.round(
+                (
+                    conveyance /
+                    calendarDays
+                ) *
+                payableDays
+            );
+
+        const earnedMedicalAllowance =
+            Math.round(
+                (
+                    medicalAllowance /
+                    calendarDays
+                ) *
+                payableDays
+            );
+
+        const earnedOtherAllowance =
+            Math.round(
+                (
+                    otherAllowance /
+                    calendarDays
+                ) *
+                payableDays
+            );
+
+
+        // ========================================================
+        // TOTAL ALLOWANCES
+        //
+        // Stored in the old/general allowances column.
+        // ========================================================
+
+        const allowances =
+            earnedHRA +
+            earnedConveyance +
+            earnedMedicalAllowance +
+            earnedOtherAllowance;
+
+
+        // ========================================================
+        // OVERTIME CALCULATION
+        //
+        // Basic / 26 / 8 × 1.5 × OT hours
+        // ========================================================
+
+        const overtime =
+            Math.round(
+                (
+                    basicSalary /
+                    26 /
+                    8
+                ) *
+                1.5 *
+                overtimeHours
+            );
+
+
+        // ========================================================
+        // BONUS
+        //
+        // 8.33% of earned fixed gross
+        // for Admin / Accounts departments.
+        // ========================================================
+
+        const department =
+            String(
+                candidate.department || ""
+            )
+                .trim()
+                .toLowerCase();
+
+        const earnedFixedGross =
+            earnedBasicSalary +
+            earnedHRA +
+            earnedConveyance +
+            earnedMedicalAllowance +
+            earnedOtherAllowance;
+
+        const bonus =
+            [
+                "admin",
+                "accounts"
+            ].includes(
+                department
+            )
+                ? Math.round(
+                    earnedFixedGross *
+                    0.0833
+                )
+                : 0;
+
+
+        // ========================================================
+        // GROSS SALARY
+        // ========================================================
 
         const grossSalary =
-            basicSalary +
-            allowances +
+            earnedFixedGross +
             overtime +
             bonus;
+
+
+        // ========================================================
+        // PF WAGES
+        //
+        // PF wages = Gross - Earned HRA
+        // ========================================================
+
+        const pfWages =
+            Math.max(
+                0,
+                Math.round(
+                    grossSalary -
+                    earnedHRA
+                )
+            );
+
+
+        // ========================================================
+        // EMPLOYEE PF
+        //
+        // 12% of PF wages
+        // Maximum PF wage considered = 15000
+        // ========================================================
+
+        const pf =
+            Math.round(
+                Math.min(
+                    pfWages,
+                    15000
+                ) *
+                0.12
+            );
+
+
+        // ========================================================
+        // ESIC
+        //
+        // Employee must have ESIC number
+        // AND gross salary must be <= 21000
+        // ========================================================
+
+        const esicApplicable =
+            !!candidate.esic_number;
+
+        const esic =
+            (
+                esicApplicable &&
+                grossSalary <= 21000
+            )
+                ? Math.round(
+                    grossSalary *
+                    0.0075
+                )
+                : 0;
+
+
+        // ========================================================
+        // PROFESSIONAL TAX
+        //
+        // Current rule:
+        // ₹200 when gross > ₹25,000
+        // ========================================================
+
+        const professionalTax =
+            grossSalary > 25000
+                ? 200
+                : 0;
+
+
+        // ========================================================
+        // TAX
+        //
+        // Currently no TDS calculation.
+        // ========================================================
+
+        const tax =
+            0;
+
+
+        // ========================================================
+        // LOP
+        //
+        // LOP is already reflected through payable_days.
+        // Therefore no second deduction is applied.
+        // ========================================================
+
+        const lop =
+            0;
+
+
+        // ========================================================
+        // EMPLOYER PF
+        // ========================================================
+
+        const employerPF =
+            pf;
+
+
+        // ========================================================
+        // EMPLOYER ESIC
+        // ========================================================
+
+        const employerESIC =
+            (
+                esicApplicable &&
+                grossSalary <= 21000
+            )
+                ? Math.round(
+                    grossSalary *
+                    0.0325
+                )
+                : 0;
+
+
+        // ========================================================
+        // GRATUITY
+        //
+        // 4.81% of earned Basic
+        // ========================================================
+
+        const gratuity =
+            Math.round(
+                earnedBasicSalary *
+                0.0481
+            );
+
+
+        // ========================================================
+        // TOTAL DEDUCTIONS
+        // ========================================================
 
         const totalDeductions =
             pf +
@@ -7973,6 +7193,11 @@ router.post("/", async (req, res) => {
             professionalTax +
             lop;
 
+
+        // ========================================================
+        // NET SALARY
+        // ========================================================
+
         const netSalary =
             Math.max(
                 0,
@@ -7980,17 +7205,62 @@ router.post("/", async (req, res) => {
                 totalDeductions
             );
 
+
+        // ========================================================
+        // EMPLOYER CONTRIBUTION
+        // ========================================================
+
         const totalEmployerContribution =
             employerPF +
             employerESIC;
 
+
+        // ========================================================
+        // TOTAL EMPLOYER COST
+        // ========================================================
+
         const totalEmployerCost =
             grossSalary +
-            totalEmployerContribution;
+            totalEmployerContribution +
+            gratuity;
 
-        // --------------------------------------------------------
-        // INSERT
-        // --------------------------------------------------------
+
+        // ========================================================
+        // BANK DETAILS
+        //
+        // Automatically fetched from candidates.
+        // ========================================================
+
+        const bankName =
+            candidate.bank_name ||
+            null;
+
+        const accountNumber =
+            candidate.bank_account_number ||
+            null;
+
+        const ifscCode =
+            candidate.ifsc_code
+                ? String(
+                    candidate.ifsc_code
+                )
+                    .trim()
+                    .toUpperCase()
+                : null;
+
+
+        // ========================================================
+        // ATTENDANCE ID
+        // ========================================================
+
+        const attendanceId =
+            attendance?.id ||
+            null;
+
+
+        // ========================================================
+        // INSERT PAYROLL
+        // ========================================================
 
         const {
             data: insertedPayroll,
@@ -8001,91 +7271,267 @@ router.post("/", async (req, res) => {
             )
             .insert({
 
+                // ------------------------------------------------
+                // EMPLOYEE
+                // ------------------------------------------------
+
                 employee_name:
                     candidate.full_name,
 
+                employee_ref_id:
+                    employeeId,
+
+
+                // ------------------------------------------------
+                // MONTH
+                // ------------------------------------------------
+
                 salary_month:
                     salaryMonth,
+
+
+                // ------------------------------------------------
+                // BASIC
+                // ------------------------------------------------
 
                 basic_salary:
                     Number(
                         basicSalary.toFixed(2)
                     ),
 
+
+                // ------------------------------------------------
+                // HRA
+                // ------------------------------------------------
+
+                hra:
+                    Number(
+                        earnedHRA.toFixed(2)
+                    ),
+
+
+                // ------------------------------------------------
+                // CONVEYANCE
+                // ------------------------------------------------
+
+                conveyance:
+                    Number(
+                        earnedConveyance.toFixed(2)
+                    ),
+
+
+                // ------------------------------------------------
+                // MEDICAL
+                // ------------------------------------------------
+
+                medical_allowance:
+                    Number(
+                        earnedMedicalAllowance.toFixed(2)
+                    ),
+
+
+                // ------------------------------------------------
+                // OTHER ALLOWANCE
+                // ------------------------------------------------
+
+                other_allowance:
+                    Number(
+                        earnedOtherAllowance.toFixed(2)
+                    ),
+
+
+                // ------------------------------------------------
+                // TOTAL ALLOWANCES
+                // ------------------------------------------------
+
                 allowances:
                     Number(
                         allowances.toFixed(2)
                     ),
+
+
+                // ------------------------------------------------
+                // OVERTIME
+                // ------------------------------------------------
 
                 overtime:
                     Number(
                         overtime.toFixed(2)
                     ),
 
+
+                // ------------------------------------------------
+                // BONUS
+                // ------------------------------------------------
+
                 bonus:
                     Number(
                         bonus.toFixed(2)
                     ),
+
+
+                // ------------------------------------------------
+                // GROSS
+                // ------------------------------------------------
 
                 gross_salary:
                     Number(
                         grossSalary.toFixed(2)
                     ),
 
+
+                // ------------------------------------------------
+                // PF
+                // ------------------------------------------------
+
                 pf:
                     Number(
                         pf.toFixed(2)
                     ),
+
+
+                // ------------------------------------------------
+                // ESIC
+                // ------------------------------------------------
 
                 esic:
                     Number(
                         esic.toFixed(2)
                     ),
 
+
+                // ------------------------------------------------
+                // TAX
+                // ------------------------------------------------
+
                 tax:
                     Number(
                         tax.toFixed(2)
                     ),
+
+
+                // ------------------------------------------------
+                // PROFESSIONAL TAX
+                // ------------------------------------------------
 
                 professional_tax:
                     Number(
                         professionalTax.toFixed(2)
                     ),
 
+
+                // ------------------------------------------------
+                // LOP
+                // ------------------------------------------------
+
                 lop:
                     Number(
                         lop.toFixed(2)
                     ),
+
+
+                // ------------------------------------------------
+                // PF WAGES
+                // ------------------------------------------------
+
+                pf_wages:
+                    Number(
+                        pfWages.toFixed(2)
+                    ),
+
+
+                // ------------------------------------------------
+                // GRATUITY
+                // ------------------------------------------------
+
+                gratuity:
+                    Number(
+                        gratuity.toFixed(2)
+                    ),
+
+
+                // ------------------------------------------------
+                // TOTAL DEDUCTIONS
+                // ------------------------------------------------
 
                 total_deductions:
                     Number(
                         totalDeductions.toFixed(2)
                     ),
 
+
+                // ------------------------------------------------
+                // NET SALARY
+                // ------------------------------------------------
+
                 net_salary:
                     Number(
                         netSalary.toFixed(2)
                     ),
+
+
+                // ------------------------------------------------
+                // EMPLOYER PF
+                // ------------------------------------------------
 
                 employer_pf:
                     Number(
                         employerPF.toFixed(2)
                     ),
 
+
+                // ------------------------------------------------
+                // EMPLOYER ESIC
+                // ------------------------------------------------
+
                 employer_esic:
                     Number(
                         employerESIC.toFixed(2)
                     ),
+
+
+                // ------------------------------------------------
+                // TOTAL EMPLOYER CONTRIBUTION
+                // ------------------------------------------------
 
                 total_employer_contribution:
                     Number(
                         totalEmployerContribution.toFixed(2)
                     ),
 
+
+                // ------------------------------------------------
+                // TOTAL EMPLOYER COST
+                // ------------------------------------------------
+
                 total_employer_cost:
                     Number(
                         totalEmployerCost.toFixed(2)
                     ),
+
+
+                // ------------------------------------------------
+                // JOINING DATE
+                // ------------------------------------------------
+
+                joining_date:
+                    candidate.date_of_joining ||
+                    null,
+
+
+                // ------------------------------------------------
+                // PRAN
+                //
+                // Do NOT put UAN here.
+                // ------------------------------------------------
+
+                pran:
+                    null,
+
+
+                // ------------------------------------------------
+                // BANK
+                // ------------------------------------------------
 
                 bank_name:
                     bankName,
@@ -8096,11 +7542,18 @@ router.post("/", async (req, res) => {
                 ifsc_code:
                     ifscCode,
 
+
+                // ------------------------------------------------
+                // STATUS
+                // ------------------------------------------------
+
                 status:
                     "Pending",
 
-                employee_ref_id:
-                    employeeId,
+
+                // ------------------------------------------------
+                // RELATIONSHIPS
+                // ------------------------------------------------
 
                 attendance_id:
                     attendanceId,
@@ -8117,17 +7570,24 @@ router.post("/", async (req, res) => {
             .select()
             .single();
 
+
+        // ========================================================
+        // INSERT ERROR
+        // ========================================================
+
         if (insertError) {
             throw insertError;
         }
 
-        // --------------------------------------------------------
+
+        // ========================================================
         // RESPONSE
-        // --------------------------------------------------------
+        // ========================================================
 
         return res.status(201).json({
 
-            success: true,
+            success:
+                true,
 
             message:
                 "Payroll created successfully",
@@ -8136,19 +7596,46 @@ router.post("/", async (req, res) => {
 
                 ...insertedPayroll,
 
+
+                // ------------------------------------------------
+                // EMPLOYEE INFORMATION
+                // ------------------------------------------------
+
                 employee_email:
-                    candidate.email || "",
+                    candidate.email ||
+                    "",
 
                 phone:
-                    candidate.phone || "",
+                    candidate.phone ||
+                    "",
 
                 designation:
-                    candidate.designation || "",
+                    candidate.designation ||
+                    "",
+
+
+                // ------------------------------------------------
+                // BASIC SALARY
+                //
+                // FROM candidates.pay_rate
+                // ------------------------------------------------
 
                 pay_rate:
                     Number(
-                        deployment.pay_rate || 0
+                        candidate.pay_rate ||
+                        0
                     ),
+
+                basic_salary:
+                    Number(
+                        basicSalary ||
+                        0
+                    ),
+
+
+                // ------------------------------------------------
+                // ATTENDANCE
+                // ------------------------------------------------
 
                 attendance: {
 
@@ -8197,6 +7684,95 @@ router.post("/", async (req, res) => {
                             attendance?.payable_days ||
                             0
                         )
+                },
+
+
+                // ------------------------------------------------
+                // CALCULATION INFORMATION
+                // ------------------------------------------------
+
+                calculation: {
+
+                    calendar_days:
+                        calendarDays,
+
+                    payable_days:
+                        payableDays,
+
+                    basic_salary:
+                        basicSalary,
+
+                    monthly_hra:
+                        hra,
+
+                    earned_hra:
+                        earnedHRA,
+
+                    monthly_conveyance:
+                        conveyance,
+
+                    earned_conveyance:
+                        earnedConveyance,
+
+                    monthly_medical_allowance:
+                        medicalAllowance,
+
+                    earned_medical_allowance:
+                        earnedMedicalAllowance,
+
+                    earned_other_allowance:
+                        earnedOtherAllowance,
+
+                    overtime_hours:
+                        overtimeHours,
+
+                    overtime:
+                        overtime,
+
+                    bonus:
+                        bonus,
+
+                    gross_salary:
+                        grossSalary,
+
+                    pf_wages:
+                        pfWages,
+
+                    pf:
+                        pf,
+
+                    esic:
+                        esic,
+
+                    professional_tax:
+                        professionalTax,
+
+                    tax:
+                        tax,
+
+                    lop:
+                        lop,
+
+                    total_deductions:
+                        totalDeductions,
+
+                    net_salary:
+                        netSalary,
+
+                    employer_pf:
+                        employerPF,
+
+                    employer_esic:
+                        employerESIC,
+
+                    gratuity:
+                        gratuity,
+
+                    total_employer_contribution:
+                        totalEmployerContribution,
+
+                    total_employer_cost:
+                        totalEmployerCost
                 }
             }
         });
