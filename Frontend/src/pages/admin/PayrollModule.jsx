@@ -1212,393 +1212,510 @@ export default function PayrollModule({
       ...EMPTY_PAYROLL_FORM,
     });
 
-  // =====================================================
-  // OPEN CREATE MODAL
-  // =====================================================
 
-  const openCreateModal =
-    async () => {
-      setCreateModalOpen(true);
-      setCreateError("");
-      setSelectedDeploymentId("");
-      setPrefillInfo(null);
-      setCreateForm(
-        emptyCreateForm()
+// =====================================================
+// OPEN CREATE MODAL
+// =====================================================
+
+const openCreateModal =
+  async () => {
+    setCreateModalOpen(true);
+    setCreateError("");
+    setSelectedDeploymentId("");
+    setPrefillInfo(null);
+    setCreateForm(
+      emptyCreateForm()
+    );
+
+    if (!selectedClient) {
+      setCreateError(
+        "Please select a client first."
+      );
+      return;
+    }
+
+    try {
+      setEmployeeOptionsLoading(
+        true
       );
 
-      if (!selectedClient) {
-        setCreateError(
-          "Please select a client first."
-        );
-        return;
-      }
-
-      try {
-        setEmployeeOptionsLoading(
-          true
-        );
-
-        const response =
-          await api.get(
-            "/payroll/lookup/employees",
-            {
-              params: {
-                client_id:
-                  Number(
-                    selectedClient
-                  ),
-              },
-            }
-          );
-
-        const json =
-          response?.data;
-
-        const list =
-          Array.isArray(
-            json?.data
-          )
-            ? json.data
-            : [];
-
-        setEmployeeOptions(
-          list
-        );
-
-        if (
-          list.length ===
-          0
-        ) {
-          setCreateError(
-            "No employees/deployments are available for this client."
-          );
-        }
-      } catch (err) {
-        console.error(
-          "GET /payroll/lookup/employees error:",
-          err
-        );
-
-        const message =
-          err?.response
-            ?.data?.error ||
-          err?.response
-            ?.data?.message ||
-          err?.message ||
-          "Failed to load employees.";
-
-        setEmployeeOptions(
-          []
-        );
-        setCreateError(
-          message
-        );
-      } finally {
-        setEmployeeOptionsLoading(
-          false
-        );
-      }
-    };
-
-  // =====================================================
-  // SELECT EMPLOYEE
-  // =====================================================
-
-  const handleSelectEmployee =
-    async (
-      deploymentId
-    ) => {
-      setSelectedDeploymentId(
-        deploymentId
-      );
-
-      setPrefillInfo(null);
-      setCreateError("");
-
-      setCreateForm(
-        emptyCreateForm()
-      );
-
-      if (!deploymentId) {
-        return;
-      }
-
-      try {
-        setPrefillLoading(
-          true
-        );
-
-        const response =
-          await api.get(
-            "/payroll/lookup/prefill",
-            {
-              params: {
-                deployment_id:
-                  deploymentId,
-
-                salary_month:
-                  normalizeSalaryMonth(
-                    salaryMonth
-                  ),
-              },
-            }
-          );
-
-        const json =
-          response?.data;
-
-        if (
-          json?.success ===
-          false
-        ) {
-          throw new Error(
-            json?.message ||
-            "Failed to load employee data."
-          );
-        }
-
-        const info =
-          json?.data;
-
-        if (!info) {
-          throw new Error(
-            "Employee information was not returned."
-          );
-        }
-
-        setPrefillInfo(
-          info
-        );
-
-        // =================================================
-        // AUTO-FILL PAY RATE
-        // =================================================
-
-        setCreateForm(
-          (prev) => ({
-            ...prev,
-
-            basic_salary:
-              info?.pay_rate ??
-              info?.basic_salary ??
-              0,
-
-            // If backend provides existing bank details
-            bank_name:
-              info?.bank_name ??
-              "",
-
-            account_number:
-              info?.account_number ??
-              info?.bank_account_number ??
-              "",
-
-            ifsc_code:
-              info?.ifsc_code ??
-              info?.bank_ifsc ??
-              "",
-          })
-        );
-
-        if (
-          info?.already_exists
-        ) {
-          setCreateError(
-            `A payroll record already exists for this employee this month (status: ${info.existing_payroll_status ||
-            "Unknown"
-            }).`
-          );
-        }
-      } catch (err) {
-        console.error(
-          "GET /payroll/lookup/prefill error:",
-          err
-        );
-
-        const message =
-          err?.response
-            ?.data?.error ||
-          err?.response
-            ?.data?.message ||
-          err?.message ||
-          "Failed to load employee data.";
-
-        setCreateError(
-          message
-        );
-      } finally {
-        setPrefillLoading(
-          false
-        );
-      }
-    };
-
-  // =====================================================
-  // CREATE FIELD CHANGE
-  // =====================================================
-
-  const handleCreateFieldChange =
-    (
-      field,
-      value
-    ) => {
-      setCreateForm(
-        (prev) => ({
-          ...prev,
-          [field]: value,
-        })
-      );
-    };
-
-  // =====================================================
-  // CREATE PAYROLL
-  // =====================================================
-
-  const handleCreatePayroll =
-    async () => {
-      if (
-        !selectedDeploymentId ||
-        !prefillInfo
-      ) {
-        setCreateError(
-          "Please select an employee first."
-        );
-        return;
-      }
-
-      if (
-        prefillInfo.already_exists
-      ) {
-        setCreateError(
-          "A payroll record already exists for this employee this month."
-        );
-        return;
-      }
-
-      try {
-        setCreateSaving(
-          true
-        );
-
-        setCreateError("");
-
-        const numericFields = [
-          "basic_salary",
-          "allowances",
-          "overtime",
-          "bonus",
-          "pf",
-          "esic",
-          "tax",
-          "professional_tax",
-          "lop",
-          "employer_pf",
-          "employer_esic",
-        ];
-
-        const payload = {
-          client_id:
-            Number(
-              selectedClient
-            ),
-
-          deployment_id:
-            prefillInfo.deployment_id,
-
-          employee_ref_id:
-            prefillInfo.employee_id,
-
-          attendance_id:
-            prefillInfo.attendance_id ??
-            null,
-
-          salary_month:
-            normalizeSalaryMonth(
-              salaryMonth
-            ),
-
-          email:
-            prefillInfo.email ??
-            "",
-
-          ...createForm,
-        };
-
-        numericFields.forEach(
-          (field) => {
-            payload[field] =
-              getNumericValue(
-                createForm[field]
-              );
+      const response =
+        await api.get(
+          "/payroll/lookup/employees",
+          {
+            params: {
+              client_id:
+                Number(
+                  selectedClient
+                ),
+            },
           }
         );
 
-        const response =
-          await api.post(
-            "/payroll",
-            payload
-          );
+      const json =
+        response?.data;
 
-        const json =
-          response?.data;
+      const list =
+        Array.isArray(
+          json?.data
+        )
+          ? json.data
+          : [];
 
-        if (
-          json?.success ===
-          false
-        ) {
-          throw new Error(
-            json?.message ||
-            json?.error ||
-            "Failed to create payroll record."
-          );
-        }
+      setEmployeeOptions(
+        list
+      );
 
-        await fetchPayroll();
-
-        setCreateModalOpen(
-          false
-        );
-
-        setSelectedDeploymentId(
-          ""
-        );
-
-        setPrefillInfo(
-          null
-        );
-
-        setCreateForm(
-          emptyCreateForm()
-        );
-
-        alert(
-          json?.message ||
-          "Payroll created successfully."
-        );
-      } catch (err) {
-        console.error(
-          "POST /payroll error:",
-          err
-        );
-
-        const message =
-          err?.response
-            ?.data?.error ||
-          err?.response
-            ?.data?.message ||
-          err?.message ||
-          "Failed to create payroll record.";
-
+      if (
+        list.length ===
+        0
+      ) {
         setCreateError(
-          message
-        );
-      } finally {
-        setCreateSaving(
-          false
+          "No employees/deployments are available for this client."
         );
       }
-    };
+    } catch (err) {
+      console.error(
+        "GET /payroll/lookup/employees error:",
+        err
+      );
 
+      const message =
+        err?.response
+          ?.data?.error ||
+        err?.response
+          ?.data?.message ||
+        err?.message ||
+        "Failed to load employees.";
+
+      setEmployeeOptions(
+        []
+      );
+
+      setCreateError(
+        message
+      );
+    } finally {
+      setEmployeeOptionsLoading(
+        false
+      );
+    }
+  };
+
+// =====================================================
+// SELECT EMPLOYEE
+// =====================================================
+
+const handleSelectEmployee =
+  async (
+    deploymentId
+  ) => {
+    setSelectedDeploymentId(
+      deploymentId
+    );
+
+    setPrefillInfo(null);
+    setCreateError("");
+
+    setCreateForm(
+      emptyCreateForm()
+    );
+
+    if (!deploymentId) {
+      return;
+    }
+
+    try {
+      setPrefillLoading(
+        true
+      );
+
+      const response =
+        await api.get(
+          "/payroll/lookup/prefill",
+          {
+            params: {
+              deployment_id:
+                deploymentId,
+
+              salary_month:
+                normalizeSalaryMonth(
+                  salaryMonth
+                ),
+            },
+          }
+        );
+
+      const json =
+        response?.data;
+
+      if (
+        json?.success ===
+        false
+      ) {
+        throw new Error(
+          json?.message ||
+          "Failed to load employee data."
+        );
+      }
+
+      const info =
+        json?.data;
+
+      if (!info) {
+        throw new Error(
+          "Employee information was not returned."
+        );
+      }
+
+      setPrefillInfo(
+        info
+      );
+
+      // =================================================
+      // AUTO-FILL EMPLOYEE / BANK DETAILS
+      // =================================================
+
+      setCreateForm(
+        (prev) => ({
+          ...prev,
+
+          // Pay rate / basic salary
+          basic_salary:
+            info?.pay_rate ??
+            info?.basic_salary ??
+            0,
+
+          // New salary components
+          hra:
+            info?.hra ??
+            0,
+
+          conveyance:
+            info?.conveyance ??
+            info?.conveyance_allowance ??
+            0,
+
+          medical_allowance:
+            info?.medical_allowance ??
+            0,
+
+          other_allowance:
+            info?.other_allowance ??
+            0,
+
+          // Existing fields
+          allowances:
+            info?.allowances ??
+            0,
+
+          overtime:
+            info?.overtime ??
+            0,
+
+          bonus:
+            info?.bonus ??
+            0,
+
+          pf:
+            info?.pf ??
+            0,
+
+          esic:
+            info?.esic ??
+            0,
+
+          tax:
+            info?.tax ??
+            0,
+
+          professional_tax:
+            info?.professional_tax ??
+            0,
+
+          lop:
+            info?.lop ??
+            0,
+
+          employer_pf:
+            info?.employer_pf ??
+            0,
+
+          employer_esic:
+            info?.employer_esic ??
+            0,
+
+          gratuity:
+            info?.gratuity ??
+            0,
+
+          pf_wages:
+            info?.pf_wages ??
+            0,
+
+          total_employer_contribution:
+            info?.total_employer_contribution ??
+            0,
+
+          total_employer_cost:
+            info?.total_employer_cost ??
+            0,
+
+          // Bank details
+          bank_name:
+            info?.bank_name ??
+            "",
+
+          account_number:
+            info?.account_number ??
+            info?.bank_account_number ??
+            "",
+
+          ifsc_code:
+            info?.ifsc_code ??
+            info?.bank_ifsc ??
+            "",
+        })
+      );
+
+      if (
+        info?.already_exists
+      ) {
+        setCreateError(
+          `A payroll record already exists for this employee this month (status: ${
+            info.existing_payroll_status ||
+            "Unknown"
+          }).`
+        );
+      }
+    } catch (err) {
+      console.error(
+        "GET /payroll/lookup/prefill error:",
+        err
+      );
+
+      const message =
+        err?.response
+          ?.data?.error ||
+        err?.response
+          ?.data?.message ||
+        err?.message ||
+        "Failed to load employee data.";
+
+      setCreateError(
+        message
+      );
+    } finally {
+      setPrefillLoading(
+        false
+      );
+    }
+  };
+
+// =====================================================
+// CREATE FIELD CHANGE
+// =====================================================
+
+const handleCreateFieldChange =
+  (
+    field,
+    value
+  ) => {
+    setCreateForm(
+      (prev) => ({
+        ...prev,
+        [field]: value,
+      })
+    );
+  };
+
+// =====================================================
+// CREATE PAYROLL
+// =====================================================
+
+const handleCreatePayroll =
+  async () => {
+    if (
+      !selectedDeploymentId ||
+      !prefillInfo
+    ) {
+      setCreateError(
+        "Please select an employee first."
+      );
+      return;
+    }
+
+    if (
+      prefillInfo.already_exists
+    ) {
+      setCreateError(
+        "A payroll record already exists for this employee this month."
+      );
+      return;
+    }
+
+    try {
+      setCreateSaving(
+        true
+      );
+
+      setCreateError("");
+
+      // =================================================
+      // ALL NUMERIC PAYROLL FIELDS
+      // =================================================
+
+      const numericFields = [
+        // Earnings
+        "basic_salary",
+        "allowances",
+        "hra",
+        "conveyance",
+        "medical_allowance",
+        "other_allowance",
+        "overtime",
+        "bonus",
+
+        // Deductions
+        "pf",
+        "esic",
+        "tax",
+        "professional_tax",
+        "lop",
+
+        // Employer contributions
+        "employer_pf",
+        "employer_esic",
+        "gratuity",
+        "total_employer_contribution",
+        "total_employer_cost",
+
+        // PF
+        "pf_wages",
+      ];
+
+      // =================================================
+      // CREATE PAYLOAD
+      // =================================================
+
+      const payload = {
+        client_id:
+          Number(
+            selectedClient
+          ),
+
+        deployment_id:
+          prefillInfo.deployment_id,
+
+        employee_ref_id:
+          prefillInfo.employee_id,
+
+        attendance_id:
+          prefillInfo.attendance_id ??
+          null,
+
+        salary_month:
+          normalizeSalaryMonth(
+            salaryMonth
+          ),
+
+        email:
+          prefillInfo.email ??
+          "",
+
+        ...createForm,
+      };
+
+      // =================================================
+      // CONVERT NUMERIC FIELDS TO NUMBERS
+      // =================================================
+
+      numericFields.forEach(
+        (field) => {
+          payload[field] =
+            getNumericValue(
+              createForm[field]
+            );
+        }
+      );
+
+      // =================================================
+      // POST PAYROLL
+      // =================================================
+
+      const response =
+        await api.post(
+          "/payroll",
+          payload
+        );
+
+      const json =
+        response?.data;
+
+      if (
+        json?.success ===
+        false
+      ) {
+        throw new Error(
+          json?.message ||
+          json?.error ||
+          "Failed to create payroll record."
+        );
+      }
+
+      // =================================================
+      // REFRESH PAYROLL LIST
+      // =================================================
+
+      await fetchPayroll();
+
+      // =================================================
+      // RESET MODAL
+      // =================================================
+
+      setCreateModalOpen(
+        false
+      );
+
+      setSelectedDeploymentId(
+        ""
+      );
+
+      setPrefillInfo(
+        null
+      );
+
+      setCreateForm(
+        emptyCreateForm()
+      );
+
+      alert(
+        json?.message ||
+        "Payroll created successfully."
+      );
+    } catch (err) {
+      console.error(
+        "POST /payroll error:",
+        err
+      );
+
+      const message =
+        err?.response
+          ?.data?.error ||
+        err?.response
+          ?.data?.message ||
+        err?.message ||
+        "Failed to create payroll record.";
+
+      setCreateError(
+        message
+      );
+    } finally {
+      setCreateSaving(
+        false
+      );
+    }
+  };
   // =====================================================
   // CREATE PAYSLIP PDF
   // =====================================================
@@ -4364,599 +4481,602 @@ export default function PayrollModule({
             CREATE PAYROLL MODAL
         ===================================================== */}
 
-        {createModalOpen && (
+       {createModalOpen && (
 
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
 
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
 
-              {/* HEADER */}
+      {/* HEADER */}
 
-              <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
+      <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
+
+        <div>
+
+          <h3 className="text-base font-bold text-slate-900">
+            Create Payroll Manually
+          </h3>
+
+          <p className="text-xs text-slate-500 mt-0.5">
+            {formatSalaryMonth(salaryMonth)}
+            {" • "}
+            {getClientName({
+              client_id: selectedClient,
+            })}
+          </p>
+
+        </div>
+
+        <button
+          onClick={() =>
+            setCreateModalOpen(false)
+          }
+          className="text-slate-400 hover:text-slate-700 text-xl font-bold"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div className="p-6 space-y-6">
+
+        {/* ERROR */}
+
+        {createError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-xl text-xs">
+            {createError}
+          </div>
+        )}
+
+        {/* =====================================================
+            EMPLOYEE SELECTION
+        ===================================================== */}
+
+        <div>
+
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+            Employee Selection
+          </h4>
+
+          <label className="block font-bold text-slate-600 mb-1 text-xs">
+            Select Employee / Deployment
+          </label>
+
+          <select
+            value={selectedDeploymentId}
+            onChange={(e) =>
+              handleSelectEmployee(
+                e.target.value
+              )
+            }
+            disabled={
+              employeeOptionsLoading
+            }
+            className="w-full border border-slate-200 p-3 rounded-xl bg-white font-medium text-slate-800"
+          >
+
+            <option value="">
+              {employeeOptionsLoading
+                ? "Loading employees..."
+                : "Select an employee"}
+            </option>
+
+            {employeeOptions.map(
+              (emp) => (
+                <option
+                  key={emp.deployment_id}
+                  value={emp.deployment_id}
+                >
+                  {emp.employee_name}
+                  {" — "}
+                  {emp.project_name ||
+                    "No project"}
+                  {" (Deployment #"}
+                  {emp.deployment_id}
+                  {")"}
+                </option>
+              )
+            )}
+
+          </select>
+
+        </div>
+
+        {/* =====================================================
+            PREFILL LOADING
+        ===================================================== */}
+
+        {prefillLoading && (
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-xl p-3">
+
+            <Loader2 className="h-4 w-4 animate-spin" />
+
+            Loading employee salary and attendance...
+
+          </div>
+
+        )}
+
+        {/* =====================================================
+            PREFILL INFO
+        ===================================================== */}
+
+        {prefillInfo &&
+          !prefillLoading && (
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+
+              <h4 className="text-xs font-bold text-slate-700 mb-3">
+                Auto-Filled Employee Information
+              </h4>
+
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
 
                 <div>
+                  <span className="text-slate-400 block">
+                    Employee
+                  </span>
 
-                  <h3 className="text-base font-bold text-slate-900">
-                    Create Payroll Manually
-                  </h3>
-
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {
-                      formatSalaryMonth(
-                        salaryMonth
-                      )
-                    }
-
-                    {" • "}
-
-                    {
-                      getClientName({
-                        client_id:
-                          selectedClient,
-                      })
-                    }
-                  </p>
-
+                  <span className="font-bold text-slate-800">
+                    {prefillInfo.employee_name ||
+                      "Employee"}
+                  </span>
                 </div>
 
-                <button
-                  onClick={() =>
-                    setCreateModalOpen(
-                      false
-                    )
-                  }
-                  className="text-slate-400 hover:text-slate-700 text-xl font-bold"
-                >
-                  ×
-                </button>
+                <div>
+                  <span className="text-slate-400 block">
+                    Pay Rate
+                  </span>
+
+                  <span className="font-bold text-slate-800">
+                    ₹
+                    {formatMoney(
+                      prefillInfo.pay_rate
+                    )}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block">
+                    Present Days
+                  </span>
+
+                  <span className="font-bold text-slate-800">
+                    {prefillInfo.present_days ??
+                      0}
+                    {" / "}
+                    {prefillInfo.total_days ??
+                      getCalendarDaysInMonth(
+                        salaryMonth
+                      )}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block">
+                    LOP Days
+                  </span>
+
+                  <span className="font-bold text-rose-600">
+                    {prefillInfo.lop_days ??
+                      0}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block">
+                    OT Hours
+                  </span>
+
+                  <span className="font-bold text-slate-800">
+                    {prefillInfo.overtime_hours ??
+                      0}
+                  </span>
+                </div>
 
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="mt-4 pt-3 border-t border-slate-200">
 
-                {/* ERROR */}
+                <span className="text-slate-400 block text-[11px]">
+                  Employee Email
+                </span>
 
-                {createError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-xl text-xs">
-                    {createError}
-                  </div>
-                )}
+                <span className="font-bold text-slate-800 text-xs">
+                  {prefillInfo.email || "-"}
+                </span>
 
-                {/* EMPLOYEE */}
+              </div>
 
-                <div>
+              {prefillInfo.already_exists && (
 
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                    Employee Selection
-                  </h4>
+                <div className="mt-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2.5 text-xs">
 
-                  <label className="block font-bold text-slate-600 mb-1 text-xs">
-                    Select Employee / Deployment
-                  </label>
+                  A payroll record already exists
+                  for this employee for{" "}
 
-                  <select
-                    value={
-                      selectedDeploymentId
-                    }
-                    onChange={(e) =>
-                      handleSelectEmployee(
-                        e.target.value
-                      )
-                    }
-                    disabled={
-                      employeeOptionsLoading
-                    }
-                    className="w-full border border-slate-200 p-3 rounded-xl bg-white font-medium text-slate-800"
-                  >
-
-                    <option value="">
-                      {employeeOptionsLoading
-                        ? "Loading employees..."
-                        : "Select an employee"}
-                    </option>
-
-                    {employeeOptions.map(
-                      (emp) => (
-                        <option
-                          key={
-                            emp.deployment_id
-                          }
-                          value={
-                            emp.deployment_id
-                          }
-                        >
-                          {
-                            emp.employee_name
-                          }
-
-                          {" — "}
-
-                          {
-                            emp.project_name ||
-                            "No project"
-                          }
-
-                          {" (Deployment #"}
-                          {
-                            emp.deployment_id
-                          }
-                          {")"}
-                        </option>
-                      )
+                  <strong>
+                    {formatSalaryMonth(
+                      salaryMonth
                     )}
+                  </strong>
 
-                  </select>
+                  {" Status: "}
+
+                  <strong>
+                    {prefillInfo.existing_payroll_status ||
+                      "Unknown"}
+                  </strong>
 
                 </div>
 
-                {/* PREFILL LOADING */}
+              )}
 
-                {prefillLoading && (
+            </div>
+          )}
 
-                  <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-xl p-3">
+        {/* =====================================================
+            MANUAL PAYROLL FIELDS
+        ===================================================== */}
 
-                    <Loader2 className="h-4 w-4 animate-spin" />
+        {prefillInfo && (
 
-                    Loading employee salary and attendance...
+          <>
 
-                  </div>
+            {/* =================================================
+                EARNINGS
+            ================================================= */}
 
+            <div>
+
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                Salary & Earnings
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+
+                {[
+                  [
+                    "basic_salary",
+                    "Basic Salary",
+                  ],
+                  [
+                    "hra",
+                    "HRA",
+                  ],
+                  [
+                    "conveyance",
+                    "Conveyance",
+                  ],
+                  [
+                    "medical_allowance",
+                    "Medical Allowance",
+                  ],
+                  [
+                    "other_allowance",
+                    "Other Allowance",
+                  ],
+                  [
+                    "allowances",
+                    "Other Allowances",
+                  ],
+                  [
+                    "overtime",
+                    "Overtime Amount",
+                  ],
+                  [
+                    "bonus",
+                    "Bonus",
+                  ],
+                ].map(
+                  ([
+                    field,
+                    label,
+                  ]) => (
+
+                    <div
+                      key={field}
+                    >
+
+                      <label className="block font-bold text-slate-600 mb-1">
+                        {label}
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={
+                          createForm[field] ??
+                          0
+                        }
+                        onChange={(e) =>
+                          handleCreateFieldChange(
+                            field,
+                            e.target.value
+                          )
+                        }
+                        className="w-full border border-slate-200 p-2.5 rounded-lg"
+                      />
+
+                    </div>
+
+                  )
                 )}
 
-                {/* PREFILL INFO */}
+              </div>
 
-                {prefillInfo &&
-                  !prefillLoading && (
+            </div>
 
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            {/* =================================================
+                DEDUCTIONS
+            ================================================= */}
 
-                      <h4 className="text-xs font-bold text-slate-700 mb-3">
-                        Auto-Filled Employee Information
-                      </h4>
+            <div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                Employee Deductions
+              </h4>
 
-                        <div>
-                          <span className="text-slate-400 block">
-                            Employee
-                          </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
 
-                          <span className="font-bold text-slate-800">
-                            {
-                              prefillInfo.employee_name ||
-                              "Employee"
-                            }
-                          </span>
-                        </div>
+                {[
+                  [
+                    "pf",
+                    "Employee PF",
+                  ],
+                  [
+                    "esic",
+                    "Employee ESIC",
+                  ],
+                  [
+                    "tax",
+                    "Tax / TDS",
+                  ],
+                  [
+                    "professional_tax",
+                    "Professional Tax",
+                  ],
+                  [
+                    "lop",
+                    "LOP Deduction",
+                  ],
+                ].map(
+                  ([
+                    field,
+                    label,
+                  ]) => (
 
-                        <div>
-                          <span className="text-slate-400 block">
-                            Pay Rate
-                          </span>
+                    <div
+                      key={field}
+                    >
 
-                          <span className="font-bold text-slate-800">
-                            ₹
-                            {
-                              formatMoney(
-                                prefillInfo.pay_rate
-                              )
-                            }
-                          </span>
-                        </div>
+                      <label className="block font-bold text-slate-600 mb-1">
+                        {label}
+                      </label>
 
-                        <div>
-                          <span className="text-slate-400 block">
-                            Present Days
-                          </span>
-
-                          <span className="font-bold text-slate-800">
-                            {
-                              prefillInfo.present_days ??
-                              0
-                            }
-
-                            {" / "}
-
-                            {
-                              prefillInfo.total_days ??
-                              getCalendarDaysInMonth(
-                                salaryMonth
-                              )
-                            }
-                          </span>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400 block">
-                            LOP Days
-                          </span>
-
-                          <span className="font-bold text-rose-600">
-                            {
-                              prefillInfo.lop_days ??
-                              0
-                            }
-                          </span>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400 block">
-                            OT Hours
-                          </span>
-
-                          <span className="font-bold text-slate-800">
-                            {
-                              prefillInfo.overtime_hours ??
-                              0
-                            }
-                          </span>
-                        </div>
-
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-slate-200">
-
-                        <span className="text-slate-400 block text-[11px]">
-                          Employee Email
-                        </span>
-
-                        <span className="font-bold text-slate-800 text-xs">
-                          {
-                            prefillInfo.email ||
-                            "-"
-                          }
-                        </span>
-
-                      </div>
-
-                      {prefillInfo.already_exists && (
-
-                        <div className="mt-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2.5 text-xs">
-
-                          A payroll record already exists for this employee for{" "}
-                          <strong>
-                            {
-                              formatSalaryMonth(
-                                salaryMonth
-                              )
-                            }
-                          </strong>
-                          .
-
-                          {" Status: "}
-
-                          <strong>
-                            {
-                              prefillInfo.existing_payroll_status ||
-                              "Unknown"
-                            }
-                          </strong>
-
-                        </div>
-
-                      )}
-
-                    </div>
-                  )}
-
-                {/* MANUAL FIELDS */}
-
-                {prefillInfo && (
-
-                  <>
-
-                    {/* EARNINGS */}
-
-                    <div>
-
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                        Salary & Earnings
-                      </h4>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-
-                        {[
-                          [
-                            "basic_salary",
-                            "Basic Salary",
-                          ],
-                          [
-                            "allowances",
-                            "Allowances",
-                          ],
-                          [
-                            "overtime",
-                            "Overtime Amount",
-                          ],
-                          [
-                            "bonus",
-                            "Bonus",
-                          ],
-                        ].map(
-                          ([
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={
+                          createForm[field] ??
+                          0
+                        }
+                        onChange={(e) =>
+                          handleCreateFieldChange(
                             field,
-                            label,
-                          ]) => (
-                            <div
-                              key={
-                                field
-                              }
-                            >
-
-                              <label className="block font-bold text-slate-600 mb-1">
-                                {label}
-                              </label>
-
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={
-                                  createForm[
-                                  field
-                                  ] ??
-                                  0
-                                }
-                                onChange={(
-                                  e
-                                ) =>
-                                  handleCreateFieldChange(
-                                    field,
-                                    e.target
-                                      .value
-                                  )
-                                }
-                                className="w-full border border-slate-200 p-2.5 rounded-lg"
-                              />
-
-                            </div>
+                            e.target.value
                           )
-                        )}
-
-                      </div>
-
-                    </div>
-
-                    {/* DEDUCTIONS */}
-
-                    <div>
-
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                        Employee Deductions
-                      </h4>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-
-                        {[
-                          [
-                            "pf",
-                            "Employee PF",
-                          ],
-                          [
-                            "esic",
-                            "Employee ESIC",
-                          ],
-                          [
-                            "tax",
-                            "Tax / TDS",
-                          ],
-                          [
-                            "professional_tax",
-                            "Professional Tax",
-                          ],
-                          [
-                            "lop",
-                            "LOP Deduction",
-                          ],
-                        ].map(
-                          ([
-                            field,
-                            label,
-                          ]) => (
-                            <div
-                              key={
-                                field
-                              }
-                            >
-
-                              <label className="block font-bold text-slate-600 mb-1">
-                                {label}
-                              </label>
-
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={
-                                  createForm[
-                                  field
-                                  ] ??
-                                  0
-                                }
-                                onChange={(
-                                  e
-                                ) =>
-                                  handleCreateFieldChange(
-                                    field,
-                                    e.target
-                                      .value
-                                  )
-                                }
-                                className="w-full border border-slate-200 p-2.5 rounded-lg"
-                              />
-
-                            </div>
-                          )
-                        )}
-
-                      </div>
+                        }
+                        className="w-full border border-slate-200 p-2.5 rounded-lg"
+                      />
 
                     </div>
 
-                    {/* EMPLOYER */}
-
-                    <div>
-
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                        Employer Contributions
-                      </h4>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-
-                        <div>
-
-                          <label className="block font-bold text-slate-600 mb-1">
-                            Employer PF
-                          </label>
-
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={
-                              createForm.employer_pf ??
-                              0
-                            }
-                            onChange={(
-                              e
-                            ) =>
-                              handleCreateFieldChange(
-                                "employer_pf",
-                                e.target
-                                  .value
-                              )
-                            }
-                            className="w-full border border-slate-200 p-2.5 rounded-lg"
-                          />
-
-                        </div>
-
-                        <div>
-
-                          <label className="block font-bold text-slate-600 mb-1">
-                            Employer ESIC
-                          </label>
-
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={
-                              createForm.employer_esic ??
-                              0
-                            }
-                            onChange={(
-                              e
-                            ) =>
-                              handleCreateFieldChange(
-                                "employer_esic",
-                                e.target
-                                  .value
-                              )
-                            }
-                            className="w-full border border-slate-200 p-2.5 rounded-lg"
-                          />
-
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    {/* BANK */}
-
-                    <div>
-
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
-                        Bank Details
-                      </h4>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-
-                        <div>
-
-                          <label className="block font-bold text-slate-600 mb-1">
-                            Bank Name
-                          </label>
-
-                          <input
-                            type="text"
-                            value={
-                              createForm.bank_name ??
-                              ""
-                            }
-                            onChange={(
-                              e
-                            ) =>
-                              handleCreateFieldChange(
-                                "bank_name",
-                                e.target
-                                  .value
-                              )
-                            }
-                            className="w-full border border-slate-200 p-2.5 rounded-lg"
-                          />
-
-                        </div>
-
-                        <div>
-
-                          <label className="block font-bold text-slate-600 mb-1">
-                            Account Number
-                          </label>
-
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={
-                              createForm.account_number ??
-                              ""
-                            }
-                            onChange={(
-                              e
-                            ) =>
-                              handleCreateFieldChange(
-                                "account_number",
-                                e.target
-                                  .value
-                              )
-                            }
-                            className="w-full border border-slate-200 p-2.5 rounded-lg"
-                          />
-
-                        </div>
-
-                        <div>
-
-                          <label className="block font-bold text-slate-600 mb-1">
-                            IFSC Code
-                          </label>
-
-                          <input
-                            type="text"
-                            value={
-                              createForm.ifsc_code ??
-                              ""
-                            }
-                            onChange={(
-                              e
-                            ) =>
-                              handleCreateFieldChange(
-                                "ifsc_code",
-                                e.target.value.toUpperCase()
-                              )
-                            }
-                            className="w-full border border-slate-200 p-2.5 rounded-lg uppercase"
-                          />
-
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  </>
+                  )
                 )}
+
+              </div>
+
+            </div>
+
+            {/* =================================================
+                EMPLOYER CONTRIBUTIONS
+            ================================================= */}
+
+            <div>
+
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                Employer Contributions
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+
+                {[
+                  [
+                    "employer_pf",
+                    "Employer PF",
+                  ],
+                  [
+                    "employer_esic",
+                    "Employer ESIC",
+                  ],
+                  [
+                    "gratuity",
+                    "Gratuity",
+                  ],
+                ].map(
+                  ([
+                    field,
+                    label,
+                  ]) => (
+
+                    <div
+                      key={field}
+                    >
+
+                      <label className="block font-bold text-slate-600 mb-1">
+                        {label}
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={
+                          createForm[field] ??
+                          0
+                        }
+                        onChange={(e) =>
+                          handleCreateFieldChange(
+                            field,
+                            e.target.value
+                          )
+                        }
+                        className="w-full border border-slate-200 p-2.5 rounded-lg"
+                      />
+
+                    </div>
+
+                  )
+                )}
+
+              </div>
+
+            </div>
+
+            {/* =================================================
+                PF INFORMATION
+            ================================================= */}
+
+            <div>
+
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                PF Information
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+
+                <div>
+
+                  <label className="block font-bold text-slate-600 mb-1">
+                    PF Wages
+                  </label>
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={
+                      createForm.pf_wages ??
+                      0
+                    }
+                    onChange={(e) =>
+                      handleCreateFieldChange(
+                        "pf_wages",
+                        e.target.value
+                      )
+                    }
+                    className="w-full border border-slate-200 p-2.5 rounded-lg"
+                  />
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* =================================================
+                BANK DETAILS
+            ================================================= */}
+
+            <div>
+
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                Bank Details
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+
+                <div>
+
+                  <label className="block font-bold text-slate-600 mb-1">
+                    Bank Name
+                  </label>
+
+                  <input
+                    type="text"
+                    value={
+                      createForm.bank_name ??
+                      ""
+                    }
+                    onChange={(e) =>
+                      handleCreateFieldChange(
+                        "bank_name",
+                        e.target.value
+                      )
+                    }
+                    className="w-full border border-slate-200 p-2.5 rounded-lg"
+                  />
+
+                </div>
+
+                <div>
+
+                  <label className="block font-bold text-slate-600 mb-1">
+                    Account Number
+                  </label>
+
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={
+                      createForm.account_number ??
+                      ""
+                    }
+                    onChange={(e) =>
+                      handleCreateFieldChange(
+                        "account_number",
+                        e.target.value
+                      )
+                    }
+                    className="w-full border border-slate-200 p-2.5 rounded-lg"
+                  />
+
+                </div>
+
+                <div>
+
+                  <label className="block font-bold text-slate-600 mb-1">
+                    IFSC Code
+                  </label>
+
+                  <input
+                    type="text"
+                    value={
+                      createForm.ifsc_code ??
+                      ""
+                    }
+                    onChange={(e) =>
+                      handleCreateFieldChange(
+                        "ifsc_code",
+                        e.target.value.toUpperCase()
+                      )
+                    }
+                    className="w-full border border-slate-200 p-2.5 rounded-lg uppercase"
+                  />
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </>
+        )}
+
 
               </div>
 
