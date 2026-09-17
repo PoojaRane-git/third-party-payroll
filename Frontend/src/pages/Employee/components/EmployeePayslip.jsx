@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
 
-import logo from "../../../assets/logo.jpeg";
-
 import api from "../../services/api";
 import EmployeeLayout from "./EmployeeLayout";
 
@@ -76,17 +74,17 @@ const numberToWordsIndian = (num) => {
     }`.trim();
   };
 
-  let crore = Math.floor(value / 10000000);
+  const crore = Math.floor(value / 10000000);
 
-  let lakh = Math.floor(
+  const lakh = Math.floor(
     (value % 10000000) / 100000
   );
 
-  let thousand = Math.floor(
+  const thousand = Math.floor(
     (value % 100000) / 1000
   );
 
-  let remainder = value % 1000;
+  const remainder = value % 1000;
 
   const result = [];
 
@@ -115,27 +113,6 @@ const numberToWordsIndian = (num) => {
   }
 
   return result.join(" ");
-};
-
-// =====================================================
-// LOAD IMAGE
-// =====================================================
-
-const loadImage = (src) => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-
-    img.onload = () => resolve(img);
-
-    img.onerror = () =>
-      reject(
-        new Error(
-          `Unable to load image: ${src}`
-        )
-      );
-
-    img.src = src;
-  });
 };
 
 // =====================================================
@@ -271,6 +248,35 @@ const EmployeePayslip = () => {
     }
 
     return String(value);
+  };
+
+  // =====================================================
+  // DATE FORMAT
+  // =====================================================
+
+  const formatDate = (value) => {
+    if (!value) {
+      return "N/A";
+    }
+
+    const date = new Date(value);
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return String(value);
+    }
+
+    return date.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
   };
 
   // =====================================================
@@ -471,7 +477,7 @@ const EmployeePayslip = () => {
         };
 
         // =================================================
-        // 1. COMPANY HEADER
+        // 1. COMPANY HEADER - NO LOGO
         // =================================================
 
         const headerHeight = 42;
@@ -483,70 +489,9 @@ const EmployeePayslip = () => {
           headerHeight
         );
 
-        // -------------------------------------------------
-        // LOGO
-        // -------------------------------------------------
-
-        try {
-          const img =
-            await loadImage(
-              logo
-            );
-
-          const logoWidth = 32;
-
-          const aspectRatio =
-            img.width /
-            img.height;
-
-          const logoHeight =
-            logoWidth /
-            aspectRatio;
-
-          doc.addImage(
-            img,
-            "JPEG",
-            margin + 5,
-            y + 5,
-            logoWidth,
-            logoHeight
-          );
-        } catch (imageError) {
-          console.warn(
-            "Payslip logo could not be loaded:",
-            imageError
-          );
-
-          // Small fallback box
-          doc.setFont(
-            "helvetica",
-            "bold"
-          );
-
-          doc.setFontSize(
-            11
-          );
-
-          doc.text(
-            "TC",
-            margin + 15,
-            y + 20,
-            {
-              align:
-                "center",
-            }
-          );
-        }
-
-        // -------------------------------------------------
-        // COMPANY DETAILS
-        // -------------------------------------------------
-
         const companyX =
           margin +
-          contentWidth /
-            2 +
-          13;
+          contentWidth / 2;
 
         doc.setTextColor(
           20,
@@ -566,7 +511,7 @@ const EmployeePayslip = () => {
         doc.text(
           "Talent Corner HR Services Pvt. Ltd.",
           companyX,
-          y + 8,
+          y + 9,
           {
             align:
               "center",
@@ -585,7 +530,7 @@ const EmployeePayslip = () => {
         doc.text(
           "708/709, Bhaveshwar Arcade NX, Opp Shreyas Cinema, LBS Marg",
           companyX,
-          y + 14,
+          y + 15,
           {
             align:
               "center",
@@ -595,7 +540,7 @@ const EmployeePayslip = () => {
         doc.text(
           "Ghatkopar(W), Mumbai-400086",
           companyX,
-          y + 19,
+          y + 20,
           {
             align:
               "center",
@@ -605,7 +550,7 @@ const EmployeePayslip = () => {
         doc.text(
           "GSTIN : 27AACCT6635P1ZP",
           companyX,
-          y + 24,
+          y + 25,
           {
             align:
               "center",
@@ -615,7 +560,7 @@ const EmployeePayslip = () => {
         doc.text(
           "UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)",
           companyX,
-          y + 29,
+          y + 30,
           {
             align:
               "center",
@@ -625,7 +570,7 @@ const EmployeePayslip = () => {
         doc.text(
           "E-Mail : accounts@talentcorner.in",
           companyX,
-          y + 34,
+          y + 35,
           {
             align:
               "center",
@@ -721,7 +666,7 @@ const EmployeePayslip = () => {
         const infoRowHeight =
           7;
 
-        const infoRows = 5;
+        const infoRows = 6;
 
         const infoHeight =
           infoHeaderHeight +
@@ -735,7 +680,6 @@ const EmployeePayslip = () => {
           infoHeight
         );
 
-        // Header background
         doc.setFillColor(
           242,
           244,
@@ -765,7 +709,6 @@ const EmployeePayslip = () => {
           infoTop + 5.5
         );
 
-        // Vertical divider
         const infoMiddle =
           pageWidth / 2;
 
@@ -802,6 +745,12 @@ const EmployeePayslip = () => {
               "Location",
               display(
                 payslip.branch_office_name
+              ),
+            ],
+            [
+              "Joining Date",
+              formatDate(
+                payslip.joining_date
               ),
             ],
             [
@@ -844,10 +793,16 @@ const EmployeePayslip = () => {
                 payslip.esi_number
               ),
             ],
+            [
+              "PRAN",
+              display(
+                payslip.pran
+              ),
+            ],
           ];
 
         doc.setFontSize(
-          8.5
+          8.2
         );
 
         for (
@@ -862,7 +817,6 @@ const EmployeePayslip = () => {
               infoRowHeight +
             5;
 
-          // Horizontal line
           if (
             i <
             infoRows - 1
@@ -882,7 +836,7 @@ const EmployeePayslip = () => {
             );
           }
 
-          // LEFT LABEL
+          // LEFT
           doc.setFont(
             "helvetica",
             "normal"
@@ -900,7 +854,6 @@ const EmployeePayslip = () => {
             rowY
           );
 
-          // LEFT VALUE
           doc.setFont(
             "helvetica",
             "bold"
@@ -912,7 +865,7 @@ const EmployeePayslip = () => {
             rowY
           );
 
-          // RIGHT LABEL
+          // RIGHT
           doc.setFont(
             "helvetica",
             "normal"
@@ -930,25 +883,13 @@ const EmployeePayslip = () => {
             rowY
           );
 
-          // RIGHT VALUE
           doc.setFont(
             "helvetica",
             "bold"
           );
 
-          const rightValue =
-            String(
-              rightDetails[i][1]
-            );
-
-          const rightLines =
-            doc.splitTextToSize(
-              rightValue,
-              40
-            );
-
           doc.text(
-            rightLines,
+            rightDetails[i][1],
             infoMiddle + 39,
             rowY
           );
@@ -967,29 +908,43 @@ const EmployeePayslip = () => {
           [
             "Basic Salary",
             Number(
-              payslip.basic_salary ||
-                0
+              payslip.basic_salary ?? 0
             ),
           ],
           [
-            "Allowances",
+            "HRA",
             Number(
-              payslip.allowances ||
-                0
+              payslip.hra ?? 0
+            ),
+          ],
+          [
+            "Conveyance",
+            Number(
+              payslip.conveyance ?? 0
+            ),
+          ],
+          [
+            "Medical Allowance",
+            Number(
+              payslip.medical_allowance ?? 0
+            ),
+          ],
+          [
+            "Other Allowance",
+            Number(
+              payslip.other_allowance ?? 0
             ),
           ],
           [
             "Overtime",
             Number(
-              payslip.overtime ||
-                0
+              payslip.overtime ?? 0
             ),
           ],
           [
             "Bonus",
             Number(
-              payslip.bonus ||
-                0
+              payslip.bonus ?? 0
             ),
           ],
         ];
@@ -998,36 +953,31 @@ const EmployeePayslip = () => {
           [
             "Employee PF",
             Number(
-              payslip.pf ||
-                0
+              payslip.pf ?? 0
             ),
           ],
           [
             "ESIC",
             Number(
-              payslip.esic ||
-                0
+              payslip.esic ?? 0
             ),
           ],
           [
             "Tax / TDS",
             Number(
-              payslip.tax ||
-                0
+              payslip.tax ?? 0
             ),
           ],
           [
             "Professional Tax",
             Number(
-              payslip.professional_tax ||
-                0
+              payslip.professional_tax ?? 0
             ),
           ],
           [
             "LOP Deduction",
             Number(
-              payslip.lop ||
-                0
+              payslip.lop ?? 0
             ),
           ],
         ];
@@ -1067,6 +1017,23 @@ const EmployeePayslip = () => {
                 totalDeductions
           );
 
+        const pfWages =
+          Number(
+            payslip.pf_wages ??
+              Math.max(
+                0,
+                totalEarnings -
+                  Number(
+                    payslip.hra ?? 0
+                  )
+              )
+          );
+
+        const gratuity =
+          Number(
+            payslip.gratuity ?? 0
+          );
+
         const tableTop =
           y;
 
@@ -1074,7 +1041,7 @@ const EmployeePayslip = () => {
           9;
 
         const tableRowHeight =
-          7;
+          6.5;
 
         const tableRows =
           Math.max(
@@ -1094,7 +1061,6 @@ const EmployeePayslip = () => {
         const halfWidth =
           contentWidth / 2;
 
-        // Outer border
         box(
           margin,
           tableTop,
@@ -1102,7 +1068,7 @@ const EmployeePayslip = () => {
           tableHeight
         );
 
-        // Header background
+        // Header
         doc.setFillColor(
           242,
           244,
@@ -1117,7 +1083,7 @@ const EmployeePayslip = () => {
           "F"
         );
 
-        // Middle divider
+        // Center divider
         line(
           margin +
             halfWidth,
@@ -1162,18 +1128,18 @@ const EmployeePayslip = () => {
           tableTop + 6
         );
 
-        // Column positions
+        // Right aligned amount positions
         const earningAmountX =
           margin +
           halfWidth -
-          4;
+          5;
 
         const deductionAmountX =
           margin +
           contentWidth -
-          4;
+          5;
 
-        // Table rows
+        // Rows
         for (
           let i = 0;
           i < tableRows;
@@ -1186,18 +1152,22 @@ const EmployeePayslip = () => {
               tableRowHeight;
 
           const rowY =
-            rowTop + 5;
+            rowTop + 4.5;
 
-          // Row separator
-          line(
-            margin,
-            rowTop +
-              tableRowHeight,
-            margin +
-              contentWidth,
-            rowTop +
-              tableRowHeight
-          );
+          if (
+            i <
+            tableRows - 1
+          ) {
+            line(
+              margin,
+              rowTop +
+                tableRowHeight,
+              margin +
+                contentWidth,
+              rowTop +
+                tableRowHeight
+            );
+          }
 
           doc.setFont(
             "helvetica",
@@ -1205,7 +1175,7 @@ const EmployeePayslip = () => {
           );
 
           doc.setFontSize(
-            8.5
+            8
           );
 
           // Earnings
@@ -1284,7 +1254,7 @@ const EmployeePayslip = () => {
         );
 
         doc.setFontSize(
-          8.5
+          8
         );
 
         doc.text(
@@ -1328,10 +1298,108 @@ const EmployeePayslip = () => {
         y =
           tableTop +
           tableHeight +
-          8;
+          7;
 
         // =================================================
-        // 5. NET PAYABLE
+        // 5. PF WAGES + GRATUITY
+        // =================================================
+
+        const statutoryTop =
+          y;
+
+        const statutoryHeight =
+          24;
+
+        box(
+          margin,
+          statutoryTop,
+          contentWidth,
+          statutoryHeight
+        );
+
+        doc.setFillColor(
+          242,
+          244,
+          247
+        );
+
+        doc.rect(
+          margin,
+          statutoryTop,
+          contentWidth,
+          8,
+          "F"
+        );
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(
+          8.5
+        );
+
+        doc.text(
+          "STATUTORY / OTHER DETAILS",
+          margin + 4,
+          statutoryTop + 5.5
+        );
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.setFontSize(
+          8
+        );
+
+        doc.text(
+          "PF Wages",
+          margin + 4,
+          statutoryTop + 15
+        );
+
+        doc.text(
+          `₹ ${currency(
+            pfWages
+          )}`,
+          margin + 55,
+          statutoryTop + 15,
+          {
+            align:
+              "right",
+          }
+        );
+
+        doc.text(
+          "Gratuity",
+          margin + 75,
+          statutoryTop + 15
+        );
+
+        doc.text(
+          `₹ ${currency(
+            gratuity
+          )}`,
+          pageWidth -
+            margin -
+            4,
+          statutoryTop + 15,
+          {
+            align:
+              "right",
+          }
+        );
+
+        y =
+          statutoryTop +
+          statutoryHeight +
+          7;
+
+        // =================================================
+        // 6. NET PAYABLE
         // =================================================
 
         const netTop =
@@ -1415,7 +1483,7 @@ const EmployeePayslip = () => {
           7;
 
         // =================================================
-        // 6. AMOUNT IN WORDS
+        // 7. AMOUNT IN WORDS
         // =================================================
 
         const wordsTop =
@@ -1481,19 +1549,17 @@ const EmployeePayslip = () => {
           7;
 
         // =================================================
-        // 7. EMPLOYER CONTRIBUTION
+        // 8. EMPLOYER CONTRIBUTION
         // =================================================
 
         const employerPF =
           Number(
-            payslip.employer_pf ||
-              0
+            payslip.employer_pf ?? 0
           );
 
         const employerESIC =
           Number(
-            payslip.employer_esic ||
-              0
+            payslip.employer_esic ?? 0
           );
 
         const employerTotal =
@@ -1631,7 +1697,7 @@ const EmployeePayslip = () => {
           7;
 
         // =================================================
-        // 8. BANK DETAILS
+        // 9. BANK DETAILS
         // =================================================
 
         const bankTop =
@@ -1715,7 +1781,7 @@ const EmployeePayslip = () => {
           7;
 
         // =================================================
-        // 9. FOOTER
+        // 10. FOOTER
         // =================================================
 
         const footerY =
@@ -1777,7 +1843,7 @@ const EmployeePayslip = () => {
         );
 
         // =================================================
-        // 10. FILE NAME
+        // 11. FILE NAME
         // =================================================
 
         const month =
@@ -1954,7 +2020,7 @@ const EmployeePayslip = () => {
                         alignItems:
                           "center",
                         gap:
-                          "12px",
+                        "12px",
                       }}
                     >
 
@@ -2028,13 +2094,52 @@ const EmployeePayslip = () => {
 
                     <div>
                       <span>
-                        Allowances
+                        HRA
                       </span>
 
                       <strong>
                         ₹
                         {money(
-                          payslip.allowances
+                          payslip.hra
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Conveyance
+                      </span>
+
+                      <strong>
+                        ₹
+                        {money(
+                          payslip.conveyance
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Medical Allowance
+                      </span>
+
+                      <strong>
+                        ₹
+                        {money(
+                          payslip.medical_allowance
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Other Allowance
+                      </span>
+
+                      <strong>
+                        ₹
+                        {money(
+                          payslip.other_allowance
                         )}
                       </strong>
                     </div>
@@ -2211,6 +2316,73 @@ const EmployeePayslip = () => {
                   </div>
 
                   {/* =================================================
+                      STATUTORY DETAILS
+                  ================================================= */}
+
+                  <h3
+                    style={{
+                      marginTop:
+                        "25px",
+                    }}
+                  >
+                    Statutory Details
+                  </h3>
+
+                  <div className="profile-grid">
+
+                    <div>
+                      <span>
+                        PF Wages
+                      </span>
+
+                      <strong>
+                        ₹
+                        {money(
+                          payslip.pf_wages
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Gratuity
+                      </span>
+
+                      <strong>
+                        ₹
+                        {money(
+                          payslip.gratuity
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        Joining Date
+                      </span>
+
+                      <strong>
+                        {formatDate(
+                          payslip.joining_date
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        PRAN
+                      </span>
+
+                      <strong>
+                        {display(
+                          payslip.pran
+                        )}
+                      </strong>
+                    </div>
+
+                  </div>
+
+                  {/* =================================================
                       EMPLOYER CONTRIBUTION
                   ================================================= */}
 
@@ -2345,4 +2517,3 @@ const EmployeePayslip = () => {
 };
 
 export default EmployeePayslip;
-
