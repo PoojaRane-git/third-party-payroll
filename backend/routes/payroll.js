@@ -9,10 +9,8 @@ const nodemailer = require("nodemailer");
 const router = express.Router();
 
 const supabase = require("../config/supabase");
-const {
-    generatePayslipPDF
-} = require("../utils/Payslippdf");
-const { jsPDF } = require("jspdf");
+
+const { generatePayslipPDF } = require("../utils/Payslippdf");
 // ============================================================
 // ENVIRONMENT
 // ============================================================
