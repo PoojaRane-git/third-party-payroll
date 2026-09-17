@@ -356,6 +356,19 @@ const ELIGIBLE_PAYSLIP_STATUSES = ["Approved", "Locked"];
   // CLIENT NAME
   // =====================================================
 
+  const getStatusClass = (status) => {
+  switch (status) {
+    case "Approved":
+      return "bg-emerald-200 text-emerald-800";
+    case "Locked":
+      return "bg-indigo-200 text-indigo-800";
+    case "Pending":
+      return "bg-amber-200 text-amber-800";
+    default:
+      return "bg-slate-200 text-slate-700";
+  }
+};
+
   const getClientName =
     useCallback(
       (record) => {
