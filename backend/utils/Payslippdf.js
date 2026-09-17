@@ -258,7 +258,6 @@ const generatePayslipPDF = async (
 
     // ========================================================
     // EMPLOYEE DETAILS
-    // ALL VALUES ARE DYNAMIC
     // ========================================================
 
     const employeeName =
@@ -387,7 +386,6 @@ const generatePayslipPDF = async (
 
     // ========================================================
     // EARNINGS
-    // VALUES COME DIRECTLY FROM PAYROLL
     // ========================================================
 
     const basicSalary =
@@ -528,7 +526,7 @@ const generatePayslipPDF = async (
         "bold"
     );
 
-    doc.setFontSize(17);
+    doc.setFontSize(18);
 
     doc.text(
         COMPANY_NAME,
@@ -541,7 +539,8 @@ const generatePayslipPDF = async (
         "normal"
     );
 
-    doc.setFontSize(8.5);
+    // INCREASED COMPANY DETAILS
+    doc.setFontSize(10);
 
     doc.text(
         COMPANY_ADDRESS_LINE1,
@@ -667,7 +666,8 @@ const generatePayslipPDF = async (
             "normal"
         );
 
-        doc.setFontSize(7.5);
+        // INCREASED EMPLOYEE DETAIL FONT
+        doc.setFontSize(9);
 
         doc.text(
             label,
@@ -679,6 +679,8 @@ const generatePayslipPDF = async (
             "helvetica",
             "bold"
         );
+
+        doc.setFontSize(9);
 
         doc.text(
             textValue(value),
@@ -736,7 +738,8 @@ const generatePayslipPDF = async (
         "normal"
     );
 
-    doc.setFontSize(7.5);
+    // INCREASED BANK LABEL FONT
+    doc.setFontSize(9);
 
     doc.text(
         "Bank Details:",
@@ -748,6 +751,8 @@ const generatePayslipPDF = async (
         "helvetica",
         "bold"
     );
+
+    doc.setFontSize(9);
 
     doc.text(
         `Name - ${bankName}`,
@@ -878,10 +883,7 @@ const generatePayslipPDF = async (
         "bold"
     );
 
-    // ========================================================
-    // INCREASED TABLE HEADER FONT
-    // ========================================================
-
+    // INCREASED TABLE HEADER
     doc.setFontSize(9);
 
     headers.forEach(
@@ -961,10 +963,7 @@ const generatePayslipPDF = async (
                     "normal"
                 );
 
-                // ====================================================
-                // INCREASED TABLE CONTENT FONT
-                // ====================================================
-
+                // INCREASED TABLE CONTENT
                 doc.setFontSize(8.5);
 
                 if (
@@ -1145,10 +1144,7 @@ const generatePayslipPDF = async (
         "bold"
     );
 
-    // ========================================================
     // INCREASED TOTAL FONT
-    // ========================================================
-
     doc.setFontSize(8.5);
 
     totalValues.forEach(
@@ -1225,10 +1221,7 @@ const generatePayslipPDF = async (
                 "bold"
             );
 
-            // ====================================================
             // INCREASED NET AMOUNT FONT
-            // ====================================================
-
             doc.setFontSize(8.5);
 
             if (
@@ -1268,12 +1261,13 @@ const generatePayslipPDF = async (
     const wordsY =
         rowY + 17;
 
+    // INCREASED AMOUNT IN WORDS LABEL
     doc.setFont(
         "helvetica",
         "bold"
     );
 
-    doc.setFontSize(8);
+    doc.setFontSize(10);
 
     doc.text(
         "Amount (in words):",
@@ -1281,12 +1275,13 @@ const generatePayslipPDF = async (
         wordsY
     );
 
+    // INCREASED AMOUNT IN WORDS CONTENT
     doc.setFont(
         "helvetica",
         "normal"
     );
 
-    doc.setFontSize(7.5);
+    doc.setFontSize(9);
 
     doc.text(
         `INR ${numberToWordsIndian(
@@ -1316,7 +1311,8 @@ const generatePayslipPDF = async (
         "bold"
     );
 
-    doc.setFontSize(8);
+    // INCREASED SIGNATURE TEXT
+    doc.setFontSize(9);
 
     doc.text(
         `for ${COMPANY_NAME}`,
