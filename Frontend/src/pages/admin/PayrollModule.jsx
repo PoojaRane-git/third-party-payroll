@@ -1175,13 +1175,6 @@ const handleSelectEmployee = async (deploymentId) => {
   throw new Error("Employee information was not returned.");
 }
 
-   if (!info.attendance) {
-  alert(
-    `No attendance record found for ${info.employee_name || "this employee"} for ${salaryMonth}.\n\nPayroll cannot be created without attendance.`
-  );
-  return;
-}
-
     setPrefillInfo(info);
 const payRate = Number(info.pay_rate || 0);
 const daysInMonth =
