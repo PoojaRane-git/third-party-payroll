@@ -5386,113 +5386,471 @@ router.get("/lookup/employees", async (req, res) => {
         return sendError(res, 500, "Failed to fetch employees", error.message);
     }
 });
-
 // ============================================================
 // LOOKUP: PREFILL DATA FOR ONE EMPLOYEE + MONTH
-// (pay rate, attendance, existing-payroll check)
 //
-// GET /api/payroll/lookup/prefill?deployment_id=5&salary_month=2026-08
+// GET /api/payroll/lookup/prefill
+//     ?deployment_id=5
+//     &salary_month=2026-08
+//
+// Returns:
+// - Employee details
+// - Deployment details
+// - Pay rate
+// - Attendance
+// - Statutory information
+// - Existing payroll check
 // ============================================================
 
 router.get("/lookup/prefill", async (req, res) => {
     try {
-        const deploymentId = getId(req.query.deployment_id);
+        // ========================================================
+        // DEPLOYMENT ID
+        // ========================================================
+
+        const deploymentId = getId(
+            req.query.deployment_id
+        );
 
         if (!deploymentId) {
-            return sendError(res, 400, "Valid deployment_id is required");
+            return sendError(
+                res,
+                400,
+                "Valid deployment_id is required"
+            );
         }
+
+        // ========================================================
+        // SALARY MONTH
+        // ========================================================
 
         let salaryMonth;
 
         try {
-            salaryMonth = validateSalaryMonth(req.query.salary_month);
+            salaryMonth = validateSalaryMonth(
+                req.query.salary_month
+            );
         } catch (err) {
-            return sendError(res, 400, err.message);
+            return sendError(
+                res,
+                400,
+                err.message
+            );
         }
 
-        const { data: deployment, error: deploymentError } = await supabase
+        // ========================================================
+        // FETCH DEPLOYMENT
+        // ========================================================
+
+        const {
+            data: deployment,
+            error: deploymentError
+        } = await supabase
             .from("deployments")
             .select(`
-                id, candidate_id, client_id, pay_rate, bill_rate,
-                project_name, status
+                id,
+                candidate_id,
+                client_id,
+                pay_rate,
+                bill_rate,
+                project_name,
+                status
             `)
             .eq("id", deploymentId)
             .maybeSingle();
 
-        if (deploymentError) throw deploymentError;
-
-        if (!deployment) {
-            return sendError(res, 404, "Deployment not found");
+        if (deploymentError) {
+            throw deploymentError;
         }
 
-        const { data: candidate, error: candidateError } = await supabase
+        if (!deployment) {
+            return sendError(
+                res,
+                404,
+                "Deployment not found"
+            );
+        }
+
+        // ========================================================
+        // FETCH EMPLOYEE
+        // ========================================================
+
+        const {
+            data: candidate,
+            error: candidateError
+        } = await supabase
             .from("candidates")
-            .select("id, full_name, email, phone, designation")
-            .eq("id", deployment.candidate_id)
+            .select(`
+                id,
+                full_name,
+                email,
+                phone,
+                designation,
+                gender,
+                department,
+                pay_rate,
+                bank_name,
+                bank_account_number,
+                ifsc_code,
+                pan_number,
+                uan_number,
+                esic_number,
+                date_of_joining
+            `)
+            .eq(
+                "id",
+                deployment.candidate_id
+            )
             .maybeSingle();
 
-        if (candidateError) throw candidateError;
+        if (candidateError) {
+            throw candidateError;
+        }
 
-        const { data: attendanceRows, error: attendanceError } = await supabase
+        if (!candidate) {
+            return sendError(
+                res,
+                404,
+                "Employee not found"
+            );
+        }
+
+        // ========================================================
+        // FETCH ATTENDANCE
+        //
+        // IMPORTANT:
+        // No third_party_attendance_approval table is used.
+        // ========================================================
+
+        const {
+            data: attendanceRows,
+            error: attendanceError
+        } = await supabase
             .from("third_party_emp_attendance")
             .select(`
-                id, employee_name, billing_month, status,
-                present_days, absent_days, leave_days,
-                overtime_hours, deployment_id, employee_id,
-                half_days, lop_days, payable_days
+                id,
+                employee_name,
+                billing_month,
+                status,
+                present_days,
+                absent_days,
+                leave_days,
+                overtime_hours,
+                deployment_id,
+                employee_id,
+                half_days,
+                lop_days,
+                payable_days,
+                advance
             `)
-            .eq("employee_id", deployment.candidate_id)
-            .eq("deployment_id", deploymentId)
-            .eq("billing_month", salaryMonth)
-            .order("id", { ascending: false })
+            .eq(
+                "employee_id",
+                deployment.candidate_id
+            )
+            .eq(
+                "deployment_id",
+                deploymentId
+            )
+            .eq(
+                "billing_month",
+                salaryMonth
+            )
+            .order("id", {
+                ascending: false
+            })
             .limit(1);
 
-        if (attendanceError) throw attendanceError;
+        if (attendanceError) {
+            throw attendanceError;
+        }
 
-        const attendance = attendanceRows?.[0] || null;
+        const attendance =
+            attendanceRows?.[0] || null;
 
-        const { data: existingPayroll, error: existingError } = await supabase
+        // ========================================================
+        // EXISTING PAYROLL CHECK
+        // ========================================================
+
+        const {
+            data: existingPayroll,
+            error: existingError
+        } = await supabase
             .from("third_party_payroll")
-            .select("id, status")
-            .eq("employee_ref_id", deployment.candidate_id)
-            .eq("deployment_id", deploymentId)
-            .eq("salary_month", salaryMonth)
+            .select(`
+                id,
+                status
+            `)
+            .eq(
+                "employee_ref_id",
+                deployment.candidate_id
+            )
+            .eq(
+                "deployment_id",
+                deploymentId
+            )
+            .eq(
+                "salary_month",
+                salaryMonth
+            )
             .limit(1);
 
-        if (existingError) throw existingError;
+        if (existingError) {
+            throw existingError;
+        }
 
-        const calendarDays = getDaysInMonth(salaryMonth);
+        // ========================================================
+        // DAYS IN MONTH
+        // ========================================================
+
+        const calendarDays =
+            getDaysInMonth(
+                salaryMonth
+            );
+
+        // ========================================================
+        // PAY RATE
+        //
+        // Deployment pay_rate has priority.
+        // Candidate pay_rate is fallback.
+        // ========================================================
+
+        const payRate = Number(
+            deployment.pay_rate ??
+            candidate.pay_rate ??
+            0
+        );
+
+        // ========================================================
+        // ATTENDANCE VALUES
+        // ========================================================
+
+        const presentDays = Number(
+            attendance?.present_days || 0
+        );
+
+        const absentDays = Number(
+            attendance?.absent_days || 0
+        );
+
+        const leaveDays = Number(
+            attendance?.leave_days || 0
+        );
+
+        const halfDays = Number(
+            attendance?.half_days || 0
+        );
+
+        const lopDays = Number(
+            attendance?.lop_days || 0
+        );
+
+        const overtimeHours = Number(
+            attendance?.overtime_hours || 0
+        );
+
+        const advance = Number(
+            attendance?.advance || 0
+        );
+
+        // ========================================================
+        // PAYABLE DAYS
+        //
+        // Use stored payable_days when available.
+        // Otherwise calculate:
+        //
+        // Present + Leave + Half Day × 0.5
+        // ========================================================
+
+        let payableDays;
+
+        if (
+            attendance?.payable_days !== null &&
+            attendance?.payable_days !== undefined
+        ) {
+            payableDays = Number(
+                attendance.payable_days
+            );
+        } else {
+            payableDays =
+                presentDays +
+                leaveDays +
+                halfDays * 0.5;
+        }
+
+        payableDays = Math.max(
+            0,
+            Math.min(
+                payableDays,
+                calendarDays
+            )
+        );
+
+        // ========================================================
+        // RESPONSE
+        // ========================================================
 
         return res.json({
             success: true,
+
             data: {
-                deployment_id: deploymentId,
-                employee_id: deployment.candidate_id,
-                client_id: deployment.client_id,
-                employee_name: candidate?.full_name || "N/A",
-                email: candidate?.email || "",
-                designation: candidate?.designation || "",
-                pay_rate: Number(deployment.pay_rate || 0),
-                deployment_status: deployment.status || null,
+                // ==================================================
+                // EMPLOYEE
+                // ==================================================
 
-                attendance_id: attendance?.id || null,
-                present_days: Number(attendance?.present_days || 0),
-                absent_days: Number(attendance?.absent_days || 0),
-                leave_days: Number(attendance?.leave_days || 0),
-                half_days: Number(attendance?.half_days || 0),
-                lop_days: Number(attendance?.lop_days || 0),
-                overtime_hours: Number(attendance?.overtime_hours || 0),
-                total_days: calendarDays,
+                employee_id:
+                    Number(candidate.id),
 
-                already_exists: !!(existingPayroll && existingPayroll.length > 0),
-                existing_payroll_id: existingPayroll?.[0]?.id || null,
-                existing_payroll_status: existingPayroll?.[0]?.status || null
+                employee_name:
+                    candidate.full_name || "N/A",
+
+                email:
+                    candidate.email || "",
+
+                phone:
+                    candidate.phone || "",
+
+                designation:
+                    candidate.designation || "",
+
+                gender:
+                    candidate.gender || "",
+
+                department:
+                    candidate.department || "",
+
+                pan_number:
+                    candidate.pan_number || null,
+
+                uan_number:
+                    candidate.uan_number || null,
+
+                esic_number:
+                    candidate.esic_number || null,
+
+                joining_date:
+                    candidate.date_of_joining || null,
+
+                // ==================================================
+                // BANK
+                // ==================================================
+
+                bank_name:
+                    candidate.bank_name || "",
+
+                account_number:
+                    candidate.bank_account_number || "",
+
+                bank_account_number:
+                    candidate.bank_account_number || "",
+
+                ifsc_code:
+                    candidate.ifsc_code || "",
+
+                // ==================================================
+                // DEPLOYMENT
+                // ==================================================
+
+                deployment_id:
+                    Number(deployment.id),
+
+                client_id:
+                    Number(deployment.client_id),
+
+                candidate_id:
+                    Number(deployment.candidate_id),
+
+                project_name:
+                    deployment.project_name || "",
+
+                deployment_status:
+                    deployment.status || null,
+
+                pay_rate:
+                    payRate,
+
+                bill_rate:
+                    Number(
+                        deployment.bill_rate || 0
+                    ),
+
+                // ==================================================
+                // ATTENDANCE
+                // ==================================================
+
+                attendance_id:
+                    attendance?.id
+                        ? Number(attendance.id)
+                        : null,
+
+                attendance_status:
+                    attendance?.status || null,
+
+                present_days:
+                    presentDays,
+
+                absent_days:
+                    absentDays,
+
+                leave_days:
+                    leaveDays,
+
+                half_days:
+                    halfDays,
+
+                lop_days:
+                    lopDays,
+
+                payable_days:
+                    payableDays,
+
+                overtime_hours:
+                    overtimeHours,
+
+                advance:
+                    advance,
+
+                total_days:
+                    calendarDays,
+
+                // ==================================================
+                // MONTH
+                // ==================================================
+
+                salary_month:
+                    salaryMonth,
+
+                // ==================================================
+                // EXISTING PAYROLL
+                // ==================================================
+
+                already_exists:
+                    !!(
+                        existingPayroll &&
+                        existingPayroll.length > 0
+                    ),
+
+                existing_payroll_id:
+                    existingPayroll?.[0]?.id ||
+                    null,
+
+                existing_payroll_status:
+                    existingPayroll?.[0]?.status ||
+                    null
             }
         });
 
     } catch (error) {
-        console.error("GET /api/payroll/lookup/prefill:", error);
-        return sendError(res, 500, "Failed to fetch prefill data", error.message);
+        console.error(
+            "GET /api/payroll/lookup/prefill:",
+            error
+        );
+
+        return sendError(
+            res,
+            500,
+            "Failed to fetch prefill data",
+            error.message
+        );
     }
 });
 // ============================================================

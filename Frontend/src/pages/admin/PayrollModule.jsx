@@ -1082,212 +1082,274 @@ const openCreateModal =
 // =====================================================
 // SELECT EMPLOYEE
 // =====================================================
+// =====================================================
+// SELECT EMPLOYEE
+// =====================================================
 
-const handleSelectEmployee =
-  async (
-    deploymentId
-  ) => {
-    setSelectedDeploymentId(
-      deploymentId
+const handleSelectEmployee = async (deploymentId) => {
+  setSelectedDeploymentId(deploymentId);
+  setPrefillInfo(null);
+  setCreateError("");
+  setCreateForm(emptyCreateForm());
+
+  if (!deploymentId) return;
+
+  try {
+    setPrefillLoading(true);
+
+    const response = await api.get(
+      "/payroll/lookup/prefill",
+      {
+        params: {
+          deployment_id: deploymentId,
+          salary_month: normalizeSalaryMonth(salaryMonth),
+        },
+      }
     );
 
-    setPrefillInfo(null);
-    setCreateError("");
+    const json = response?.data;
 
-    setCreateForm(
-      emptyCreateForm()
-    );
-
-    if (!deploymentId) {
-      return;
+    if (json?.success === false) {
+      throw new Error(
+        json?.message || "Failed to load employee data."
+      );
     }
 
-    try {
-      setPrefillLoading(
-        true
+    const info = json?.data;
+
+    if (!info) {
+      throw new Error(
+        "Employee information was not returned."
       );
+    }
 
-      const response =
-        await api.get(
-          "/payroll/lookup/prefill",
-          {
-            params: {
-              deployment_id:
-                deploymentId,
+    setPrefillInfo(info);
 
-              salary_month:
-                normalizeSalaryMonth(
-                  salaryMonth
-                ),
-            },
-          }
-        );
+    // =================================================
+    // CALCULATE PAYROLL VALUES FOR DISPLAY
+    // SAME LOGIC AS BACKEND
+    // =================================================
 
-      const json =
-        response?.data;
+    const payRate = Number(info.pay_rate || 0);
+    const daysInMonth = Number(info.total_days || 0);
 
-      if (
-        json?.success ===
-        false
-      ) {
-        throw new Error(
-          json?.message ||
-          "Failed to load employee data."
-        );
-      }
+    const payableDays =
+      info.payable_days !== null &&
+      info.payable_days !== undefined
+        ? Number(info.payable_days)
+        : Number(info.present_days || 0) +
+          Number(info.leave_days || 0) +
+          Number(info.half_days || 0) * 0.5;
 
-      const info =
-        json?.data;
+    const basicSalary = Math.round(payRate * 0.5);
 
-      if (!info) {
-        throw new Error(
-          "Employee information was not returned."
-        );
-      }
+    const hra = Math.round(basicSalary * 0.5);
 
-      setPrefillInfo(
-        info
-      );
+    const conveyance = 1200;
 
-      // =================================================
-      // AUTO-FILL EMPLOYEE / BANK DETAILS
-      // =================================================
+    const medicalAllowance = 1000;
 
-      setCreateForm(
-        (prev) => ({
-          ...prev,
+    const otherAllowance = Math.max(
+      0,
+      Math.round(
+        payRate -
+          basicSalary -
+          hra -
+          conveyance -
+          medicalAllowance
+      )
+    );
 
-          // Pay rate / basic salary
-          basic_salary:
-            info?.pay_rate ??
-            info?.basic_salary ??
-            0,
+    const earnBasicSalary = Math.round(
+      (basicSalary / daysInMonth) * payableDays
+    );
 
-          // New salary components
-          hra:
-            info?.hra ??
-            0,
+    const earnHRA = Math.round(
+      (hra / daysInMonth) * payableDays
+    );
 
-          conveyance:
-            info?.conveyance ??
-            info?.conveyance_allowance ??
-            0,
+    const earnConveyance = Math.round(
+      (conveyance / daysInMonth) * payableDays
+    );
 
-          medical_allowance:
-            info?.medical_allowance ??
-            0,
+    const earnMedicalAllowance = Math.round(
+      (medicalAllowance / daysInMonth) * payableDays
+    );
 
-          other_allowance:
-            info?.other_allowance ??
-            0,
+    const earnOtherAllowance = Math.round(
+      (otherAllowance / daysInMonth) * payableDays
+    );
 
-          // Existing fields
-          allowances:
-            info?.allowances ??
-            0,
+    const earnedFixedGross =
+      earnBasicSalary +
+      earnHRA +
+      earnConveyance +
+      earnMedicalAllowance +
+      earnOtherAllowance;
 
-          overtime:
-            info?.overtime ??
-            0,
+    const overtimeHours = Number(
+      info.overtime_hours || 0
+    );
 
-          bonus:
-            info?.bonus ??
-            0,
+    const overtime = Math.round(
+      (basicSalary / 26 / 8) *
+        1.5 *
+        overtimeHours
+    );
 
-          pf:
-            info?.pf ??
-            0,
+    const department = String(
+      info.department || ""
+    )
+      .trim()
+      .toLowerCase();
 
-          esic:
-            info?.esic ??
-            0,
+    const bonus = [
+      "admin",
+      "accounts",
+    ].includes(department)
+      ? Math.round(earnedFixedGross * 0.0833)
+      : 0;
 
-          tax:
-            info?.tax ??
-            0,
+    const grossSalary = Math.round(
+      earnedFixedGross +
+        overtime +
+        bonus
+    );
 
-          professional_tax:
-            info?.professional_tax ??
-            0,
+    const pfWages = Math.max(
+      0,
+      Math.round(
+        grossSalary - earnHRA
+      )
+    );
 
-          lop:
-            info?.lop ??
-            0,
+    const pf = Math.round(
+      Math.min(pfWages, 15000) * 0.12
+    );
 
-          employer_pf:
-            info?.employer_pf ??
-            0,
+    // Prefill endpoint currently doesn't return ESIC number,
+    // so ESIC will remain 0 in the preview.
+    const esic = 0;
 
-          employer_esic:
-            info?.employer_esic ??
-            0,
+    const professionalTax =
+      grossSalary > 25000 ? 200 : 0;
 
-          gratuity:
-            info?.gratuity ??
-            0,
+    const tax = 0;
 
-          pf_wages:
-            info?.pf_wages ??
-            0,
+    const lop = 0;
 
-          total_employer_contribution:
-            info?.total_employer_contribution ??
-            0,
+    const totalDeductions =
+      pf +
+      esic +
+      tax +
+      professionalTax;
 
-          total_employer_cost:
-            info?.total_employer_cost ??
-            0,
+    const netSalary = Math.max(
+      0,
+      Math.round(
+        grossSalary - totalDeductions
+      )
+    );
 
-          // Bank details
-          bank_name:
-            info?.bank_name ??
-            "",
+    const gratuity = Math.round(
+      earnBasicSalary * 0.0481
+    );
 
-          account_number:
-            info?.account_number ??
-            info?.bank_account_number ??
-            "",
+    const employerPf = pf;
 
-          ifsc_code:
-            info?.ifsc_code ??
-            info?.bank_ifsc ??
-            "",
-        })
-      );
+    const employerEsic = 0;
 
-      if (
-        info?.already_exists
-      ) {
-        setCreateError(
-          `A payroll record already exists for this employee this month (status: ${
-            info.existing_payroll_status ||
-            "Unknown"
-          }).`
-        );
-      }
-    } catch (err) {
-      console.error(
-        "GET /payroll/lookup/prefill error:",
-        err
-      );
+    const totalEmployerContribution =
+      employerPf + employerEsic;
 
-      const message =
-        err?.response
-          ?.data?.error ||
-        err?.response
-          ?.data?.message ||
-        err?.message ||
-        "Failed to load employee data.";
+    const totalEmployerCost = Math.round(
+      grossSalary +
+        totalEmployerContribution +
+        gratuity
+    );
 
+    // =================================================
+    // POPULATE FORM
+    // =================================================
+
+    setCreateForm({
+      basic_salary: basicSalary,
+      hra: hra,
+      conveyance: conveyance,
+      medical_allowance: medicalAllowance,
+      other_allowance: otherAllowance,
+
+      allowances:
+        hra +
+        conveyance +
+        medicalAllowance +
+        otherAllowance,
+
+      overtime: overtime,
+      bonus: bonus,
+
+      pf: pf,
+      esic: esic,
+      tax: tax,
+      professional_tax: professionalTax,
+      lop: lop,
+
+      employer_pf: employerPf,
+      employer_esic: employerEsic,
+      gratuity: gratuity,
+
+      pf_wages: pfWages,
+
+      total_employer_contribution:
+        totalEmployerContribution,
+
+      total_employer_cost:
+        totalEmployerCost,
+
+      bank_name:
+        info?.bank_name ?? "",
+
+      account_number:
+        info?.account_number ??
+        info?.bank_account_number ??
+        "",
+
+      ifsc_code:
+        info?.ifsc_code ??
+        info?.bank_ifsc ??
+        "",
+    });
+
+    // =================================================
+    // EXISTING PAYROLL
+    // =================================================
+
+    if (info.already_exists) {
       setCreateError(
-        message
-      );
-    } finally {
-      setPrefillLoading(
-        false
+        `A payroll record already exists for this employee this month (status: ${
+          info.existing_payroll_status || "Unknown"
+        }).`
       );
     }
-  };
+
+  } catch (err) {
+    console.error(
+      "GET /payroll/lookup/prefill error:",
+      err
+    );
+
+    const message =
+      err?.response?.data?.error ||
+      err?.response?.data?.message ||
+      err?.message ||
+      "Failed to load employee data.";
+
+    setCreateError(message);
+
+  } finally {
+    setPrefillLoading(false);
+  }
+};
 
 // =====================================================
 // CREATE FIELD CHANGE
@@ -2365,7 +2427,8 @@ const handleCreatePayroll =
                   <div className="flex flex-wrap gap-2">
 
                     <button
-                      onClick={
+                    
+                    onClick={
                         openCreateModal
                       }
                       className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center gap-1.5"
