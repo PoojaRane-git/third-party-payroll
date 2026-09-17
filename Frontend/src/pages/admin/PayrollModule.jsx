@@ -1285,54 +1285,62 @@ console.log("PT:", professionalTax);
 console.log("Gratuity:", gratuity);
 console.log("========================================");
 
- setCreateForm(prev => ({
-    ...prev,
+setCreateForm(prev => ({
+  ...prev,
 
-    basic_salary: earnBasicSalary,
-    hra: earnHRA,
-    conveyance: earnConveyance,
-    medical_allowance: earnMedicalAllowance,
-    other_allowance: earnOtherAllowance,
+  // IMPORTANT
+  employee_ref_id: Number(info.employee_id),
+  deployment_id: Number(info.deployment_id),
+  attendance_id: info.attendance_id ?? info.attendance?.id ?? null,
+  client_id: Number(info.client_id),
+  employee_name: info.employee_name ?? "",
+  salary_month: salaryMonth,
 
-    allowances:
-        earnHRA +
-        earnConveyance +
-        earnMedicalAllowance +
-        earnOtherAllowance,
+  // Earnings
+  basic_salary: earnBasicSalary,
+  hra: earnHRA,
+  conveyance: earnConveyance,
+  medical_allowance: earnMedicalAllowance,
+  other_allowance: earnOtherAllowance,
 
-    overtime: overtime,
-    bonus: bonus,
+  allowances:
+    earnHRA +
+    earnConveyance +
+    earnMedicalAllowance +
+    earnOtherAllowance,
 
-    pf: pf,
-    esic: esic,
-    tax: tax,
-    professional_tax: professionalTax,
-    lop: lop,
+  overtime,
+  bonus,
 
-    employer_pf: employerPf,
-    employer_esic: employerEsic,
-    gratuity: gratuity,
+  // Deductions
+  pf,
+  esic,
+  tax,
+  professional_tax: professionalTax,
+  lop,
 
-    pf_wages: pfWages,
+  // Employer
+  employer_pf: employerPf,
+  employer_esic: employerEsic,
+  gratuity,
 
-    total_employer_contribution:
-        totalEmployerContribution,
+  pf_wages: pfWages,
 
-    total_employer_cost:
-        totalEmployerCost,
+  total_employer_contribution:
+    totalEmployerContribution,
 
-    bank_name:
-        info?.bank_name ?? "",
+  total_employer_cost:
+    totalEmployerCost,
 
-    account_number:
-        info?.account_number ??
-        info?.bank_account_number ??
-        "",
-
-    ifsc_code:
-        info?.ifsc_code ??
-        info?.bank_ifsc ??
-        "",
+  bank_name: info?.bank_name ?? "",
+  account_number:
+    info?.account_number ??
+    info?.bank_account_number ??
+    "",
+  ifsc_code:
+    info?.ifsc_code ??
+    info?.bank_ifsc ??
+    "",
 }));
 
     // =================================================
@@ -1396,7 +1404,7 @@ const handleCreatePayroll =
     return;
 }
 
-if (!createForm.attendance_id) {
+if (!prefillInfo?.attendance_id) {
     alert(
         `No attendance record found for ${createForm.employee_name || "this employee"} for ${salaryMonth}.\n\nPayroll cannot be created.`
     );
