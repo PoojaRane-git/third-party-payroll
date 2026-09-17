@@ -2994,9 +2994,10 @@ router.patch(
         }
     }
 );
-
 router.post("/:id/email", async (req, res) => {
+
     try {
+
         // ========================================================
         // ID
         // ========================================================
@@ -3004,18 +3005,22 @@ router.post("/:id/email", async (req, res) => {
         const payrollId = getId(req.params.id);
 
         if (!payrollId) {
+
             return sendError(
                 res,
                 400,
                 "Invalid payroll ID"
             );
+
         }
+
 
         // ========================================================
         // EMAIL CONFIG
         // ========================================================
 
         if (!EMAIL_USER || !EMAIL_PASS) {
+
             console.error(
                 "EMAIL_USER or EMAIL_PASS is missing"
             );
@@ -3025,10 +3030,16 @@ router.post("/:id/email", async (req, res) => {
                 500,
                 "Email service is not configured. Please check EMAIL_USER and EMAIL_PASS."
             );
+
         }
+
 
         // ========================================================
         // GET PAYROLL
+        //
+        // IMPORTANT:
+        // third_party_payroll.status has been deleted.
+        // DO NOT SELECT status.
         // ========================================================
 
         const {
@@ -3051,7 +3062,6 @@ router.post("/:id/email", async (req, res) => {
                 professional_tax,
                 lop,
                 net_salary,
-                status,
                 employee_ref_id,
                 attendance_id,
                 deployment_id,
@@ -3078,21 +3088,26 @@ router.post("/:id/email", async (req, res) => {
             .maybeSingle();
 
         if (payrollError) {
+
             console.error(
                 "Payroll fetch error:",
                 payrollError
             );
 
             throw payrollError;
+
         }
 
         if (!payroll) {
+
             return sendError(
                 res,
                 404,
                 "Payroll record not found"
             );
+
         }
+
 
         // ========================================================
         // EMPLOYEE ID
@@ -3103,12 +3118,15 @@ router.post("/:id/email", async (req, res) => {
         );
 
         if (!candidateId) {
+
             return sendError(
                 res,
                 400,
                 "Employee reference ID is missing from payroll record."
             );
+
         }
+
 
         // ========================================================
         // GET CANDIDATE
@@ -3138,24 +3156,30 @@ router.post("/:id/email", async (req, res) => {
             .maybeSingle();
 
         if (candidateError) {
+
             console.error(
                 "Candidate fetch error:",
                 candidateError
             );
 
             throw candidateError;
+
         }
 
         if (!candidate) {
+
             return sendError(
                 res,
                 404,
                 `Candidate ${candidateId} not found.`
             );
+
         }
+
 
         // ========================================================
         // GET EMPLOYEE USER
+        //
         // EMAIL COMES FROM employee_users
         // ========================================================
 
@@ -3176,21 +3200,26 @@ router.post("/:id/email", async (req, res) => {
             .maybeSingle();
 
         if (employeeUserError) {
+
             console.error(
                 "Employee user fetch error:",
                 employeeUserError
             );
 
             throw employeeUserError;
+
         }
 
         if (!employeeUser) {
+
             return sendError(
                 res,
                 404,
                 `Employee account not found for employee ID ${candidateId}.`
             );
+
         }
+
 
         // ========================================================
         // EMPLOYEE EMAIL
@@ -3201,12 +3230,15 @@ router.post("/:id/email", async (req, res) => {
         ).trim();
 
         if (!employeeEmail) {
+
             return sendError(
                 res,
                 400,
                 `Employee email address is not available for ${candidate.full_name || "this employee"}.`
             );
+
         }
+
 
         // ========================================================
         // EMAIL VALIDATION
@@ -3216,12 +3248,15 @@ router.post("/:id/email", async (req, res) => {
             /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
         if (!emailRegex.test(employeeEmail)) {
+
             return sendError(
                 res,
                 400,
                 `Invalid employee email address: ${employeeEmail}`
             );
+
         }
+
 
         // ========================================================
         // EMPLOYEE NAME
@@ -3233,6 +3268,7 @@ router.post("/:id/email", async (req, res) => {
             payroll.employee_name ||
             "Employee";
 
+
         // ========================================================
         // DEPLOYMENT
         // ========================================================
@@ -3240,6 +3276,7 @@ router.post("/:id/email", async (req, res) => {
         let deployment = null;
 
         if (payroll.deployment_id) {
+
             const {
                 data: deploymentData,
                 error: deploymentError
@@ -3257,18 +3294,27 @@ router.post("/:id/email", async (req, res) => {
                     status,
                     work_location
                 `)
-                .eq("id", payroll.deployment_id)
+                .eq(
+                    "id",
+                    payroll.deployment_id
+                )
                 .maybeSingle();
 
             if (deploymentError) {
+
                 console.error(
                     "Deployment fetch error:",
                     deploymentError
                 );
+
             }
 
-            deployment = deploymentData || null;
+            deployment =
+                deploymentData ||
+                null;
+
         }
+
 
         // ========================================================
         // ATTENDANCE
@@ -3277,21 +3323,30 @@ router.post("/:id/email", async (req, res) => {
         let attendance = null;
 
         try {
+
             const attendanceResult =
-                await getAttendanceForPayroll(payroll);
+                await getAttendanceForPayroll(
+                    payroll
+                );
 
             attendance =
-                attendanceResult?.attendance || null;
+                attendanceResult?.attendance ||
+                null;
+
         } catch (attendanceError) {
+
             console.error(
                 "Attendance fetch error:",
                 attendanceError
             );
 
             // Attendance is not required to display
-            // the already-generated payroll values.
+            // already-generated payroll values.
+
             attendance = null;
+
         }
+
 
         // ========================================================
         // EMPLOYEE DETAILS
@@ -3307,22 +3362,34 @@ router.post("/:id/email", async (req, res) => {
             candidate.city ||
             "Head Office";
 
+
         // ========================================================
         // SALARY MONTH
+        //
+        // Dynamic from payroll record.
+        // No hardcoded month.
         // ========================================================
 
         const salaryMonth =
-    payroll.salary_month ||
-    new Date().toISOString().slice(0, 7);
+            payroll.salary_month ||
+            new Date()
+                .toISOString()
+                .slice(0, 7);
+
 
         // ========================================================
         // PREPARE DATA FOR SAME PAYSLIP PDF
         // ========================================================
 
         const payslipData = {
+
             ...payroll,
 
-            // Employee information
+
+            // ====================================================
+            // EMPLOYEE INFORMATION
+            // ====================================================
+
             employee_name:
                 employeeName,
 
@@ -3340,9 +3407,10 @@ router.post("/:id/email", async (req, res) => {
                 candidate.pan_number ||
                 "N/A",
 
+            // UAN comes from candidate UAN.
+            // Do NOT use PRAN as fallback.
             uan_number:
                 candidate.uan_number ||
-                payroll.pran ||
                 "N/A",
 
             esic_number:
@@ -3354,7 +3422,11 @@ router.post("/:id/email", async (req, res) => {
                 payroll.joining_date ||
                 null,
 
-            // Bank information
+
+            // ====================================================
+            // BANK INFORMATION
+            // ====================================================
+
             bank_name:
                 payroll.bank_name ||
                 "N/A",
@@ -3367,15 +3439,25 @@ router.post("/:id/email", async (req, res) => {
                 payroll.ifsc_code ||
                 "N/A",
 
-            // Salary components
+
+            // ====================================================
+            // SALARY COMPONENTS
+            // ====================================================
+
             basic_salary:
-                Number(payroll.basic_salary || 0),
+                Number(
+                    payroll.basic_salary || 0
+                ),
 
             hra:
-                Number(payroll.hra || 0),
+                Number(
+                    payroll.hra || 0
+                ),
 
             conveyance:
-                Number(payroll.conveyance || 0),
+                Number(
+                    payroll.conveyance || 0
+                ),
 
             medical_allowance:
                 Number(
@@ -3388,20 +3470,34 @@ router.post("/:id/email", async (req, res) => {
                 ),
 
             gratuity:
-                Number(payroll.gratuity || 0),
+                Number(
+                    payroll.gratuity || 0
+                ),
 
             overtime:
-                Number(payroll.overtime || 0),
+                Number(
+                    payroll.overtime || 0
+                ),
 
             bonus:
-                Number(payroll.bonus || 0),
+                Number(
+                    payroll.bonus || 0
+                ),
 
-            // Deductions
+
+            // ====================================================
+            // DEDUCTIONS
+            // ====================================================
+
             pf:
-                Number(payroll.pf || 0),
+                Number(
+                    payroll.pf || 0
+                ),
 
             esic:
-                Number(payroll.esic || 0),
+                Number(
+                    payroll.esic || 0
+                ),
 
             professional_tax:
                 Number(
@@ -3409,17 +3505,25 @@ router.post("/:id/email", async (req, res) => {
                 ),
 
             tax:
-                Number(payroll.tax || 0),
+                Number(
+                    payroll.tax || 0
+                ),
 
             lop:
-                Number(payroll.lop || 0),
+                Number(
+                    payroll.lop || 0
+                ),
 
             total_deductions:
                 Number(
                     payroll.total_deductions || 0
                 ),
 
-            // Salary totals
+
+            // ====================================================
+            // SALARY TOTALS
+            // ====================================================
+
             gross_salary:
                 Number(
                     payroll.gross_salary || 0
@@ -3430,10 +3534,16 @@ router.post("/:id/email", async (req, res) => {
                     payroll.net_salary || 0
                 ),
 
+
+            // ====================================================
             // PRAN / PF
+            //
+            // PRAN is separate from UAN.
+            // Do NOT copy UAN into PRAN.
+            // ====================================================
+
             pran:
                 payroll.pran ||
-                candidate.uan_number ||
                 "N/A",
 
             pf_wages:
@@ -3441,18 +3551,24 @@ router.post("/:id/email", async (req, res) => {
                     payroll.pf_wages || 0
                 ),
 
-            // Salary structure
+
+            // ====================================================
+            // SALARY STRUCTURE
+            // ====================================================
+
             pay_rate:
                 Number(
                     deployment?.pay_rate ||
                     candidate.pay_rate ||
                     0
-                ),
+                )
+
         };
+
 
         // ========================================================
         // GENERATE PDF
-        // SAME FORMAT AS PAYSLIP IMAGE
+        // SAME FORMAT AS PAYSLIP
         // ========================================================
 
         console.log(
@@ -3465,14 +3581,17 @@ router.post("/:id/email", async (req, res) => {
             );
 
         if (!pdfBuffer) {
+
             throw new Error(
                 "Payslip PDF generation returned no data."
             );
+
         }
 
         console.log(
             "Payslip PDF generated successfully."
         );
+
 
         // ========================================================
         // FILE NAME
@@ -3492,18 +3611,28 @@ router.post("/:id/email", async (req, res) => {
         const fileName =
             `Payslip_${cleanName}_${salaryMonth}.pdf`;
 
+
         // ========================================================
         // MAIL TRANSPORTER
         // ========================================================
 
         const transporter =
             nodemailer.createTransport({
+
                 service: "gmail",
+
                 auth: {
-                    user: EMAIL_USER,
-                    pass: EMAIL_PASS
+
+                    user:
+                        EMAIL_USER,
+
+                    pass:
+                        EMAIL_PASS
+
                 }
+
             });
+
 
         // ========================================================
         // VERIFY SMTP
@@ -3518,6 +3647,7 @@ router.post("/:id/email", async (req, res) => {
         console.log(
             "SMTP connection verified successfully."
         );
+
 
         // ========================================================
         // EMAIL BODY
@@ -3540,22 +3670,35 @@ router.post("/:id/email", async (req, res) => {
                 );
 
         const emailHtml = `
+
             <p>
+
                 Dear <strong>${safeEmployeeName}</strong>,
+
             </p>
 
             <p>
+
                 Please find attached your payslip for
+
                 <strong>${salaryMonth}</strong>.
+
             </p>
 
             <p>
+
                 Regards,<br>
+
                 <strong>
+
                     Talent Corner HR Services Pvt Ltd.
+
                 </strong>
+
             </p>
+
         `;
+
 
         // ========================================================
         // SEND EMAIL
@@ -3575,6 +3718,7 @@ router.post("/:id/email", async (req, res) => {
 
         const mailResult =
             await transporter.sendMail({
+
                 from:
                     `"Talent Corner HR Services Pvt Ltd." <${EMAIL_USER}>`,
 
@@ -3588,7 +3732,9 @@ router.post("/:id/email", async (req, res) => {
                     emailHtml,
 
                 attachments: [
+
                     {
+
                         filename:
                             fileName,
 
@@ -3597,9 +3743,13 @@ router.post("/:id/email", async (req, res) => {
 
                         contentType:
                             "application/pdf"
+
                     }
+
                 ]
+
             });
+
 
         // ========================================================
         // SUCCESS
@@ -3615,7 +3765,9 @@ router.post("/:id/email", async (req, res) => {
         );
 
         return res.json({
-            success: true,
+
+            success:
+                true,
 
             message:
                 `Payslip emailed successfully to ${employeeEmail}`,
@@ -3640,6 +3792,7 @@ router.post("/:id/email", async (req, res) => {
 
             message_id:
                 mailResult.messageId
+
         });
 
     } catch (error) {
@@ -3655,7 +3808,9 @@ router.post("/:id/email", async (req, res) => {
             "Failed to generate and send payslip",
             error.message
         );
+
     }
+
 });
 // // ============================================================
 // LOOKUP: EMPLOYEES FOR A CLIENT (for the "Create Payroll" picker)
