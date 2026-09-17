@@ -168,10 +168,15 @@ const getNumericValue = (value) => {
     ? number
     : 0;
 };
-
 const EMPTY_PAYROLL_FORM = {
   basic_salary: 0,
   allowances: 0,
+
+  hra: 0,
+  conveyance: 0,
+  medical_allowance: 0,
+  other_allowance: 0,
+
   overtime: 0,
   bonus: 0,
 
@@ -183,6 +188,12 @@ const EMPTY_PAYROLL_FORM = {
 
   employer_pf: 0,
   employer_esic: 0,
+  gratuity: 0,
+
+  pf_wages: 0,
+
+  total_employer_contribution: 0,
+  total_employer_cost: 0,
 
   bank_name: "",
   account_number: "",
@@ -1271,54 +1282,71 @@ const handleSelectEmployee = async (deploymentId) => {
     // =================================================
     // POPULATE FORM
     // =================================================
+console.log("========== PAYROLL CALCULATION ==========");
+console.log("payRate:", payRate);
+console.log("daysInMonth:", daysInMonth);
+console.log("payableDays:", payableDays);
+console.log("basicSalary:", earnBasicSalary);
+console.log("HRA:", earnHRA);
+console.log("Conveyance:", earnConveyance);
+console.log("Medical:", earnMedicalAllowance);
+console.log("Other:", earnOtherAllowance);
+console.log("Overtime:", overtime);
+console.log("Bonus:", bonus);
+console.log("PF Wages:", pfWages);
+console.log("PF:", pf);
+console.log("ESIC:", esic);
+console.log("PT:", professionalTax);
+console.log("Gratuity:", gratuity);
+console.log("========================================");
 
-    setCreateForm({
-      basic_salary: basicSalary,
-      hra: hra,
-      conveyance: conveyance,
-      medical_allowance: medicalAllowance,
-      other_allowance: otherAllowance,
+   setCreateForm({
+  basic_salary: earnBasicSalary,
+  hra: earnHRA,
+  conveyance: earnConveyance,
+  medical_allowance: earnMedicalAllowance,
+  other_allowance: earnOtherAllowance,
 
-      allowances:
-        hra +
-        conveyance +
-        medicalAllowance +
-        otherAllowance,
+  allowances:
+    earnHRA +
+    earnConveyance +
+    earnMedicalAllowance +
+    earnOtherAllowance,
 
-      overtime: overtime,
-      bonus: bonus,
+  overtime: overtime,
+  bonus: bonus,
 
-      pf: pf,
-      esic: esic,
-      tax: tax,
-      professional_tax: professionalTax,
-      lop: lop,
+  pf: pf,
+  esic: esic,
+  tax: tax,
+  professional_tax: professionalTax,
+  lop: lop,
 
-      employer_pf: employerPf,
-      employer_esic: employerEsic,
-      gratuity: gratuity,
+  employer_pf: employerPf,
+  employer_esic: employerEsic,
+  gratuity: gratuity,
 
-      pf_wages: pfWages,
+  pf_wages: pfWages,
 
-      total_employer_contribution:
-        totalEmployerContribution,
+  total_employer_contribution:
+    totalEmployerContribution,
 
-      total_employer_cost:
-        totalEmployerCost,
+  total_employer_cost:
+    totalEmployerCost,
 
-      bank_name:
-        info?.bank_name ?? "",
+  bank_name:
+    info?.bank_name ?? "",
 
-      account_number:
-        info?.account_number ??
-        info?.bank_account_number ??
-        "",
+  account_number:
+    info?.account_number ??
+    info?.bank_account_number ??
+    "",
 
-      ifsc_code:
-        info?.ifsc_code ??
-        info?.bank_ifsc ??
-        "",
-    });
+  ifsc_code:
+    info?.ifsc_code ??
+    info?.bank_ifsc ??
+    "",
+});
 
     // =================================================
     // EXISTING PAYROLL
