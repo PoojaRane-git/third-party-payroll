@@ -2,9 +2,7 @@ import React, { useEffect, useState } from "react";
 
 import api from "../../services/api";
 import EmployeeLayout from "./EmployeeLayout";
-// NOTE: adjust this relative path to wherever you save payslipPdf.js
-// (e.g. src/utils/payslipPdf.js). This assumes it sits at src/utils/.
-import { generatePayslipPDF } from "../../utils/payslipPdf";
+import { generatePayslipPDF } from "../../admin/PaySlipf";
 
 // =====================================================
 // DATE-RANGE HELPER — turns "2025-08" (or any parseable date) into
