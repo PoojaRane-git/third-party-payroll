@@ -2966,835 +2966,761 @@ const handleCreatePayroll =
           )}
 
         {/* =====================================================
-            PAYSLIP TAB
-        ===================================================== */}
+    PAYSLIP TAB
+===================================================== */}
 
-        {activeSubTab ===
-          "payslip" && (
+{activeSubTab === "payslip" && (
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-              {/* EMPLOYEE LIST */}
+    {/* =====================================================
+        EMPLOYEE LIST
+    ===================================================== */}
 
-              <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3 h-fit">
+    <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3 h-fit">
 
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Select Employee Slip
-                </h3>
+      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+        Select Employee Slip
+      </h3>
 
-                <p className="text-[10px] text-slate-400 pb-2 border-b border-slate-100">
+      <p className="text-[10px] text-slate-400 pb-2 border-b border-slate-100">
 
-                  {
-                    getClientName({
-                      client_id:
-                        selectedClient,
-                    })
-                  }
+        {getClientName({
+          client_id: selectedClient,
+        })}
 
-                  {" • "}
+        {" • "}
 
-                  {
-                    formatSalaryMonth(
-                      salaryMonth
-                    )
-                  }
+        {formatSalaryMonth(salaryMonth)}
 
-                </p>
+      </p>
 
-                {payslipRecords.length ===
-                  0 ? (
+      {payslipRecords.length === 0 ? (
 
-                  <div className="p-4 text-center">
+        <div className="p-4 text-center">
 
-                    <p className="text-xs font-semibold text-slate-600">
-                      No payslips available.
-                    </p>
+          <p className="text-xs font-semibold text-slate-600">
+            No payslips available.
+          </p>
 
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Payslips are available only after payroll is Approved or Locked.
-                    </p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Payslips are available only after payroll is Approved or Locked.
+          </p>
 
-                  </div>
+        </div>
 
-                ) : (
+      ) : (
 
-                  payslipRecords.map(
-                    (rec) => {
+        payslipRecords.map((rec) => {
 
-                      const status =
-                        normalizeStatus(
-                          rec.status
-                        );
+          const status = normalizeStatus(rec.status);
 
-                      return (
-                        <div
-                          key={
-                            rec.id
-                          }
-                          onClick={() =>
-                            setSelectedSlip(
-                              rec
-                            )
-                          }
-                          className={`p-3 rounded-xl cursor-pointer border transition ${String(
-                            selectedSlip?.id
-                          ) ===
-                              String(
-                                rec.id
-                              )
-                              ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
-                              : "border-slate-200 hover:bg-slate-50"
-                            }`}
-                        >
+          return (
 
-                          <div className="flex justify-between items-start gap-2">
+            <div
+              key={rec.id}
+              onClick={() => setSelectedSlip(rec)}
+              className={`p-3 rounded-xl cursor-pointer border transition ${
+                String(selectedSlip?.id) === String(rec.id)
+                  ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
+                  : "border-slate-200 hover:bg-slate-50"
+              }`}
+            >
 
-                            <div>
+              <div className="flex justify-between items-start gap-2">
 
-                              <p className="text-xs font-bold text-slate-900">
-                                {
-                                  rec.employee_name ||
-                                  "Employee"
-                                }
-                              </p>
+                <div>
 
-                              <p className="text-[10px] text-indigo-600 font-semibold">
-                                {
-                                  getClientName(
-                                    rec
-                                  )
-                                }
-                              </p>
+                  <p className="text-xs font-bold text-slate-900">
+                    {rec.employee_name || "Employee"}
+                  </p>
 
-                            </div>
+                  <p className="text-[10px] text-indigo-600 font-semibold">
+                    {getClientName(rec)}
+                  </p>
 
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${getStatusClass(
-                                status
-                              )}`}
-                            >
-                              {
-                                status
-                              }
-                            </span>
+                </div>
 
-                          </div>
-
-                          <div className="flex justify-between items-center mt-2 text-[11px] text-slate-500">
-
-                            <span>
-                              {
-                                formatSalaryMonth(
-                                  rec.salary_month
-                                )
-                              }
-                            </span>
-
-                            <span className="font-semibold text-emerald-600">
-                              ₹
-                              {
-                                formatMoney(
-                                  rec.net_salary
-                                )
-                              }
-                            </span>
-
-                          </div>
-
-                        </div>
-                      );
-                    }
-                  )
-
-                )}
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${getStatusClass(
+                    status
+                  )}`}
+                >
+                  {status}
+                </span>
 
               </div>
 
-              {/* PAYSLIP */}
-
-              <div
-                ref={payslipRef}
-                className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-8 shadow-sm space-y-6"
-              >
-
-                {!selectedSlip ? (
-
-                  <div className="text-center py-12">
-
-                    <FileText className="h-10 w-10 mx-auto text-slate-300 mb-3" />
-
-                    <p className="text-sm font-semibold text-slate-600">
-                      No payslip available
-                    </p>
-
-                    <p className="text-xs text-slate-400 mt-1">
-                      Payroll must be Approved or Locked before a payslip can be viewed.
-                    </p>
-
-                  </div>
-
-                ) : (
-
-                  <>
-
-                    {/* HEADER */}
-
-                    <div className="flex justify-between items-start border-b border-slate-100 pb-6">
-
-                      <div>
-
-                        <h2 className="text-xl font-extrabold text-slate-900">
-                          Talent Corner HR Services
-                        </h2>
-
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Client:{" "}
-                          <span className="font-semibold text-slate-700">
-                            {
-                              getClientName(
-                                selectedSlip
-                              )
-                            }
-                          </span>
-                        </p>
-
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          Client ID:{" "}
-                          {
-                            selectedSlip.client_id ??
-                            "-"
-                          }
-
-                          {" • "}
-
-                          Deployment ID:{" "}
-                          {
-                            selectedSlip.deployment_id ??
-                            "-"
-                          }
-                        </p>
-
-                      </div>
-
-                      <div className="text-right">
-
-                        <span className="bg-slate-100 text-slate-800 text-xs font-bold px-3 py-1 rounded-full">
-
-                          Payslip:{" "}
-                          {
-                            formatSalaryMonth(
-                              selectedSlip.salary_month
-                            )
-                          }
-
-                        </span>
-
-                        <p className="text-[11px] text-slate-400 mt-1">
-
-                          Status:{" "}
-
-                          <span className="font-semibold text-slate-700">
-                            {
-                              normalizeStatus(
-                                selectedSlip.status
-                              )
-                            }
-                          </span>
-
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                    {/* EMPLOYEE SUMMARY */}
-
-                    <div className="bg-slate-50 p-4 rounded-xl grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
-
-                      <div>
-                        <p className="text-slate-400 font-medium">
-                          Employee Name
-                        </p>
-
-                        <p className="font-bold text-slate-900 text-sm mt-0.5">
-                          {
-                            selectedSlip.employee_name ||
-                            "Employee"
-                          }
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-slate-400 font-medium">
-                          Present
-                        </p>
-
-                        <p className="font-bold text-slate-900 text-sm mt-0.5">
-                          {
-                            selectedSlip.present_days ??
-                            "-"
-                          }
-                          {" / "}
-                          {
-                            selectedSlip.total_days ??
-                            getCalendarDaysInMonth(
-                              selectedSlip.salary_month
-                            )
-                          }
-                          {" Days"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-slate-400 font-medium">
-                          LOP Days
-                        </p>
-
-                        <p className="font-bold text-rose-600 text-sm mt-0.5">
-                          {
-                            selectedSlip.lop_days ??
-                            0
-                          }
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-slate-400 font-medium">
-                          Leave
-                        </p>
-
-                        <p className="font-bold text-slate-900 text-sm mt-0.5">
-                          {
-                            selectedSlip.leave_days ??
-                            0
-                          }
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-slate-400 font-medium">
-                          Overtime
-                        </p>
-
-                        <p className="font-bold text-slate-900 text-sm mt-0.5">
-                          {
-                            selectedSlip.overtime_hours ??
-                            0
-                          }{" "}
-                          hrs
-                        </p>
-                      </div>
-
-                    </div>
-
-                    {/* EARNINGS + DEDUCTIONS */}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-
-                      {/* EARNINGS */}
-
-                      <div className="border border-slate-200 rounded-xl overflow-hidden">
-
-                        <div className="bg-slate-100 p-3 font-bold text-slate-700 uppercase tracking-wider">
-                          Earnings
-                        </div>
-
-                        <div className="p-4 space-y-3">
-
-                          <div className="flex justify-between">
-                            <span>
-                              Basic Salary
-                            </span>
-
-                            <span className="font-semibold">
-                              ₹
-                              {
-                                formatMoney(
-                                  selectedSlip.basic_salary
-                                )
-                              }
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between">
-                            <span>
-                              Allowances
-                            </span>
-
-                            <span className="font-semibold">
-                              ₹
-                              {
-                                formatMoney(
-                                  selectedSlip.allowances
-                                )
-                              }
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between">
-                            <span>
-                              Overtime
-                            </span>
-
-                            <span className="font-semibold">
-                              ₹
-                              {
-                                formatMoney(
-                                  selectedSlip.overtime ??
-                                  selectedSlip.overtime_amount
-                                )
-                              }
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between">
-                            <span>
-                              Bonus
-                            </span>
-
-                            <span className="font-semibold">
-                              ₹
-                              {
-                                formatMoney(
-                                  selectedSlip.bonus
-                                )
-                              }
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between pt-3 border-t border-slate-200 font-bold text-slate-900">
-                            <span>
-                              Gross Earnings
-                            </span>
-
-                            <span>
-                              ₹
-                              {
-                                formatMoney(
-                                  selectedSlip.gross_salary
-                                )
-                              }
-                            </span>
-                          </div>
-
-                        </div>
-
-                      </div>
-
-                      {/* DEDUCTIONS */}
-
-                      <div className="border border-slate-200 rounded-xl overflow-hidden">
-
-                        <div className="bg-slate-100 p-3 font-bold text-slate-700 uppercase tracking-wider">
-                          Employee Deductions
-                        </div>
-
-                        <div className="p-4 space-y-3">
-
-                          <div className="flex justify-between">
-                            <span>
-                              Provident Fund (PF)
-                            </span>
-
-                            <span className="font-semibold text-rose-600">
-                              ₹
-                              {
-                                formatMoney(
-                                  selectedSlip.pf ??
-                                  selectedSlip.employee_pf
-                                )
-                              }
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between">
-                            <span>
-                              ESIC
-                            </span>
-
-                            <span className="font-semibold text-rose-600">
-                              ₹
-                              {
-                                formatMoney(
-                                  selectedSlip.esic ??
-                                  selectedSlip.employee_esic
-                                )
-                              }
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between">
-                            <span>
-                              Tax (TDS)
-                            </span>
-
-                            <span className="font-semibold text-rose-600">
-                              ₹
-                              {
-                                formatMoney(
-                                  selectedSlip.tax ??
-                                  selectedSlip.tds
-                                )
-                              }
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between">
-                            <span>
-                              Professional Tax
-                            </span>
-
-                            <span className="font-semibold text-rose-600">
-                              ₹
-                              {
-                                formatMoney(
-                                  selectedSlip.professional_tax
-                                )
-                              }
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between">
-                            <span>
-                              Loss of Pay (LOP)
-                            </span>
-
-                            <span className="font-semibold text-rose-600">
-                              ₹
-                              {
-                                formatMoney(
-                                  selectedSlip.lop ??
-                                  selectedSlip.lop_deduction
-                                )
-                              }
-                            </span>
-                          </div>
-
-                          <div className="flex justify-between pt-3 border-t border-slate-200 font-bold text-slate-900">
-                            <span>
-                              Total Deductions
-                            </span>
-
-                            <span>
-                              ₹
-                              {
-                                formatMoney(
-                                  getTotalDeductions(
-                                    selectedSlip
-                                  )
-                                )
-                              }
-                            </span>
-                          </div>
-
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    {/* EMPLOYER CONTRIBUTIONS */}
-
-                    <div className="border border-indigo-100 bg-indigo-50/50 rounded-xl overflow-hidden">
-
-                      <div className="bg-indigo-100/70 p-3 font-bold text-indigo-900 uppercase tracking-wider text-xs">
-                        Employer Contributions
-                      </div>
-
-                      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-
-                        <div>
-                          <p className="text-slate-500">
-                            Employer PF
-                          </p>
-
-                          <p className="font-bold text-slate-900 mt-1">
-                            ₹
-                            {
-                              formatMoney(
-                                getEmployerPF(
-                                  selectedSlip
-                                )
-                              )
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-500">
-                            Employer ESIC
-                          </p>
-
-                          <p className="font-bold text-slate-900 mt-1">
-                            ₹
-                            {
-                              formatMoney(
-                                getEmployerESIC(
-                                  selectedSlip
-                                )
-                              )
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-500">
-                            Total Employer Contribution
-                          </p>
-
-                          <p className="font-bold text-indigo-700 mt-1">
-                            ₹
-                            {
-                              formatMoney(
-                                getTotalEmployerContribution(
-                                  selectedSlip
-                                )
-                              )
-                            }
-                          </p>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    {/* NET SALARY */}
-
-                    <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex justify-between items-center text-emerald-900">
-
-                      <div>
-
-                        <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                          Net Salary Payable
-                        </p>
-
-                        <p className="text-2xl font-extrabold mt-0.5">
-                          ₹
-                          {
-                            formatMoney(
-                              selectedSlip.net_salary
-                            )
-                          }
-                        </p>
-
-                      </div>
-
-                      <span className="text-xs font-medium bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg">
-                        Account:{" "}
-                        {
-                          selectedSlip.account_number ||
-                          "-"
-                        }
-                      </span>
-
-                    </div>
-
-                    {/* EMPLOYER COST */}
-
-                    <div className="bg-slate-900 text-white p-4 rounded-xl flex justify-between items-center">
-
-                      <div>
-                        <p className="text-xs text-slate-300 uppercase tracking-wider">
-                          Total Employer Cost
-                        </p>
-
-                        <p className="text-xl font-extrabold mt-1">
-                          ₹
-                          {
-                            formatMoney(
-                              getTotalEmployerCost(
-                                selectedSlip
-                              )
-                            )
-                          }
-                        </p>
-                      </div>
-
-                      <div className="text-right text-xs text-slate-300">
-                        Gross Salary + Employer Contributions
-                      </div>
-
-                    </div>
-
-                    {/* TRACEABILITY */}
-
-                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
-
-                      <p className="text-xs font-bold text-slate-700 mb-2">
-                        Payroll Traceability
-                      </p>
-
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
-
-                        <div>
-                          <span className="text-slate-400">
-                            Client ID
-                          </span>
-
-                          <p className="font-semibold">
-                            {
-                              selectedSlip.client_id ??
-                              "-"
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400">
-                            Deployment ID
-                          </span>
-
-                          <p className="font-semibold">
-                            {
-                              selectedSlip.deployment_id ??
-                              "-"
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400">
-                            Attendance ID
-                          </span>
-
-                          <p className="font-semibold">
-                            {
-                              selectedSlip.attendance_id ??
-                              "-"
-                            }
-                          </p>
-                        </div>
-
-                        <div>
-                          <span className="text-slate-400">
-                            Employee ID
-                          </span>
-
-                          <p className="font-semibold">
-                            {
-                              selectedSlip.employee_ref_id ??
-                              selectedSlip.employee_id ??
-                              "-"
-                            }
-                          </p>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    {/* ACTIONS */}
-
-                    <div className="pdf-action-buttons flex flex-wrap gap-3 pt-4 border-t border-slate-100">
-
-                      <button
-                        onClick={
-                          handleGeneratePDF
-                        }
-                        disabled={
-                          pdfLoading ||
-                          !selectedSlip
-                        }
-                        className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-                      >
-
-                        {pdfLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <FileText className="h-4 w-4" />
-                        )}
-
-                        {pdfLoading
-                          ? "Generating..."
-                          : "Generate PDF"}
-
-                      </button>
-
-                      <button
-                        onClick={
-                          handleDownload
-                        }
-                        disabled={
-                          pdfLoading ||
-                          !selectedSlip
-                        }
-                        className="bg-white hover:bg-slate-50 disabled:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2"
-                      >
-
-                        {pdfLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Download className="h-4 w-4" />
-                        )}
-
-                        Download PDF
-
-                      </button>
-
-                      <button
-                        onClick={handleEmail}
-                        disabled={
-                          emailLoading ||
-                          !selectedSlip ||
-                          !ELIGIBLE_PAYSLIP_STATUSES.includes(
-                            normalizeStatus(selectedSlip.status)
-                          )
-                        }
-                        className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
-                      >
-                        {emailLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Mail className="h-4 w-4" />
-                        )}
-
-                        {emailLoading
-                          ? "Sending..."
-                          : "Email to Employee"}
-                      </button>
-                    </div>
-
-                    {/* EMAIL INFORMATION */}
-
-                    <div className="pdf-email-information">
-
-                      {selectedSlip.email ? (
-
-                        <div className="text-[11px] text-slate-400">
-                          Payslip email will be sent to: 
-
-                          <span className="font-semibold text-slate-600 ml-1">
-                            {
-                              selectedSlip.email
-                               
-                             
-                            }
-                          </span>
-                        </div>
-
-                      ) : (
-
-                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
-                          Employee email address is not available.
-                          Add an employee email before using{" "}
-                          <strong className="ml-1">
-                            Email to Employee
-                          </strong>.
-                        </div>
-
-                      )}
-
-                    </div>
-
-                  </>
-
-                )}
+              <div className="flex justify-between items-center mt-2 text-[11px] text-slate-500">
+
+                <span>
+                  {formatSalaryMonth(rec.salary_month)}
+                </span>
+
+                <span className="font-semibold text-emerald-600">
+                  ₹{formatMoney(rec.net_salary)}
+                </span>
 
               </div>
 
             </div>
 
-          )}
+          );
+        })
+
+      )}
+
+    </div>
+
+    {/* =====================================================
+        PAYSLIP
+    ===================================================== */}
+
+    <div
+      ref={payslipRef}
+      className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-8 shadow-sm space-y-6"
+    >
+
+      {!selectedSlip ? (
+
+        <div className="text-center py-12">
+
+          <FileText className="h-10 w-10 mx-auto text-slate-300 mb-3" />
+
+          <p className="text-sm font-semibold text-slate-600">
+            No payslip available
+          </p>
+
+          <p className="text-xs text-slate-400 mt-1">
+            Payroll must be Approved or Locked before a payslip can be viewed.
+          </p>
+
+        </div>
+
+      ) : (
+
+        <>
+
+          {/* =====================================================
+              HEADER
+          ===================================================== */}
+
+          <div className="flex justify-between items-start border-b border-slate-100 pb-6">
+
+            <div>
+
+              <h2 className="text-xl font-extrabold text-slate-900">
+                Talent Corner HR Services
+              </h2>
+
+              <p className="text-xs text-slate-500 mt-0.5">
+                Client:{" "}
+                <span className="font-semibold text-slate-700">
+                  {getClientName(selectedSlip)}
+                </span>
+              </p>
+
+              <p className="text-[10px] text-slate-400 mt-1">
+                Client ID:{" "}
+                {selectedSlip.client_id ?? "-"}
+
+                {" • "}
+
+                Deployment ID:{" "}
+                {selectedSlip.deployment_id ?? "-"}
+              </p>
+
+            </div>
+
+            <div className="text-right">
+
+              <span className="bg-slate-100 text-slate-800 text-xs font-bold px-3 py-1 rounded-full">
+
+                Payslip:{" "}
+                {formatSalaryMonth(selectedSlip.salary_month)}
+
+              </span>
+
+              <p className="text-[11px] text-slate-400 mt-1">
+
+                Status:{" "}
+
+                <span className="font-semibold text-slate-700">
+                  {normalizeStatus(selectedSlip.status)}
+                </span>
+
+              </p>
+
+            </div>
+
+          </div>
+
+          {/* =====================================================
+              EMPLOYEE SUMMARY
+          ===================================================== */}
+
+          <div className="bg-slate-50 p-4 rounded-xl grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
+
+            <div>
+
+              <p className="text-slate-400 font-medium">
+                Employee Name
+              </p>
+
+              <p className="font-bold text-slate-900 text-sm mt-0.5">
+                {selectedSlip.employee_name || "Employee"}
+              </p>
+
+            </div>
+
+            <div>
+
+              <p className="text-slate-400 font-medium">
+                Present
+              </p>
+
+              <p className="font-bold text-slate-900 text-sm mt-0.5">
+
+                {selectedSlip.present_days ?? "-"}
+
+                {" / "}
+
+                {selectedSlip.total_days ??
+                  getCalendarDaysInMonth(selectedSlip.salary_month)}
+
+                {" Days"}
+
+              </p>
+
+            </div>
+
+            <div>
+
+              <p className="text-slate-400 font-medium">
+                LOP Days
+              </p>
+
+              <p className="font-bold text-rose-600 text-sm mt-0.5">
+                {selectedSlip.lop_days ?? 0}
+              </p>
+
+            </div>
+
+            <div>
+
+              <p className="text-slate-400 font-medium">
+                Leave
+              </p>
+
+              <p className="font-bold text-slate-900 text-sm mt-0.5">
+                {selectedSlip.leave_days ?? 0}
+              </p>
+
+            </div>
+
+            <div>
+
+              <p className="text-slate-400 font-medium">
+                Overtime
+              </p>
+
+              <p className="font-bold text-slate-900 text-sm mt-0.5">
+
+                {selectedSlip.overtime_hours ?? 0} hrs
+
+              </p>
+
+            </div>
+
+          </div>
+
+          {/* =====================================================
+              EARNINGS + DEDUCTIONS
+          ===================================================== */}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+
+            {/* =====================================================
+                EARNINGS
+            ===================================================== */}
+
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+
+              <div className="bg-slate-100 p-3 font-bold text-slate-700 uppercase tracking-wider">
+                Earnings
+              </div>
+
+              <div className="p-4 space-y-3">
+
+                <div className="flex justify-between">
+
+                  <span>
+                    Basic Salary
+                  </span>
+
+                  <span className="font-semibold">
+                    ₹{formatMoney(selectedSlip.basic_salary)}
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between">
+
+                  <span>
+                    Allowances
+                  </span>
+
+                  <span className="font-semibold">
+                    ₹{formatMoney(selectedSlip.allowances)}
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between">
+
+                  <span>
+                    Overtime
+                  </span>
+
+                  <span className="font-semibold">
+                    ₹
+                    {formatMoney(
+                      selectedSlip.overtime ??
+                      selectedSlip.overtime_amount
+                    )}
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between">
+
+                  <span>
+                    Bonus
+                  </span>
+
+                  <span className="font-semibold">
+                    ₹{formatMoney(selectedSlip.bonus)}
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between pt-3 border-t border-slate-200 font-bold text-slate-900">
+
+                  <span>
+                    Gross Earnings
+                  </span>
+
+                  <span>
+                    ₹{formatMoney(selectedSlip.gross_salary)}
+                  </span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* =====================================================
+                DEDUCTIONS
+            ===================================================== */}
+
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+
+              <div className="bg-slate-100 p-3 font-bold text-slate-700 uppercase tracking-wider">
+                Employee Deductions
+              </div>
+
+              <div className="p-4 space-y-3">
+
+                <div className="flex justify-between">
+
+                  <span>
+                    Provident Fund (PF)
+                  </span>
+
+                  <span className="font-semibold text-rose-600">
+                    ₹
+                    {formatMoney(
+                      selectedSlip.pf ??
+                      selectedSlip.employee_pf
+                    )}
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between">
+
+                  <span>
+                    ESIC
+                  </span>
+
+                  <span className="font-semibold text-rose-600">
+                    ₹
+                    {formatMoney(
+                      selectedSlip.esic ??
+                      selectedSlip.employee_esic
+                    )}
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between">
+
+                  <span>
+                    Tax (TDS)
+                  </span>
+
+                  <span className="font-semibold text-rose-600">
+                    ₹
+                    {formatMoney(
+                      selectedSlip.tax ??
+                      selectedSlip.tds
+                    )}
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between">
+
+                  <span>
+                    Professional Tax
+                  </span>
+
+                  <span className="font-semibold text-rose-600">
+                    ₹
+                    {formatMoney(selectedSlip.professional_tax)}
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between">
+
+                  <span>
+                    Loss of Pay (LOP)
+                  </span>
+
+                  <span className="font-semibold text-rose-600">
+                    ₹
+                    {formatMoney(
+                      selectedSlip.lop ??
+                      selectedSlip.lop_deduction
+                    )}
+                  </span>
+
+                </div>
+
+                <div className="flex justify-between pt-3 border-t border-slate-200 font-bold text-slate-900">
+
+                  <span>
+                    Total Deductions
+                  </span>
+
+                  <span>
+                    ₹
+                    {formatMoney(
+                      getTotalDeductions(selectedSlip)
+                    )}
+                  </span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* =====================================================
+              EMPLOYER CONTRIBUTIONS
+          ===================================================== */}
+
+          <div className="border border-indigo-100 bg-indigo-50/50 rounded-xl overflow-hidden">
+
+            <div className="bg-indigo-100/70 p-3 font-bold text-indigo-900 uppercase tracking-wider text-xs">
+              Employer Contributions
+            </div>
+
+            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+
+              <div>
+
+                <p className="text-slate-500">
+                  Employer PF
+                </p>
+
+                <p className="font-bold text-slate-900 mt-1">
+                  ₹
+                  {formatMoney(
+                    getEmployerPF(selectedSlip)
+                  )}
+                </p>
+
+              </div>
+
+              <div>
+
+                <p className="text-slate-500">
+                  Employer ESIC
+                </p>
+
+                <p className="font-bold text-slate-900 mt-1">
+                  ₹
+                  {formatMoney(
+                    getEmployerESIC(selectedSlip)
+                  )}
+                </p>
+
+              </div>
+
+              <div>
+
+                <p className="text-slate-500">
+                  Total Employer Contribution
+                </p>
+
+                <p className="font-bold text-indigo-700 mt-1">
+                  ₹
+                  {formatMoney(
+                    getTotalEmployerContribution(selectedSlip)
+                  )}
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* =====================================================
+              NET SALARY
+          ===================================================== */}
+
+          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex justify-between items-center text-emerald-900">
+
+            <div>
+
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                Net Salary Payable
+              </p>
+
+              <p className="text-2xl font-extrabold mt-0.5">
+                ₹{formatMoney(selectedSlip.net_salary)}
+              </p>
+
+            </div>
+
+            <span className="text-xs font-medium bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg">
+
+              Account:{" "}
+              {selectedSlip.account_number || "-"}
+
+            </span>
+
+          </div>
+
+          {/* =====================================================
+              EMPLOYER COST
+          ===================================================== */}
+
+          <div className="bg-slate-900 text-white p-4 rounded-xl flex justify-between items-center">
+
+            <div>
+
+              <p className="text-xs text-slate-300 uppercase tracking-wider">
+                Total Employer Cost
+              </p>
+
+              <p className="text-xl font-extrabold mt-1">
+                ₹
+                {formatMoney(
+                  getTotalEmployerCost(selectedSlip)
+                )}
+              </p>
+
+            </div>
+
+            <div className="text-right text-xs text-slate-300">
+              Gross Salary + Employer Contributions
+            </div>
+
+          </div>
+
+          {/* =====================================================
+              TRACEABILITY
+          ===================================================== */}
+
+          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+
+            <p className="text-xs font-bold text-slate-700 mb-2">
+              Payroll Traceability
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+
+              <div>
+
+                <span className="text-slate-400">
+                  Client ID
+                </span>
+
+                <p className="font-semibold">
+                  {selectedSlip.client_id ?? "-"}
+                </p>
+
+              </div>
+
+              <div>
+
+                <span className="text-slate-400">
+                  Deployment ID
+                </span>
+
+                <p className="font-semibold">
+                  {selectedSlip.deployment_id ?? "-"}
+                </p>
+
+              </div>
+
+              <div>
+
+                <span className="text-slate-400">
+                  Attendance ID
+                </span>
+
+                <p className="font-semibold">
+                  {selectedSlip.attendance_id ?? "-"}
+                </p>
+
+              </div>
+
+              <div>
+
+                <span className="text-slate-400">
+                  Employee ID
+                </span>
+
+                <p className="font-semibold">
+                  {selectedSlip.employee_ref_id ??
+                    selectedSlip.employee_id ??
+                    "-"}
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* =====================================================
+              ACTIONS
+          ===================================================== */}
+
+          <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
+
+            <button
+              onClick={handleGeneratePDF}
+              disabled={pdfLoading || !selectedSlip}
+              className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
+
+              {pdfLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+
+              {pdfLoading
+                ? "Generating..."
+                : "Generate PDF"}
+
+            </button>
+
+            <button
+              onClick={handleDownload}
+              disabled={pdfLoading || !selectedSlip}
+              className="bg-white hover:bg-slate-50 disabled:bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2"
+            >
+
+              {pdfLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+
+              Download PDF
+
+            </button>
+
+            <button
+              onClick={handleEmail}
+              disabled={
+                emailLoading ||
+                !selectedSlip ||
+                !ELIGIBLE_PAYSLIP_STATUSES.includes(
+                  normalizeStatus(selectedSlip.status)
+                )
+              }
+              className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
+
+              {emailLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
+
+              {emailLoading
+                ? "Sending..."
+                : "Email to Employee"}
+
+            </button>
+
+          </div>
+
+          {/* =====================================================
+              EMAIL INFORMATION
+          ===================================================== */}
+
+          <div className="mt-2">
+
+            {selectedSlip.email ? (
+
+              <div className="text-[11px] text-slate-400">
+
+                Payslip email will be sent to:
+
+                <span className="font-semibold text-slate-600 ml-1">
+                  {selectedSlip.email}
+                </span>
+
+              </div>
+
+            ) : (
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+
+                Employee email address is not available.
+                Add an employee email before using{" "}
+
+                <strong className="ml-1">
+                  Email to Employee
+                </strong>.
+
+              </div>
+
+            )}
+
+          </div>
+
+        </>
+
+      )}
+
+    </div>
+
+  </div>
+
+)}
 
         {/* =====================================================
             EDIT PAYROLL MODAL

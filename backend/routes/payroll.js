@@ -4621,7 +4621,6 @@ router.patch(
 //         );
 //     }
 // });
-
 router.post("/:id/email", async (req, res) => {
     try {
         // ========================================================
@@ -4685,6 +4684,14 @@ router.post("/:id/email", async (req, res) => {
                 employer_esic,
                 total_employer_contribution,
                 total_employer_cost,
+                hra,
+                conveyance,
+                medical_allowance,
+                other_allowance,
+                gratuity,
+                joining_date,
+                pran,
+                pf_wages,
                 created_at
             `)
             .eq("id", payrollId)
@@ -4734,7 +4741,7 @@ router.post("/:id/email", async (req, res) => {
             return sendError(
                 res,
                 400,
-                "Candidate ID is missing"
+                "Candidate ID is missing from payroll record."
             );
         }
 
@@ -4748,9 +4755,14 @@ router.post("/:id/email", async (req, res) => {
                 full_name,
                 email,
                 designation,
-                employee_id,
+                employee_code,
                 date_of_joining,
-                location
+                location,
+                pan_number,
+                uan_number,
+                esic_number,
+                gender,
+                department
             `)
             .eq("id", candidateId)
             .maybeSingle();
@@ -4760,6 +4772,7 @@ router.post("/:id/email", async (req, res) => {
                 "Candidate fetch error:",
                 candidateError
             );
+
             throw candidateError;
         }
 
@@ -4767,7 +4780,7 @@ router.post("/:id/email", async (req, res) => {
             return sendError(
                 res,
                 404,
-                "Candidate not found"
+                "Candidate not found."
             );
         }
 
@@ -4783,10 +4796,12 @@ router.post("/:id/email", async (req, res) => {
             return sendError(
                 res,
                 400,
-                "Employee email address is not available"
+                `Employee email address is not available for ${candidate.full_name || "this employee"}.`
             );
         }
 
+        // IMPORTANT:
+        // Correct email regex
         const emailRegex =
             /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -4897,7 +4912,6 @@ router.post("/:id/email", async (req, res) => {
 
         // ========================================================
         // MONTH
-        // Same month concept used by PaySlip.jsx
         // ========================================================
 
         const salaryMonth =
@@ -4971,7 +4985,6 @@ router.post("/:id/email", async (req, res) => {
 
         // ========================================================
         // NUMBER TO WORDS
-        // Same Indian numbering style as PaySlip.jsx
         // ========================================================
 
         const numberToWordsIndian = (number) => {
@@ -5016,9 +5029,7 @@ router.post("/:id/email", async (req, res) => {
 
                 if (num >= 100) {
                     result +=
-                        ones[
-                            Math.floor(num / 100)
-                        ] +
+                        ones[Math.floor(num / 100)] +
                         " Hundred ";
 
                     num %= 100;
@@ -5026,9 +5037,7 @@ router.post("/:id/email", async (req, res) => {
 
                 if (num >= 20) {
                     result +=
-                        tens[
-                            Math.floor(num / 10)
-                        ] +
+                        tens[Math.floor(num / 10)] +
                         " ";
 
                     num %= 10;
@@ -5088,14 +5097,15 @@ router.post("/:id/email", async (req, res) => {
             }
 
             if (number) {
-                result += belowThousand(number);
+                result +=
+                    belowThousand(number);
             }
 
             return result.trim();
         };
 
         // ========================================================
-        // DATE OF JOINING
+        // EMPLOYEE DETAILS
         // ========================================================
 
         const dateOfJoining =
@@ -5112,19 +5122,13 @@ router.post("/:id/email", async (req, res) => {
                 )
                 : "N/A";
 
-        // ========================================================
-        // EMPLOYEE NUMBER
-        // ========================================================
-
+        // IMPORTANT:
+        // candidates table uses employee_code,
+        // NOT employee_id.
         const employeeNumber =
-            candidate.employee_id ||
-            deployment?.employee_id ||
+            candidate.employee_code ||
             candidate.id ||
             "N/A";
-
-        // ========================================================
-        // LOCATION
-        // ========================================================
 
         const location =
             deployment?.work_location ||
@@ -5133,9 +5137,7 @@ router.post("/:id/email", async (req, res) => {
 
         // ========================================================
         // SALARY
-        //
-        // These values correspond to the values shown by
-        // your PaySlip.jsx.
+        // Same values as payroll / PaySlip
         // ========================================================
 
         const basicSalary = Number(
@@ -5206,7 +5208,7 @@ router.post("/:id/email", async (req, res) => {
 
         // ========================================================
         // PDF
-        // Same overall structure as PaySlip.jsx
+        // Same payslip-style format
         // ========================================================
 
         const doc = new jsPDF({
@@ -5216,13 +5218,16 @@ router.post("/:id/email", async (req, res) => {
         });
 
         const pageWidth = 210;
-        const pageHeight = 297;
 
-        // --------------------------------------------------------
+        // ========================================================
         // COMPANY HEADER
-        // --------------------------------------------------------
+        // ========================================================
 
-        doc.setFont("helvetica", "bold");
+        doc.setFont(
+            "helvetica",
+            "bold"
+        );
+
         doc.setFontSize(17);
 
         doc.text(
@@ -5231,7 +5236,11 @@ router.post("/:id/email", async (req, res) => {
             18
         );
 
-        doc.setFont("helvetica", "normal");
+        doc.setFont(
+            "helvetica",
+            "normal"
+        );
+
         doc.setFontSize(9);
 
         doc.text(
@@ -5270,9 +5279,9 @@ router.post("/:id/email", async (req, res) => {
             45
         );
 
-        // --------------------------------------------------------
+        // ========================================================
         // PAYSLIP BOX
-        // --------------------------------------------------------
+        // ========================================================
 
         doc.setLineWidth(0.5);
 
@@ -5283,11 +5292,15 @@ router.post("/:id/email", async (req, res) => {
             232
         );
 
-        // --------------------------------------------------------
+        // ========================================================
         // PAYSLIP TITLE
-        // --------------------------------------------------------
+        // ========================================================
 
-        doc.setFont("helvetica", "bold");
+        doc.setFont(
+            "helvetica",
+            "bold"
+        );
+
         doc.setFontSize(16);
 
         doc.text(
@@ -5296,7 +5309,11 @@ router.post("/:id/email", async (req, res) => {
             62
         );
 
-        doc.setFont("helvetica", "normal");
+        doc.setFont(
+            "helvetica",
+            "normal"
+        );
+
         doc.setFontSize(10);
 
         doc.text(
@@ -5312,25 +5329,33 @@ router.post("/:id/email", async (req, res) => {
             72
         );
 
-        // --------------------------------------------------------
+        // ========================================================
         // CENTER HEADING
-        // --------------------------------------------------------
+        // ========================================================
 
-        doc.setFont("helvetica", "bold");
+        doc.setFont(
+            "helvetica",
+            "bold"
+        );
+
         doc.setFontSize(13);
 
         doc.text(
             `Pay Slip for ${monthStart} to ${monthEnd}`,
             pageWidth / 2,
             80,
-            { align: "center" }
+            {
+                align: "center"
+            }
         );
 
         doc.text(
             String(employeeName).toUpperCase(),
             pageWidth / 2,
             86,
-            { align: "center" }
+            {
+                align: "center"
+            }
         );
 
         doc.line(
@@ -5340,9 +5365,9 @@ router.post("/:id/email", async (req, res) => {
             91
         );
 
-        // --------------------------------------------------------
+        // ========================================================
         // EMPLOYEE DETAILS
-        // --------------------------------------------------------
+        // ========================================================
 
         const leftX = 29;
         const rightX = 108;
@@ -5476,7 +5501,9 @@ router.post("/:id/email", async (req, res) => {
             dateOfJoining
         );
 
-        // RIGHT
+        // ========================================================
+        // RIGHT SIDE
+        // ========================================================
 
         addInfo(
             rightX,
@@ -5491,7 +5518,7 @@ router.post("/:id/email", async (req, res) => {
             rightX,
             rightY,
             "Income Tax Number (PAN):",
-            "N/A"
+            candidate.pan_number || "N/A"
         );
 
         rightY += 7;
@@ -5500,7 +5527,7 @@ router.post("/:id/email", async (req, res) => {
             rightX,
             rightY,
             "Universal Account Number (UAN):",
-            "N/A"
+            candidate.uan_number || "N/A"
         );
 
         rightY += 7;
@@ -5509,7 +5536,7 @@ router.post("/:id/email", async (req, res) => {
             rightX,
             rightY,
             "PF account number:",
-            "N/A"
+            payroll.pran || "N/A"
         );
 
         rightY += 7;
@@ -5518,7 +5545,7 @@ router.post("/:id/email", async (req, res) => {
             rightX,
             rightY,
             "ESI Number:",
-            "N/A"
+            candidate.esic_number || "N/A"
         );
 
         rightY += 7;
@@ -5527,12 +5554,12 @@ router.post("/:id/email", async (req, res) => {
             rightX,
             rightY,
             "PR Account Number (PRAN):",
-            "N/A"
+            payroll.pran || "N/A"
         );
 
-        // --------------------------------------------------------
+        // ========================================================
         // SALARY TABLE
-        // --------------------------------------------------------
+        // ========================================================
 
         const tableX = 29;
         const tableY = 145;
@@ -5559,7 +5586,11 @@ router.post("/:id/email", async (req, res) => {
 
         let x = tableX;
 
-        doc.setFont("helvetica", "bold");
+        doc.setFont(
+            "helvetica",
+            "bold"
+        );
+
         doc.setFontSize(7.5);
 
         headers.forEach(
@@ -5588,9 +5619,9 @@ router.post("/:id/email", async (req, res) => {
             }
         );
 
-        // --------------------------------------------------------
-        // TABLE ROW HELPER
-        // --------------------------------------------------------
+        // ========================================================
+        // TABLE ROW
+        // ========================================================
 
         const drawRow = (
             y,
@@ -5658,9 +5689,9 @@ router.post("/:id/email", async (req, res) => {
             );
         };
 
-        // --------------------------------------------------------
+        // ========================================================
         // SALARY ROWS
-        // --------------------------------------------------------
+        // ========================================================
 
         drawRow(
             tableY + rowHeight,
@@ -5710,9 +5741,12 @@ router.post("/:id/email", async (req, res) => {
                 : ""
         );
 
-        // Empty row
+        // ========================================================
+        // EMPTY ROW
+        // ========================================================
 
         let emptyX = tableX;
+
         const emptyY =
             tableY + rowHeight * 6;
 
@@ -5727,9 +5761,9 @@ router.post("/:id/email", async (req, res) => {
             emptyX += width;
         });
 
-        // --------------------------------------------------------
+        // ========================================================
         // TOTAL ROW
-        // --------------------------------------------------------
+        // ========================================================
 
         const totalY =
             tableY + rowHeight * 7;
@@ -5753,7 +5787,11 @@ router.post("/:id/email", async (req, res) => {
             )
         ];
 
-        doc.setFont("helvetica", "bold");
+        doc.setFont(
+            "helvetica",
+            "bold"
+        );
+
         doc.setFontSize(7.5);
 
         totalValues.forEach(
@@ -5800,9 +5838,9 @@ router.post("/:id/email", async (req, res) => {
             }
         );
 
-        // --------------------------------------------------------
+        // ========================================================
         // NET ROW
-        // --------------------------------------------------------
+        // ========================================================
 
         const netY =
             totalY + rowHeight;
@@ -5831,15 +5869,15 @@ router.post("/:id/email", async (req, res) => {
                     rowHeight
                 );
 
+                doc.setFont(
+                    "helvetica",
+                    "bold"
+                );
+
                 if (
                     index === 4 ||
                     index === 5
                 ) {
-                    doc.setFont(
-                        "helvetica",
-                        "bold"
-                    );
-
                     doc.text(
                         String(value),
                         netX +
@@ -5851,11 +5889,6 @@ router.post("/:id/email", async (req, res) => {
                         }
                     );
                 } else {
-                    doc.setFont(
-                        "helvetica",
-                        "bold"
-                    );
-
                     doc.text(
                         String(value),
                         netX + 2,
@@ -5867,9 +5900,9 @@ router.post("/:id/email", async (req, res) => {
             }
         );
 
-        // --------------------------------------------------------
+        // ========================================================
         // AMOUNT IN WORDS
-        // --------------------------------------------------------
+        // ========================================================
 
         const wordsY =
             netY + 18;
@@ -5907,10 +5940,9 @@ router.post("/:id/email", async (req, res) => {
             wordsY + 10
         );
 
-        // --------------------------------------------------------
-        // SIGNATURE AREA
-        // Same position concept as PaySlip.jsx
-        // --------------------------------------------------------
+        // ========================================================
+        // SIGNATURE
+        // ========================================================
 
         const signatureY =
             wordsY + 25;
@@ -5940,9 +5972,9 @@ router.post("/:id/email", async (req, res) => {
             }
         );
 
-        // --------------------------------------------------------
+        // ========================================================
         // PDF BUFFER
-        // --------------------------------------------------------
+        // ========================================================
 
         const pdfBuffer = Buffer.from(
             doc.output("arraybuffer")
@@ -5979,11 +6011,44 @@ router.post("/:id/email", async (req, res) => {
                 }
             });
 
+        // Check Gmail connection before sending
         await transporter.verify();
+
+        console.log(
+            "SMTP connection verified successfully."
+        );
+
+        // ========================================================
+        // EMAIL BODY
+        // NO CSS
+        // ========================================================
+
+        const emailHtml = `
+            <p>Dear <strong>${String(employeeName)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")}</strong>,</p>
+
+            <p>Please find attached your payslip for <strong>${monthName}</strong>.</p>
+
+            <p>Regards,<br>
+            <strong>Talent Corner HR Services Pvt Ltd.</strong></p>
+        `;
 
         // ========================================================
         // SEND EMAIL
         // ========================================================
+
+        console.log(
+            "Sending payslip email:",
+            {
+                payrollId,
+                employeeName,
+                employeeEmail,
+                salaryMonth,
+                fileName
+            }
+        );
 
         const mailResult =
             await transporter.sendMail({
@@ -5995,39 +6060,7 @@ router.post("/:id/email", async (req, res) => {
                 subject:
                     `Payslip - ${salaryMonth} - ${employeeName}`,
 
-                html: `
-                    <div style="
-                        font-family: Arial, Helvetica, sans-serif;
-                        font-size: 14px;
-                        color: #222222;
-                        line-height: 1.6;
-                    ">
-                        <p>
-                            Dear
-                            <strong>
-                                ${String(employeeName)
-                                    .replace(/&/g, "&amp;")
-                                    .replace(/</g, "&lt;")
-                                    .replace(/>/g, "&gt;")}
-                            </strong>,
-                        </p>
-
-                        <p>
-                            Please find attached your
-                            payslip for
-                            <strong>
-                                ${monthName}
-                            </strong>.
-                        </p>
-
-                        <p>
-                            Regards,<br>
-                            <strong>
-                                Talent Corner HR Services Pvt Ltd.
-                            </strong>
-                        </p>
-                    </div>
-                `,
+                html: emailHtml,
 
                 attachments: [
                     {
@@ -6043,23 +6076,37 @@ router.post("/:id/email", async (req, res) => {
         // ========================================================
 
         console.log(
-            `Payslip ${payrollId} sent to ${employeeEmail}`
+            `Payslip ${payrollId} sent successfully to ${employeeEmail}`
+        );
+
+        console.log(
+            "Message ID:",
+            mailResult.messageId
         );
 
         return res.json({
             success: true,
+
             message:
                 `Payslip emailed successfully to ${employeeEmail}`,
+
             payroll_id: payrollId,
+
             candidate_id: candidateId,
+
             employee_name: employeeName,
+
             employee_email: employeeEmail,
+
             salary_month: salaryMonth,
+
             file_name: fileName,
+
             message_id: mailResult.messageId
         });
 
     } catch (error) {
+
         console.error(
             "EMAIL PAYSLIP ERROR:",
             error
