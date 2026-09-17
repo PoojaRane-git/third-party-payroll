@@ -379,18 +379,7 @@ const ELIGIBLE_PAYSLIP_STATUSES = ["Approved", "Locked"];
   // CLIENT NAME
   // =====================================================
 
-  const getStatusClass = (status) => {
-  switch (status) {
-    case "Approved":
-      return "bg-emerald-200 text-emerald-800";
-    case "Locked":
-      return "bg-indigo-200 text-indigo-800";
-    case "Pending":
-      return "bg-amber-200 text-amber-800";
-    default:
-      return "bg-slate-200 text-slate-700";
-  }
-};
+
 
   const getClientName =
     useCallback(
@@ -2978,19 +2967,6 @@ const handleCreatePayroll =
 
                               </td>
 
-                              <td className="p-4">
-
-                                <span
-                                  className={`px-2.5 py-1 text-xs font-bold rounded-full ${getStatusClass(
-                                    status
-                                  )}`}
-                                >
-                                  {status ||
-                                    "Unknown"}
-                                </span>
-
-                              </td>
-
                               <td className="p-4 text-right">
 
                                 <div className="flex justify-end gap-2 flex-wrap">
@@ -3130,14 +3106,6 @@ const handleCreatePayroll =
                   </p>
 
                 </div>
-
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${getStatusClass(
-                    status
-                  )}`}
-                >
-                  {status}
-                </span>
 
               </div>
 
