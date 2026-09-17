@@ -645,7 +645,6 @@ router.get("/monthly", async (req, res) => {
 
 GET /api/employee/payroll/me
 ===================================================== */
-
 router.get(
     "/payroll/me",
     async (req, res) => {
@@ -678,14 +677,6 @@ router.get(
                     "employee_ref_id",
                     employeeId
                 )
-                .in("status", [
-                    "approved",
-                    "Approved",
-                    "locked",
-                    "Locked",
-                    "paid",
-                    "Paid",
-                ])
                 .order(
                     "salary_month",
                     {
@@ -730,7 +721,6 @@ router.get(
         }
     }
 );
-
 
 // =====================================================
 // EMPLOYEE PAYSLIP PDF

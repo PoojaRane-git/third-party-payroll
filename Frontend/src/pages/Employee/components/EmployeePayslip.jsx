@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import api from "../../services/api";
 import EmployeeLayout from "./EmployeeLayout";
 
-
 // =====================================================
 // COMPONENT
 // =====================================================
@@ -64,9 +63,12 @@ const EmployeePayslip = () => {
           data =
             response.data.data;
         } else if (
-          Array.isArray(response.data)
+          Array.isArray(
+            response.data
+          )
         ) {
-          data = response.data;
+          data =
+            response.data;
         }
 
         console.log(
@@ -225,175 +227,136 @@ const EmployeePayslip = () => {
   };
 
   // =====================================================
-  // STATUS CLASS
+  // DOWNLOAD PAYSLIP
+  // USE BACKEND PAYSLIP PDF TEMPLATE
   // =====================================================
 
-  const getStatusClass = (
-    status
-  ) => {
-    const value = String(
-      status || ""
-    )
-      .toLowerCase()
-      .trim();
-
-    if (
-      value === "approved" ||
-      value === "locked" ||
-      value === "paid"
-    ) {
-      return "status-badge status-approved";
-    }
-
-    if (
-      value === "pending" ||
-      value === "draft"
-    ) {
-      return "status-badge status-pending";
-    }
-
-    if (
-      value === "rejected" ||
-      value === "cancelled"
-    ) {
-      return "status-badge status-rejected";
-    }
-
-    return "status-badge";
-  };
-
-  // =====================================================
-  // DOWNLOAD PAYSLIP (now via the shared payslipPdf template)
-  // =====================================================
-// =====================================================
-// DOWNLOAD PAYSLIP
-// USE BACKEND PAYSLIP PDF TEMPLATE
-// =====================================================
-
-const downloadPayslip =
-  async (payslip) => {
-
-    try {
-
-      setDownloading(
-        payslip.id
-      );
-
-      console.log(
-        "Generating employee payslip PDF:",
-        payslip.id
-      );
-
-      // ---------------------------------------------
-      // GET PDF FROM BACKEND
-      // ---------------------------------------------
-
-      const response =
-        await api.get(
-          `/employee/payroll/${payslip.id}/pdf`,
-          {
-            responseType: "blob",
-          }
+  const downloadPayslip =
+    async (payslip) => {
+      try {
+        setDownloading(
+          payslip.id
         );
 
-      // ---------------------------------------------
-      // CREATE DOWNLOAD URL
-      // ---------------------------------------------
-
-      const blob =
-        new Blob(
-          [response.data],
-          {
-            type: "application/pdf",
-          }
+        console.log(
+          "Generating employee payslip PDF:",
+          payslip.id
         );
 
-      const url =
-        window.URL.createObjectURL(
-          blob
-        );
+        // ---------------------------------------------
+        // GET PDF FROM BACKEND
+        // ---------------------------------------------
 
-      // ---------------------------------------------
-      // FILE NAME
-      // ---------------------------------------------
-
-      const employeeFileName =
-        String(
-          payslip.employee_name ||
-          "Employee"
-        )
-          .replace(
-            /[^a-zA-Z0-9]/g,
-            "_"
-          )
-          .replace(
-            /_+/g,
-            "_"
+        const response =
+          await api.get(
+            `/employee/payroll/${payslip.id}/pdf`,
+            {
+              responseType: "blob",
+            }
           );
 
-      const month =
-        String(
-          payslip.salary_month ||
-          "payslip"
-        ).replace(
-          /[^a-zA-Z0-9-_]/g,
-          "-"
+        // ---------------------------------------------
+        // CREATE DOWNLOAD BLOB
+        // ---------------------------------------------
+
+        const blob =
+          response.data instanceof Blob
+            ? response.data
+            : new Blob(
+                [response.data],
+                {
+                  type:
+                    "application/pdf",
+                }
+              );
+
+        // ---------------------------------------------
+        // CREATE DOWNLOAD URL
+        // ---------------------------------------------
+
+        const url =
+          window.URL.createObjectURL(
+            blob
+          );
+
+        // ---------------------------------------------
+        // FILE NAME
+        // ---------------------------------------------
+
+        const employeeFileName =
+          String(
+            payslip.employee_name ||
+              "Employee"
+          )
+            .replace(
+              /[^a-zA-Z0-9]/g,
+              "_"
+            )
+            .replace(
+              /_+/g,
+              "_"
+            );
+
+        const month =
+          String(
+            payslip.salary_month ||
+              "payslip"
+          ).replace(
+            /[^a-zA-Z0-9-_]/g,
+            "-"
+          );
+
+        // ---------------------------------------------
+        // DOWNLOAD
+        // ---------------------------------------------
+
+        const link =
+          document.createElement(
+            "a"
+          );
+
+        link.href = url;
+
+        link.download =
+          `${employeeFileName}_Payslip_${month}.pdf`;
+
+        document.body.appendChild(
+          link
         );
 
-      // ---------------------------------------------
-      // DOWNLOAD
-      // ---------------------------------------------
+        link.click();
 
-      const link =
-        document.createElement(
-          "a"
+        link.remove();
+
+        // ---------------------------------------------
+        // CLEAN URL
+        // ---------------------------------------------
+
+        window.URL.revokeObjectURL(
+          url
         );
 
-      link.href = url;
+      } catch (error) {
+        console.error(
+          "Payslip download error:",
+          error
+        );
 
-      link.download =
-        `${employeeFileName}_Payslip_${month}.pdf`;
+        console.error(
+          "Server response:",
+          error.response?.data
+        );
 
-      document.body.appendChild(
-        link
-      );
-
-      link.click();
-
-      link.remove();
-
-      // ---------------------------------------------
-      // CLEAN URL
-      // ---------------------------------------------
-
-      window.URL.revokeObjectURL(
-        url
-      );
-
-    } catch (error) {
-
-      console.error(
-        "Payslip download error:",
-        error
-      );
-
-      console.error(
-        "Server response:",
-        error.response?.data
-      );
-
-      alert(
-        error.response?.data?.message ||
-        "Unable to download payslip."
-      );
-
-    } finally {
-
-      setDownloading(
-        null
-      );
-    }
-  };
+        alert(
+          error.response?.data?.message ||
+            "Unable to download payslip."
+        );
+      } finally {
+        setDownloading(
+          null
+        );
+      }
+    };
 
   // =====================================================
   // LOADING
@@ -462,7 +425,7 @@ const downloadPayslip =
             </h3>
 
             <p>
-              Your approved payroll records
+              Your payroll records
               will appear here.
             </p>
           </div>
@@ -529,19 +492,9 @@ const downloadPayslip =
                         alignItems:
                           "center",
                         gap:
-                        "12px",
+                          "12px",
                       }}
                     >
-
-                      <span
-                        className={getStatusClass(
-                          payslip.status
-                        )}
-                      >
-                        {display(
-                          payslip.status
-                        )}
-                      </span>
 
                       <button
                         type="button"
