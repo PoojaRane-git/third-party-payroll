@@ -3,13 +3,16 @@
 // THIRD PARTY PAYROLL API
 // ============================================================
 
+
 const express = require("express");
 const nodemailer = require("nodemailer");
 const router = express.Router();
 
 const supabase = require("../config/supabase");
-import { generatePayslipPDF } from "../../Frontend/src/pages/utils/Payslippdf";
-
+const {
+    generatePayslipPDF
+} = require("../utils/Payslippdf");
+const { jsPDF } = require("jspdf");
 // ============================================================
 // ENVIRONMENT
 // ============================================================
