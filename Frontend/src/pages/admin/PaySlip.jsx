@@ -1,43 +1,5 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { jsPDF } from 'jspdf';
-
-// Utility function to format numbers with commas
-const formatNumberWithCommas = (number) => {
-    if (number === "N/A" || number == null) return "N/A";
-    const integerPart = number.toString();
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    return formattedInteger;
-};
-
-// Utility function to convert numbers to Indian words
-const numberToWordsIndian = (num) => {
-    if (num === 0) return "Zero";
-    const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
-    const teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-    const thousands = ["", "Thousand", "Lakh", "Crore"];
-
-    const convertLessThanThousand = (n) => {
-        if (n === 0) return "";
-        if (n < 10) return units[n];
-        if (n < 20) return teens[n - 10];
-        if (n < 100) return `${tens[Math.floor(n / 10)]} ${units[n % 10]}`.trim();
-        return `${units[Math.floor(n / 100)]} Hundred ${convertLessThanThousand(n % 100)}`.trim();
-    };
-
-    let crore = Math.floor(num / 10000000);
-    let lakh = Math.floor((num % 10000000) / 100000);
-    let thousand = Math.floor((num % 100000) / 1000);
-    let hundred = Math.floor((num % 1000));
-
-    let result = [];
-    if (crore > 0) result.push(`${convertLessThanThousand(crore)} Crore`);
-    if (lakh > 0) result.push(`${convertLessThanThousand(lakh)} Lakh`);
-    if (thousand > 0) result.push(`${convertLessThanThousand(thousand)} Thousand`);
-    if (hundred > 0) result.push(convertLessThanThousand(hundred));
-
-    return result.join(" ").trim() || "Zero";
-};
+import { generatePayslipPDF } from "../../../../../backend/routes/employee/Payslippdf"; // adjust this relative path to match your project structure
 
 // Utility function to get month name
 const getMonthName = (monthIndex) => {
@@ -56,15 +18,23 @@ const formatDateRange = (monthIndex, financialYear) => {
     return `${formatDate(startDate)} to ${formatDate(endDate)}`;
 };
 
-// Utility function to load image and get dimensions
-const loadImage = (url) => {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = url;
-    });
+// Utility function to build the human-readable period label shown on the payslip
+const buildPeriodLabel = (period) => {
+    const monthNames = { "Jan": "January", "Feb": "February", "Mar": "March", "Apr": "April", "May": "May", "Jun": "June", "Jul": "July", "Aug": "August", "Sep": "September", "Oct": "October", "Nov": "November", "Dec": "December" };
+
+    // Check if the period string starts with a number (DD Mon YYYY format for a single month)
+    if (/^\d/.test(period)) {
+        const parts = period.split(' '); // e.g., ["1", "Apr", "2024", "to", ...]
+        if (parts.length > 2) {
+            const monthName = monthNames[parts[1]] || parts[1];
+            const year = parts[2];
+            return `for the month of ${monthName} ${year}`;
+        }
+        return `for ${period}`;
+    }
+
+    // Full financial year format, e.g., "Apr 2023 to Mar 2024"
+    return `for ${period}`;
 };
 
 const PaySlip = () => {
@@ -255,224 +225,54 @@ const PaySlip = () => {
         );
     };
 
-    // Generate payslip PDF with selectable text
-    const generatePayslipPDF = async (employee, salary, period, financialYear, filename) => {
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 15;
-        let y = 15;
-    
-        // Custom robust currency formatter for Indian locale
-        const formatCurrency = (num) => {
-            if (num == null) return '0.00';
-            const str = Number(num).toFixed(2).toString();
-            const parts = str.split('.');
-            let integerPart = parts[0];
-            const fractionPart = parts[1];
-            const lastThree = integerPart.length > 3 ? integerPart.slice(integerPart.length - 3) : integerPart;
-            const otherNumbers = integerPart.slice(0, integerPart.length - 3);
-            const formattedOtherNumbers = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
-            const finalInteger = otherNumbers ? formattedOtherNumbers + ',' + lastThree : lastThree;
-            return `${finalInteger}.${fractionPart}`;
-        };
-    
-        // 1. Logo and Header
-        const logoUrl = '/logo.png';
-        try {
-            const img = await loadImage(logoUrl);
-            const logoWidth = 35;
-            const aspectRatio = img.width / img.height;
-            const logoHeight = logoWidth / aspectRatio;
-            doc.addImage(img, 'PNG', margin, y, logoWidth, logoHeight);
-        } catch (error) {
-            console.warn('Logo not found at /logo.png, skipping...');
-        }
-        
-        const headerTextX = pageWidth / 2 + 10;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('Talent Corner HR Services Pvt. Ltd.', headerTextX, y + 5, { align: 'center' });
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text('708/709, Bhaveshwar Arcade NX, Opp Shreyas Cinema, LBS Marg', headerTextX, y + 11, { align: 'center' });
-        doc.text('Ghatkopar(W), Mumbai-400086', headerTextX, y + 16, { align: 'center' });
-        doc.text('GSTIN : 27AACCT6635P1ZP', headerTextX, y + 21, { align: 'center' });
-        doc.text('UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)', headerTextX, y + 26, { align: 'center' });
-        doc.text('E-Mail : accounts@talentcorner.in', headerTextX, y + 31, { align: 'center' });
-        y += 40;
-    
-        // 2. Title and Period
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text('Pay Slip', pageWidth / 2, y, { align: 'center' });
-        y += 6;
-    
-        const monthNames = { "Jan": "January", "Feb": "February", "Mar": "March", "Apr": "April", "May": "May", "Jun": "June", "Jul": "July", "Aug": "August", "Sep": "September", "Oct": "October", "Nov": "November", "Dec": "December" };
-        let monthYearStr;
-    
-        // Check if the period string starts with a number (indicating DD Mon YYYY format for a single month)
-        if (/^\d/.test(period)) {
-            const parts = period.split(' '); // e.g., ["1", "Apr", "2024", "to", ...]
-            if (parts.length > 2) {
-                const monthName = monthNames[parts[1]] || parts[1];
-                const year = parts[2];
-                monthYearStr = `for the month of ${monthName} ${year}`;
-            } else {
-                monthYearStr = `for ${period}`; // Fallback, should not be reached
-            }
-        } else {
-            // It's the full year format, e.g., "Apr 2023 to Mar 2024"
-            monthYearStr = `for ${period}`;
-        }
-    
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(11);
-        doc.text(monthYearStr, pageWidth / 2, y, { align: 'center' });
-        y += 10;
-        
-        // 3. Employee Name
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text((employee.name || 'N/A').toUpperCase(), pageWidth / 2, y, { align: 'center' });
-        y += 12;
-    
-        // 4. Details Section with Text Wrapping - FINAL ROBUST FIX
-        const col1X = margin;
-        const col2X = pageWidth / 2 + 10;
-        const detailLineHeight = 5;
-        doc.setFontSize(10);
-    
-        const detailsLeft = [
-            { label: 'Employee Number', value: employee.id || 'N/A' },
-            { label: 'Function', value: employee.department || 'N/A' },
-            { label: 'Designation', value: employee.designation || 'N/A' },
-            { label: 'Location', value: employee.branchOfficeName || 'N/A' },
-            { label: 'Bank Details', value: `${employee.bankACNumber || ''}, ${employee.bankName || ''}`.replace(/^, /, '') || 'N/A' },
-            { label: 'Date of joining', value: employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: '2-digit'}).replace(/ /g, '-') : 'N/A' },
-        ];
-        const detailsRight = [
-            { label: 'Tax Regime', value: 'Regular Tax Regime' },
-            { label: 'Income Tax Number (PAN)', value: employee.panCard || 'N/A' },
-            { label: 'Universal Account Number (UAN)', value: employee.uanNumber || 'N/A' },
-            { label: 'PF account number', value: employee.pfACNumber || 'N/A' },
-            { label: 'ESI Number', value: employee.esiRegistrationNumber || 'N/A' },
-            { label: 'PR Account Number (PRAN)', value: employee.pran || 'N/A' },
-        ];
-
-        const leftLabelMaxWidth = 45;
-        const rightLabelMaxWidth = 45;
-        const leftValueX = col1X + leftLabelMaxWidth;
-        const rightValueX = col2X + rightLabelMaxWidth;
-        const leftValueMaxWidth = col2X - leftValueX - 2;
-        const rightValueMaxWidth = pageWidth - rightValueX - margin;
-
-        for (let i = 0; i < Math.max(detailsLeft.length, detailsRight.length); i++) {
-            const currentY = y;
-            let leftLabelLines = [''], leftValueLines = [''], rightLabelLines = [''], rightValueLines = [''];
-            
-            // Calculate lines for all 4 components
-            if (detailsLeft[i]) {
-                leftLabelLines = doc.splitTextToSize(detailsLeft[i].label, leftLabelMaxWidth);
-                leftValueLines = doc.splitTextToSize(String(detailsLeft[i].value), leftValueMaxWidth);
-            }
-            if (detailsRight[i]) {
-                rightLabelLines = doc.splitTextToSize(detailsRight[i].label, rightLabelMaxWidth);
-                rightValueLines = doc.splitTextToSize(String(detailsRight[i].value), rightValueMaxWidth);
-            }
-            
-            // Determine max height for the row
-            const maxLines = Math.max(leftLabelLines.length, leftValueLines.length, rightLabelLines.length, rightValueLines.length);
-
-            // Draw left column
-            if (detailsLeft[i]) {
-                doc.setFont('helvetica', 'normal');
-                doc.text(leftLabelLines, col1X, currentY);
-                doc.text(':', leftValueX - 5, currentY);
-                doc.setFont('helvetica', 'bold');
-                doc.text(leftValueLines, leftValueX, currentY);
-            }
-            // Draw right column
-            if (detailsRight[i]) {
-                doc.setFont('helvetica', 'normal');
-                doc.text(rightLabelLines, col2X, currentY);
-                doc.text(':', rightValueX - 5, currentY);
-                doc.setFont('helvetica', 'bold');
-                doc.text(rightValueLines, rightValueX, currentY);
-            }
-
-            // Move y down by the calculated row height
-            y += maxLines * detailLineHeight + 1; // +1 for a little gap
-        }
-        y += 5;
-
-    
-        // 5. Earnings & Deductions Table
+    // Build the employee/earnings/deductions payload and hand it to the shared PDF template
+    const buildAndSavePayslip = (employee, salary, period, filename) => {
         const epsContribution = salary.employerPf > 0 ? Math.min(Math.round(salary.pfWages * 0.0833), 1250) : 0;
         const epfContribution = salary.employerPf > 0 ? salary.employerPf - epsContribution : 0;
         const displayGratuity = salary.gratuity > 0 ? -Math.abs(salary.gratuity) : 0;
-    
-        const earningsData = [
-            { label: 'Basic Salary', value: salary.earnBasicSalary }, { label: 'HRA', value: salary.earnHRA },
-            { label: 'Convenyance Expenses', value: salary.earnConveyance }, { label: 'Medical Allowance', value: salary.earnMedicalAllowance },
-            { label: 'Other Expenses', value: salary.earnOtherAllowance }, { label: 'EPS@8.33%', value: epsContribution },
-            { label: 'EPF@3.67%', value: epfContribution }, { label: 'Gratuity', value: displayGratuity },
-        ];
-        const deductionsData = [
-            { label: 'Provident Fund Employee@12%', value: salary.pf }, { label: 'Professional Tax', value: salary.pt },
-        ];
-    
-        const totalEarnings = earningsData.reduce((sum, item) => sum + (item.value || 0), 0);
-        const totalDeductions = deductionsData.reduce((sum, item) => sum + (item.value > 0 ? item.value : 0), 0);
+
+        const earnings = [
+            { label: 'Basic Salary', value: salary.earnBasicSalary },
+            { label: 'HRA', value: salary.earnHRA },
+            { label: 'Convenyance Expenses', value: salary.earnConveyance },
+            { label: 'Medical Allowance', value: salary.earnMedicalAllowance },
+            { label: 'Other Expenses', value: salary.earnOtherAllowance },
+            { label: 'EPS@8.33%', value: epsContribution },
+            { label: 'EPF@3.67%', value: epfContribution },
+            { label: 'Gratuity', value: displayGratuity },
+        ].filter((item) => item.value);
+
+        const deductions = [
+            { label: 'Provident Fund Employee@12%', value: salary.pf },
+            { label: 'Professional Tax', value: salary.pt },
+        ].filter((item) => item.label === 'Professional Tax' || item.value);
+
+        const totalEarnings = earnings.reduce((sum, item) => sum + (item.value || 0), 0);
+        const totalDeductions = deductions.reduce((sum, item) => sum + (item.value > 0 ? item.value : 0), 0);
         const netPayable = totalEarnings - totalDeductions;
-        
-        doc.setLineWidth(0.4); doc.line(margin, y, pageWidth - margin, y); y += 6;
-        
-        const earningX = margin + 2, earningAmtX = margin + 90, deductionX = margin + 100, deductionAmtX = pageWidth - margin - 2;
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-        doc.text('Earnings', earningX, y); doc.text('Amount', earningAmtX, y, { align: 'right' });
-        doc.text('Deductions', deductionX, y); doc.text('Amount', deductionAmtX, y, { align: 'right' });
-        y += 6;
-        
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-        const tableLineHeight = 6;
-        const numRows = Math.max(earningsData.length, deductionsData.length);
-        for (let i = 0; i < numRows; i++) {
-            if (i < earningsData.length && earningsData[i].value !== 0) {
-                const item = earningsData[i];
-                const valueStr = item.label === 'Gratuity' ? `(-) ${formatCurrency(Math.abs(item.value))}` : formatCurrency(item.value);
-                doc.text(item.label, earningX, y); doc.text(valueStr, earningAmtX, y, { align: 'right' });
-            }
-            if (i < deductionsData.length && (deductionsData[i].label === 'Professional Tax' || deductionsData[i].value !== 0)) {
-                const item = deductionsData[i];
-                doc.text(item.label, deductionX, y); doc.text(formatCurrency(item.value), deductionAmtX, y, { align: 'right' });
-            }
-            y += tableLineHeight;
-        }
-        
-        // 6. Totals
-        y += 2;
-        doc.setLineWidth(0.4); doc.line(margin, y, earningAmtX, y); doc.line(deductionX-2, y, deductionAmtX+2, y); y += 6;
-        
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-        doc.text('Total Earnings', earningX, y); doc.text(formatCurrency(totalEarnings), earningAmtX, y, { align: 'right' });
-        doc.text('Total Deductions', deductionX, y); doc.text(formatCurrency(totalDeductions), deductionAmtX, y, { align: 'right' });
-        y += 8;
-        
-        doc.setLineWidth(0.4); doc.line(margin, y, pageWidth - margin, y); y += 6;
-        doc.text('Net Amount', margin, y); doc.text(formatCurrency(netPayable), deductionAmtX, y, { align: 'right' });
-        y += 8;
-        
-        // 7. Footer
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-        const amountInWords = `Amount (in words): INR ${numberToWordsIndian(Math.round(netPayable))} Only`;
-        const textLines = doc.splitTextToSize(amountInWords, pageWidth - margin * 2);
-        doc.text(textLines, margin, y);
-        
-        const footerY = doc.internal.pageSize.getHeight() - 30;
-        doc.text(`for Talent Corner HR Services Pvt. Ltd.`, pageWidth - margin, footerY, { align: 'right' });
-        doc.text('Authorised Signatory', pageWidth - margin, footerY + 15, { align: 'right' });
-        
-        doc.save(filename);
+
+        generatePayslipPDF({
+            employee: {
+                name: employee.name,
+                id: employee.id,
+                department: employee.department,
+                designation: employee.designation,
+                branchOfficeName: employee.branchOfficeName,
+                bankACNumber: employee.bankACNumber,
+                bankName: employee.bankName,
+                joiningDate: employee.joiningDate,
+                panCard: employee.panCard,
+                uanNumber: employee.uanNumber,
+                pfACNumber: employee.pfACNumber,
+                esiRegistrationNumber: employee.esiRegistrationNumber,
+                pran: employee.pran,
+            },
+            periodLabel: buildPeriodLabel(period),
+            earnings,
+            deductions,
+            netPayable,
+            filename,
+        });
     };
 
     // Download payslip(s) as PDF
@@ -492,15 +292,15 @@ const PaySlip = () => {
                     Object.keys(totalSalary).forEach(key => totalSalary[key] += salary[key]);
                 }
             }
-            
+
             const period = `Apr ${startYear} to Mar ${startYear + 1}`;
-            await generatePayslipPDF(employee, totalSalary, period, yearText, `Payslip_${employee.name}_${selectedYear}.pdf`);
+            buildAndSavePayslip(employee, totalSalary, period, `Payslip_${employee.name}_${selectedYear}.pdf`);
         } else {
             for (const monthIndex of months) {
                 const salary = calculateSalary(employee, monthIndex, payrollData);
                 if (salary) {
                     const period = formatDateRange(monthIndex, selectedYear);
-                    await generatePayslipPDF(employee, salary, period, yearText, `Payslip_${employee.name}_${getMonthName(monthIndex)}_${selectedYear}.pdf`);
+                    buildAndSavePayslip(employee, salary, period, `Payslip_${employee.name}_${getMonthName(monthIndex)}_${selectedYear}.pdf`);
                 }
             }
         }
@@ -589,13 +389,13 @@ const PaySlip = () => {
                                 {employees
                                     .filter(employee => {
                                         if (!employee.workEndDate || !selectedYear) return true;
-                                        
+
                                         const [startYear] = selectedYear.split("-").map(Number);
                                         const exitDate = new Date(employee.workEndDate);
 
                                         // Define target months: user selection OR all 12 months if selection is empty
-                                        const targetMonths = selectedMonths.length > 0 
-                                            ? selectedMonths 
+                                        const targetMonths = selectedMonths.length > 0
+                                            ? selectedMonths
                                             : Array.from({ length: 12 }, (_, i) => i);
 
                                         // Check if employee was active (worked at least 1 day) in any of the target months
