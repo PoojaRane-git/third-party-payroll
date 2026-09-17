@@ -1141,7 +1141,7 @@ const handleSelectEmployee = async (deploymentId) => {
           Number(info.leave_days || 0) +
           Number(info.half_days || 0) * 0.5;
 
-    const basicSalary = Math.round(payRate * 0.5);
+    const basicSalary = Math.round(payRate);
 
     const hra = Math.round(basicSalary * 0.5);
 
