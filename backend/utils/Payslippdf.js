@@ -794,60 +794,127 @@ const generatePayslipPDF = async (
     );
 
     // ========================================================
-    // RIGHT DETAILS
-    // ========================================================
+// RIGHT DETAILS
+// ========================================================
 
-    addInfo(
-        rightX,
-        rightY,
-        "Tax Regime:",
-        taxRegime
+// Separate layout for statutory details.
+// The value is aligned to the right so long labels
+// never overlap with their corresponding values.
+
+const addStatutoryInfo = (
+    x,
+    y,
+    label,
+    value
+) => {
+
+    // Label
+    doc.setFont(
+        "helvetica",
+        "normal"
     );
 
-    rightY += 7;
+    doc.setFontSize(9);
 
-    addInfo(
-        rightX,
-        rightY,
-        "Income Tax Number (PAN):",
-        pan
+    doc.text(
+        label,
+        x,
+        y
     );
 
-    rightY += 8;
-
-    addInfo(
-        rightX,
-        rightY,
-        "Universal Account Number (UAN):",
-        uan
+    // Value
+    doc.setFont(
+        "helvetica",
+        "bold"
     );
 
-    rightY += 8;
+    doc.setFontSize(9);
 
-    addInfo(
-        rightX,
-        rightY,
-        "PF account number:",
-        pfAccountNumber
+    doc.text(
+        textValue(value),
+        188,
+        y,
+        {
+            align: "right",
+        }
     );
+};
 
-    rightY += 7;
+// ========================================================
+// TAX REGIME
+// ========================================================
 
-    addInfo(
-        rightX,
-        rightY,
-        "ESI Number:",
-        esicNumber
-    );
+addStatutoryInfo(
+    rightX,
+    rightY,
+    "Tax Regime:",
+    taxRegime
+);
 
-    rightY += 7;
+rightY += 7;
 
-    addInfo(
-        rightX,
-        rightY,
-        "PR Account Number (PRAN):",
-        pran
-    );
+// ========================================================
+// PAN
+// ========================================================
+
+addStatutoryInfo(
+    rightX,
+    rightY,
+    "Income Tax Number (PAN):",
+    pan
+);
+
+rightY += 8;
+
+// ========================================================
+// UAN
+// ========================================================
+
+addStatutoryInfo(
+    rightX,
+    rightY,
+    "Universal Account Number (UAN):",
+    uan
+);
+
+rightY += 8;
+
+// ========================================================
+// PF ACCOUNT NUMBER
+// ========================================================
+
+addStatutoryInfo(
+    rightX,
+    rightY,
+    "PF account number:",
+    pfAccountNumber
+);
+
+rightY += 7;
+
+// ========================================================
+// ESI NUMBER
+// ========================================================
+
+addStatutoryInfo(
+    rightX,
+    rightY,
+    "ESI Number:",
+    esicNumber
+);
+
+rightY += 7;
+
+// ========================================================
+// PRAN
+// ========================================================
+
+addStatutoryInfo(
+    rightX,
+    rightY,
+    "PR Account Number (PRAN):",
+    pran
+);
 
     // ========================================================
     // SALARY TABLE
