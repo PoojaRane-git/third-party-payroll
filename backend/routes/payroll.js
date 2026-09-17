@@ -489,17 +489,14 @@ function formatPayroll(
             "Pending"
     };
 }
-
 // ============================================================
 // GET ALL PAYROLL
-//
 // GET /api/payroll
 // GET /api/payroll?client_id=1
-// GET /api/payroll?client_id=1&salary_month=2026-08
+// GET /api/payroll?salary_month=2026-08
 // ============================================================
 
 router.get("/", async (req, res) => {
-
     try {
 
         let clientId = null;
@@ -576,7 +573,6 @@ router.get("/", async (req, res) => {
                     bank_name,
                     account_number,
                     ifsc_code,
-                    status,
                     created_at,
                     employee_ref_id,
                     attendance_id,
@@ -588,13 +584,26 @@ router.get("/", async (req, res) => {
                     employer_pf,
                     employer_esic,
                     total_employer_contribution,
-                    total_employer_cost
+                    total_employer_cost,
+                    hra,
+                    conveyance,
+                    medical_allowance,
+                    other_allowance,
+                    gratuity,
+                    joining_date,
+                    pran,
+                    pf_wages
                 `)
                 .order("id", {
                     ascending: false
                 });
 
+        // --------------------------------------------------------
+        // APPLY MONTH FILTER
+        // --------------------------------------------------------
+
         if (salaryMonth) {
+
             query =
                 query.eq(
                     "salary_month",
@@ -602,7 +611,12 @@ router.get("/", async (req, res) => {
                 );
         }
 
+        // --------------------------------------------------------
+        // APPLY CLIENT FILTER
+        // --------------------------------------------------------
+
         if (clientId) {
+
             query =
                 query.eq(
                     "client_id",
@@ -610,19 +624,21 @@ router.get("/", async (req, res) => {
                 );
         }
 
+        // --------------------------------------------------------
+        // EXECUTE QUERY
+        // --------------------------------------------------------
+
         const {
             data,
             error
         } = await query;
-
-        
 
         if (error) {
             throw error;
         }
 
         // --------------------------------------------------------
-        // ENRICH
+        // ENRICH PAYROLL
         // --------------------------------------------------------
 
         const records = [];
@@ -637,8 +653,6 @@ router.get("/", async (req, res) => {
                     await getAttendanceForPayroll(
                         row
                     );
-
-
 
                 records.push(
                     formatPayroll(
@@ -662,6 +676,10 @@ router.get("/", async (req, res) => {
                 );
             }
         }
+
+        // --------------------------------------------------------
+        // RESPONSE
+        // --------------------------------------------------------
 
         return res.json({
 
@@ -693,9 +711,9 @@ router.get("/", async (req, res) => {
     }
 });
 
+
 // ============================================================
 // GET SINGLE PAYROLL
-//
 // GET /api/payroll/:id
 // ============================================================
 
@@ -715,6 +733,10 @@ router.get("/:id", async (req, res) => {
                 "Invalid payroll ID"
             );
         }
+
+        // --------------------------------------------------------
+        // PAYROLL
+        // --------------------------------------------------------
 
         const {
             data: payroll,
@@ -738,7 +760,6 @@ router.get("/:id", async (req, res) => {
                 bank_name,
                 account_number,
                 ifsc_code,
-                status,
                 created_at,
                 employee_ref_id,
                 attendance_id,
@@ -750,7 +771,15 @@ router.get("/:id", async (req, res) => {
                 employer_pf,
                 employer_esic,
                 total_employer_contribution,
-                total_employer_cost
+                total_employer_cost,
+                hra,
+                conveyance,
+                medical_allowance,
+                other_allowance,
+                gratuity,
+                joining_date,
+                pran,
+                pf_wages
             `)
             .eq(
                 "id",
@@ -770,6 +799,10 @@ router.get("/:id", async (req, res) => {
             );
         }
 
+        // --------------------------------------------------------
+        // ATTENDANCE
+        // --------------------------------------------------------
+
         const {
             attendance
         } =
@@ -783,7 +816,9 @@ router.get("/:id", async (req, res) => {
 
         let deployment = null;
 
-        if (payroll.deployment_id) {
+        if (
+            payroll.deployment_id
+        ) {
 
             const {
                 data,
@@ -873,7 +908,17 @@ router.get("/:id", async (req, res) => {
                     full_name,
                     email,
                     phone,
-                    designation
+                    designation,
+                    department,
+                    date_of_joining,
+                    bank_name,
+                    bank_account_number,
+                    ifsc_code,
+                    pan_number,
+                    uan_number,
+                    esic_number,
+                    gender,
+                    pay_rate
                 `)
                 .eq(
                     "id",
@@ -912,6 +957,10 @@ router.get("/:id", async (req, res) => {
                 attendance
             );
 
+        // --------------------------------------------------------
+        // ADD CLIENT DETAILS
+        // --------------------------------------------------------
+
         formatted.client_name =
             client?.company_name ||
             "N/A";
@@ -919,6 +968,10 @@ router.get("/:id", async (req, res) => {
         formatted.company_name =
             client?.company_name ||
             "N/A";
+
+        // --------------------------------------------------------
+        // ADD EMPLOYEE DETAILS
+        // --------------------------------------------------------
 
         formatted.employee_email =
             candidate?.email ||
@@ -932,19 +985,90 @@ router.get("/:id", async (req, res) => {
             candidate?.designation ||
             "";
 
+        formatted.department =
+            candidate?.department ||
+            "";
+
+        formatted.joining_date =
+            payroll.joining_date ||
+            candidate?.date_of_joining ||
+            null;
+
+        formatted.pan_number =
+            candidate?.pan_number ||
+            "";
+
+        formatted.uan_number =
+            candidate?.uan_number ||
+            "";
+
+        formatted.esic_number =
+            candidate?.esic_number ||
+            "";
+
+        formatted.gender =
+            candidate?.gender ||
+            "";
+
+        // --------------------------------------------------------
+        // BANK DETAILS
+        // --------------------------------------------------------
+
+        formatted.bank_name =
+            payroll.bank_name ||
+            candidate?.bank_name ||
+            "";
+
+        formatted.account_number =
+            payroll.account_number ||
+            candidate?.bank_account_number ||
+            "";
+
+        formatted.ifsc_code =
+            payroll.ifsc_code ||
+            candidate?.ifsc_code ||
+            "";
+
+        // --------------------------------------------------------
+        // DEPLOYMENT DETAILS
+        // --------------------------------------------------------
+
         formatted.project_name =
             deployment?.project_name ||
             null;
 
         formatted.pay_rate =
             Number(
-                deployment?.pay_rate || 0
+                deployment?.pay_rate ||
+                candidate?.pay_rate ||
+                0
             );
 
         formatted.bill_rate =
             Number(
-                deployment?.bill_rate || 0
+                deployment?.bill_rate ||
+                0
             );
+
+        formatted.billing_model =
+            deployment?.billing_model ||
+            null;
+
+        formatted.deployment_status =
+            deployment?.status ||
+            null;
+
+        formatted.start_date =
+            deployment?.start_date ||
+            null;
+
+        formatted.end_date =
+            deployment?.end_date ||
+            null;
+
+        // --------------------------------------------------------
+        // RESPONSE
+        // --------------------------------------------------------
 
         return res.json({
 
@@ -969,6 +1093,7 @@ router.get("/:id", async (req, res) => {
         );
     }
 });
+
 // ============================================================
 // GENERATE PAYROLL
 //
@@ -2198,13 +2323,6 @@ router.post("/generate", async (req, res) => {
                     ifsc_code:
                         candidate.ifsc_code ||
                         null,
-
-                    // ------------------------------------------------
-                    // PAYROLL STATUS
-                    // ------------------------------------------------
-
-                    status:
-                        "Pending",
 
                     // ------------------------------------------------
                     // RELATIONSHIPS
@@ -5850,347 +5968,390 @@ router.post("/", async (req, res) => {
         );
     }
 });
+
+
 // ============================================================
-// EDIT PAYROLL DETAILS
-// PATCH /api/payroll/:id/details
-// Allowed for Pending and Approved payrolls
+// GET SINGLE PAYROLL
+// GET /api/payroll/:id
 // ============================================================
 
-router.patch("/:id/details", async (req, res) => {
-  try {
-    const id = getId(req.params.id);
-
-    if (!id) {
-      return sendError(res, 400, "Invalid payroll ID");
-    }
-
-    const {
-      basic_salary,
-      allowances,
-      overtime,
-      bonus,
-
-      pf,
-      esic,
-      tax,
-      professional_tax,
-      lop,
-
-      employer_pf,
-      employer_esic,
-
-      bank_name,
-      account_number,
-      ifsc_code,
-    } = req.body;
-
-    // ----------------------------------------------------------
-    // GET EXISTING PAYROLL
-    // ----------------------------------------------------------
-
-    const { data: payroll, error: payrollError } = await supabase
-      .from("third_party_payroll")
-      .select(`
-        id,
-        employee_name,
-        salary_month,
-        basic_salary,
-        allowances,
-        overtime,
-        bonus,
-        pf,
-        esic,
-        tax,
-        professional_tax,
-        lop,
-        employer_pf,
-        employer_esic,
-        bank_name,
-        account_number,
-        ifsc_code,
-        status,
-        employee_ref_id,
-        attendance_id,
-        deployment_id,
-        client_id
-      `)
-      .eq("id", id)
-      .maybeSingle();
-
-    if (payrollError) {
-      console.error("GET payroll for edit error:", payrollError);
-
-      return sendError(
-        res,
-        500,
-        payrollError.message || "Failed to fetch payroll"
-      );
-    }
-
-    if (!payroll) {
-      return sendError(res, 404, "Payroll record not found");
-    }
-
-    // ----------------------------------------------------------
-    // LOCKED PAYROLL CANNOT BE EDITED
-    // ----------------------------------------------------------
-
-    if (payroll.status === "Locked") {
-      return sendError(
-        res,
-        400,
-        "Locked payroll cannot be edited"
-      );
-    }
-
-    if (
-      payroll.status !== "Pending" &&
-      payroll.status !== "Approved"
-    ) {
-      return sendError(
-        res,
-        400,
-        `Payroll with status "${payroll.status}" cannot be edited`
-      );
-    }
-
-    // ----------------------------------------------------------
-    // NUMBER HELPER
-    // ----------------------------------------------------------
-
-    const getNumber = (value, fallback = 0) => {
-      if (value === undefined || value === null || value === "") {
-        return Number(fallback) || 0;
-      }
-
-      const number = Number(value);
-
-      if (!Number.isFinite(number) || number < 0) {
-        throw new Error("Salary and deduction values must be valid numbers");
-      }
-
-      return number;
-    };
-
-    // ----------------------------------------------------------
-    // UPDATED VALUES
-    // ----------------------------------------------------------
-
-    const basicSalary = getNumber(
-      basic_salary,
-      payroll.basic_salary
-    );
-
-    const allowancesValue = getNumber(
-      allowances,
-      payroll.allowances
-    );
-
-    const overtimeValue = getNumber(
-      overtime,
-      payroll.overtime
-    );
-
-    const bonusValue = getNumber(
-      bonus,
-      payroll.bonus
-    );
-
-    const pfValue = getNumber(
-      pf,
-      payroll.pf
-    );
-
-    const esicValue = getNumber(
-      esic,
-      payroll.esic
-    );
-
-    const taxValue = getNumber(
-      tax,
-      payroll.tax
-    );
-
-    const professionalTaxValue = getNumber(
-      professional_tax,
-      payroll.professional_tax
-    );
-
-    const lopValue = getNumber(
-      lop,
-      payroll.lop
-    );
-
-    const employerPfValue = getNumber(
-      employer_pf,
-      payroll.employer_pf
-    );
-
-    const employerEsicValue = getNumber(
-      employer_esic,
-      payroll.employer_esic
-    );
-
-    // ----------------------------------------------------------
-    // RECALCULATE PAYROLL
-    // ----------------------------------------------------------
-
-    const grossSalary =
-      basicSalary +
-      allowancesValue +
-      overtimeValue +
-      bonusValue;
-
-    const totalDeductions =
-      pfValue +
-      esicValue +
-      taxValue +
-      professionalTaxValue +
-      lopValue;
-
-    const netSalary = Math.max(
-      0,
-      grossSalary - totalDeductions
-    );
-
-    const totalEmployerContribution =
-      employerPfValue +
-      employerEsicValue;
-
-    const totalEmployerCost =
-      grossSalary +
-      totalEmployerContribution;
-
-    // ----------------------------------------------------------
-    // BANK DETAILS
-    // ----------------------------------------------------------
-
-    const bankName =
-      bank_name !== undefined
-        ? String(bank_name).trim() || null
-        : payroll.bank_name;
-
-    const accountNumber =
-      account_number !== undefined
-        ? String(account_number).trim() || null
-        : payroll.account_number;
-
-    const ifscCode =
-      ifsc_code !== undefined
-        ? String(ifsc_code).trim().toUpperCase() || null
-        : payroll.ifsc_code;
-
-    // ----------------------------------------------------------
-    // UPDATE PAYROLL
-    // ----------------------------------------------------------
-
-    const updateData = {
-      basic_salary: basicSalary,
-      allowances: allowancesValue,
-      overtime: overtimeValue,
-      bonus: bonusValue,
-
-      gross_salary: grossSalary,
-
-      pf: pfValue,
-      esic: esicValue,
-      tax: taxValue,
-      professional_tax: professionalTaxValue,
-      lop: lopValue,
-
-      total_deductions: totalDeductions,
-      net_salary: netSalary,
-
-      employer_pf: employerPfValue,
-      employer_esic: employerEsicValue,
-
-      total_employer_contribution:
-        totalEmployerContribution,
-
-      total_employer_cost:
-        totalEmployerCost,
-
-      bank_name: bankName,
-      account_number: accountNumber,
-      ifsc_code: ifscCode,
-    };
-
-    const { data: updatedPayroll, error: updateError } =
-      await supabase
-        .from("third_party_payroll")
-        .update(updateData)
-        .eq("id", id)
-        .select()
-        .single();
-
-    if (updateError) {
-      console.error(
-        "UPDATE payroll details error:",
-        updateError
-      );
-
-      return sendError(
-        res,
-        500,
-        updateError.message || "Failed to update payroll"
-      );
-    }
-
-    // ----------------------------------------------------------
-    // UPDATE DEDUCTION RECORD IF IT EXISTS
-    // ----------------------------------------------------------
+router.get("/:id", async (req, res) => {
 
     try {
-      const { data: deduction } = await supabase
-        .from("deductions")
-        .select("id, lop_days")
-        .eq("payroll_id", id)
-        .maybeSingle();
 
-      if (deduction) {
-        await supabase
-          .from("deductions")
-          .update({
-            employee_pf: pfValue,
-            employee_esic: esicValue,
-            tax_tds: taxValue,
-            professional_tax: professionalTaxValue,
-            lop_deduction: lopValue,
-          })
-          .eq("id", deduction.id);
-      }
-    } catch (deductionError) {
-      console.error(
-        "Deduction sync error:",
-        deductionError
-      );
+        const id =
+            getId(
+                req.params.id
+            );
 
-      // Payroll was already updated, so don't fail the
-      // main request because the optional deduction sync failed.
+        if (!id) {
+            return sendError(
+                res,
+                400,
+                "Invalid payroll ID"
+            );
+        }
+
+        // --------------------------------------------------------
+        // PAYROLL
+        // --------------------------------------------------------
+
+        const {
+            data: payroll,
+            error
+        } = await supabase
+            .from("third_party_payroll")
+            .select(`
+                id,
+                employee_name,
+                salary_month,
+                basic_salary,
+                allowances,
+                overtime,
+                bonus,
+                gross_salary,
+                pf,
+                esic,
+                tax,
+                lop,
+                net_salary,
+                bank_name,
+                account_number,
+                ifsc_code,
+                created_at,
+                employee_ref_id,
+                attendance_id,
+                deployment_id,
+                payroll_batch_id,
+                client_id,
+                professional_tax,
+                total_deductions,
+                employer_pf,
+                employer_esic,
+                total_employer_contribution,
+                total_employer_cost,
+                hra,
+                conveyance,
+                medical_allowance,
+                other_allowance,
+                gratuity,
+                joining_date,
+                pran,
+                pf_wages
+            `)
+            .eq(
+                "id",
+                id
+            )
+            .maybeSingle();
+
+        if (error) {
+            throw error;
+        }
+
+        if (!payroll) {
+            return sendError(
+                res,
+                404,
+                "Payroll record not found"
+            );
+        }
+
+        // --------------------------------------------------------
+        // ATTENDANCE
+        // --------------------------------------------------------
+
+        const {
+            attendance
+        } =
+            await getAttendanceForPayroll(
+                payroll
+            );
+
+        // --------------------------------------------------------
+        // DEPLOYMENT
+        // --------------------------------------------------------
+
+        let deployment = null;
+
+        if (
+            payroll.deployment_id
+        ) {
+
+            const {
+                data,
+                error
+            } = await supabase
+                .from("deployments")
+                .select(`
+                    id,
+                    candidate_id,
+                    client_id,
+                    pay_rate,
+                    bill_rate,
+                    project_name,
+                    billing_model,
+                    start_date,
+                    end_date,
+                    status
+                `)
+                .eq(
+                    "id",
+                    payroll.deployment_id
+                )
+                .maybeSingle();
+
+            if (error) {
+                throw error;
+            }
+
+            deployment = data;
+        }
+
+        // --------------------------------------------------------
+        // CLIENT
+        // --------------------------------------------------------
+
+        let client = null;
+
+        const clientId =
+            payroll.client_id ??
+            deployment?.client_id ??
+            null;
+
+        if (clientId) {
+
+            const {
+                data,
+                error
+            } = await supabase
+                .from("clients")
+                .select(`
+                    id,
+                    company_name
+                `)
+                .eq(
+                    "id",
+                    clientId
+                )
+                .maybeSingle();
+
+            if (error) {
+                throw error;
+            }
+
+            client = data;
+        }
+
+        // --------------------------------------------------------
+        // CANDIDATE
+        // --------------------------------------------------------
+
+        let candidate = null;
+
+        const employeeId =
+            payroll.employee_ref_id ??
+            deployment?.candidate_id ??
+            null;
+
+        if (employeeId) {
+
+            const {
+                data,
+                error
+            } = await supabase
+                .from("candidates")
+                .select(`
+                    id,
+                    full_name,
+                    email,
+                    phone,
+                    designation,
+                    department,
+                    date_of_joining,
+                    bank_name,
+                    bank_account_number,
+                    ifsc_code,
+                    pan_number,
+                    uan_number,
+                    esic_number,
+                    gender,
+                    pay_rate
+                `)
+                .eq(
+                    "id",
+                    employeeId
+                )
+                .maybeSingle();
+
+            if (error) {
+                throw error;
+            }
+
+            candidate = data;
+        }
+
+        // --------------------------------------------------------
+        // FORMAT
+        // --------------------------------------------------------
+
+        const formatted =
+            formatPayroll(
+                {
+                    ...payroll,
+
+                    client_id:
+                        clientId,
+
+                    employee_ref_id:
+                        employeeId,
+
+                    employee_name:
+                        payroll.employee_name ||
+                        candidate?.full_name ||
+                        attendance?.employee_name ||
+                        "N/A"
+                },
+                attendance
+            );
+
+        // --------------------------------------------------------
+        // ADD CLIENT DETAILS
+        // --------------------------------------------------------
+
+        formatted.client_name =
+            client?.company_name ||
+            "N/A";
+
+        formatted.company_name =
+            client?.company_name ||
+            "N/A";
+
+        // --------------------------------------------------------
+        // ADD EMPLOYEE DETAILS
+        // --------------------------------------------------------
+
+        formatted.employee_email =
+            candidate?.email ||
+            "";
+
+        formatted.phone =
+            candidate?.phone ||
+            "";
+
+        formatted.designation =
+            candidate?.designation ||
+            "";
+
+        formatted.department =
+            candidate?.department ||
+            "";
+
+        formatted.joining_date =
+            payroll.joining_date ||
+            candidate?.date_of_joining ||
+            null;
+
+        formatted.pan_number =
+            candidate?.pan_number ||
+            "";
+
+        formatted.uan_number =
+            candidate?.uan_number ||
+            "";
+
+        formatted.esic_number =
+            candidate?.esic_number ||
+            "";
+
+        formatted.gender =
+            candidate?.gender ||
+            "";
+
+        // --------------------------------------------------------
+        // BANK DETAILS
+        // --------------------------------------------------------
+
+        formatted.bank_name =
+            payroll.bank_name ||
+            candidate?.bank_name ||
+            "";
+
+        formatted.account_number =
+            payroll.account_number ||
+            candidate?.bank_account_number ||
+            "";
+
+        formatted.ifsc_code =
+            payroll.ifsc_code ||
+            candidate?.ifsc_code ||
+            "";
+
+        // --------------------------------------------------------
+        // DEPLOYMENT DETAILS
+        // --------------------------------------------------------
+
+        formatted.project_name =
+            deployment?.project_name ||
+            null;
+
+        formatted.pay_rate =
+            Number(
+                deployment?.pay_rate ||
+                candidate?.pay_rate ||
+                0
+            );
+
+        formatted.bill_rate =
+            Number(
+                deployment?.bill_rate ||
+                0
+            );
+
+        formatted.billing_model =
+            deployment?.billing_model ||
+            null;
+
+        formatted.deployment_status =
+            deployment?.status ||
+            null;
+
+        formatted.start_date =
+            deployment?.start_date ||
+            null;
+
+        formatted.end_date =
+            deployment?.end_date ||
+            null;
+
+        // --------------------------------------------------------
+        // RESPONSE
+        // --------------------------------------------------------
+
+        return res.json({
+
+            success: true,
+
+            data:
+                formatted
+        });
+
+    } catch (error) {
+
+        console.error(
+            "GET /api/payroll/:id:",
+            error
+        );
+
+        return sendError(
+            res,
+            500,
+            "Failed to fetch payroll",
+            error.message
+        );
     }
-
-    // ----------------------------------------------------------
-    // RESPONSE
-    // ----------------------------------------------------------
-
-    return res.json({
-      success: true,
-      message: "Payroll details updated successfully",
-      data: updatedPayroll,
-    });
-  } catch (error) {
-    console.error(
-      "PATCH /payroll/:id/details error:",
-      error
-    );
-
-    return sendError(
-      res,
-      500,
-      error.message || "Failed to update payroll details"
-    );
-  }
 });
+
 // ============================================================
 // EXPORT
 // ============================================================
