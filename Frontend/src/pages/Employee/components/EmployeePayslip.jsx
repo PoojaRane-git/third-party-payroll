@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import EmployeeLayout from "./EmployeeLayout";
-import PaySlip from "./PaySlip";
-import api from "../../../services/api";
+import PaySlip from "../../admin/PaySlip";
+import api from "../../services/api";
 
 const EmployeeSlip = () => {
     const [loading, setLoading] = useState(true);
