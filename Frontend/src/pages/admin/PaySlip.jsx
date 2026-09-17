@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { generatePayslipPDF } from "../../../../../backend/routes/employee/Payslippdf"; // adjust this relative path to match your project structure
+import { generatePayslipPDF } from "../utils/Payslippdf"; // adjust this relative path to match your project structure
 
 // Utility function to get month name
 const getMonthName = (monthIndex) => {
