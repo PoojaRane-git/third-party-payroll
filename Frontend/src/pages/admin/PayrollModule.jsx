@@ -2989,9 +2989,7 @@ const handleCreatePayroll =
 
                                   {/* VIEW SLIP */}
 
-                                  {ELIGIBLE_PAYSLIP_STATUSES.includes(
-                                    status
-                                  ) && (
+                                  {(
                                       <button
                                         onClick={() => {
                                           setSelectedSlip(
