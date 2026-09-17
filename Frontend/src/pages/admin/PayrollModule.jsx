@@ -168,37 +168,67 @@ const getNumericValue = (value) => {
     ? number
     : 0;
 };
+
 const EMPTY_PAYROLL_FORM = {
+  // Employee / Payroll references
+  employee_ref_id: null,
+  deployment_id: null,
+  attendance_id: null,
+  client_id: null,
+  employee_name: "",
+  salary_month: "",
+
+  // Earnings
   basic_salary: 0,
   allowances: 0,
-
   hra: 0,
   conveyance: 0,
   medical_allowance: 0,
   other_allowance: 0,
-
   overtime: 0,
   bonus: 0,
 
+  // Employee deductions
   pf: 0,
   esic: 0,
   tax: 0,
   professional_tax: 0,
   lop: 0,
 
+  // Employer contributions
   employer_pf: 0,
   employer_esic: 0,
   gratuity: 0,
 
+  // PF
   pf_wages: 0,
 
+  // Employer totals
   total_employer_contribution: 0,
   total_employer_cost: 0,
 
+  // Bank
   bank_name: "",
   account_number: "",
   ifsc_code: "",
 };
+
+console.log("VALUES BEING SENT TO FORM:", {
+  basic_salary: earnBasicSalary,
+  hra: earnHRA,
+  conveyance: earnConveyance,
+  medical_allowance: earnMedicalAllowance,
+  other_allowance: earnOtherAllowance,
+  overtime,
+  bonus,
+  pf,
+  esic,
+  professional_tax: professionalTax,
+  employer_pf: employerPf,
+  employer_esic: employerEsic,
+  gratuity,
+  pf_wages: pfWages,
+});
 
 // =====================================================
 // COMPONENT
@@ -1128,6 +1158,14 @@ const handleSelectEmployee = async (deploymentId) => {
 
     const info = json?.data;
 
+    if (!info.attendance) {
+    alert(
+        `No attendance record found for ${info.employee_name || "this employee"} for ${salaryMonth}.\n\nPayroll cannot be created without attendance.`
+    );
+
+    return;
+}
+
     if (!info) {
       throw new Error(
         "Employee information was not returned."
@@ -1300,53 +1338,55 @@ console.log("PT:", professionalTax);
 console.log("Gratuity:", gratuity);
 console.log("========================================");
 
-   setCreateForm({
-  basic_salary: earnBasicSalary,
-  hra: earnHRA,
-  conveyance: earnConveyance,
-  medical_allowance: earnMedicalAllowance,
-  other_allowance: earnOtherAllowance,
+ setCreateForm(prev => ({
+    ...prev,
 
-  allowances:
-    earnHRA +
-    earnConveyance +
-    earnMedicalAllowance +
-    earnOtherAllowance,
+    basic_salary: earnBasicSalary,
+    hra: earnHRA,
+    conveyance: earnConveyance,
+    medical_allowance: earnMedicalAllowance,
+    other_allowance: earnOtherAllowance,
 
-  overtime: overtime,
-  bonus: bonus,
+    allowances:
+        earnHRA +
+        earnConveyance +
+        earnMedicalAllowance +
+        earnOtherAllowance,
 
-  pf: pf,
-  esic: esic,
-  tax: tax,
-  professional_tax: professionalTax,
-  lop: lop,
+    overtime: overtime,
+    bonus: bonus,
 
-  employer_pf: employerPf,
-  employer_esic: employerEsic,
-  gratuity: gratuity,
+    pf: pf,
+    esic: esic,
+    tax: tax,
+    professional_tax: professionalTax,
+    lop: lop,
 
-  pf_wages: pfWages,
+    employer_pf: employerPf,
+    employer_esic: employerEsic,
+    gratuity: gratuity,
 
-  total_employer_contribution:
-    totalEmployerContribution,
+    pf_wages: pfWages,
 
-  total_employer_cost:
-    totalEmployerCost,
+    total_employer_contribution:
+        totalEmployerContribution,
 
-  bank_name:
-    info?.bank_name ?? "",
+    total_employer_cost:
+        totalEmployerCost,
 
-  account_number:
-    info?.account_number ??
-    info?.bank_account_number ??
-    "",
+    bank_name:
+        info?.bank_name ?? "",
 
-  ifsc_code:
-    info?.ifsc_code ??
-    info?.bank_ifsc ??
-    "",
-});
+    account_number:
+        info?.account_number ??
+        info?.bank_account_number ??
+        "",
+
+    ifsc_code:
+        info?.ifsc_code ??
+        info?.bank_ifsc ??
+        "",
+}));
 
     // =================================================
     // EXISTING PAYROLL
@@ -1402,6 +1442,19 @@ const handleCreateFieldChange =
 
 const handleCreatePayroll =
   async () => {
+
+
+    if (!createForm.employee_ref_id || !createForm.deployment_id) {
+    alert("Please select an employee and deployment.");
+    return;
+}
+
+if (!createForm.attendance_id) {
+    alert(
+        `No attendance record found for ${createForm.employee_name || "this employee"} for ${salaryMonth}.\n\nPayroll cannot be created.`
+    );
+    return;
+}
     if (
       !selectedDeploymentId ||
       !prefillInfo
