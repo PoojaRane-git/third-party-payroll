@@ -4902,6 +4902,10 @@ router.post("/", async (req, res) => {
 
         // ========================================================
         // DUPLICATE CHECK
+        //
+        // IMPORTANT:
+        // third_party_payroll.status was deleted.
+        // Only check the payroll ID.
         // ========================================================
 
         const {
@@ -4910,8 +4914,7 @@ router.post("/", async (req, res) => {
         } = await supabase
             .from("third_party_payroll")
             .select(`
-                id,
-                status
+                id
             `)
             .eq(
                 "employee_ref_id",
@@ -4942,10 +4945,7 @@ router.post("/", async (req, res) => {
                 "Payroll already exists for this employee, deployment and month",
                 {
                     existing_payroll_id:
-                        existingRows[0].id,
-
-                    existing_status:
-                        existingRows[0].status
+                        existingRows[0].id
                 }
             );
         }
@@ -4953,8 +4953,6 @@ router.post("/", async (req, res) => {
 
         // ========================================================
         // ATTENDANCE
-        //
-        // TEMPORARY TESTING SOURCE
         //
         // Attendance does NOT determine Basic Salary.
         //
@@ -5158,8 +5156,6 @@ router.post("/", async (req, res) => {
 
         // ========================================================
         // TOTAL ALLOWANCES
-        //
-        // Stored in the old/general allowances column.
         // ========================================================
 
         const allowances =
@@ -5436,6 +5432,10 @@ router.post("/", async (req, res) => {
 
         // ========================================================
         // INSERT PAYROLL
+        //
+        // IMPORTANT:
+        // No status field because it was deleted
+        // from third_party_payroll.
         // ========================================================
 
         const {
@@ -5720,14 +5720,6 @@ router.post("/", async (req, res) => {
 
 
                 // ------------------------------------------------
-                // STATUS
-                // ------------------------------------------------
-
-                status:
-                    "Pending",
-
-
-                // ------------------------------------------------
                 // RELATIONSHIPS
                 // ------------------------------------------------
 
@@ -5968,7 +5960,6 @@ router.post("/", async (req, res) => {
         );
     }
 });
-
 
 // ============================================================
 // GET SINGLE PAYROLL
