@@ -5948,7 +5948,6 @@ router.get("/lookup/prefill", async (req, res) => {
 // Admin picks an employee (client_id/deployment_id/employee_id are
 // auto-resolved from the deployment); admin types in the money fields.
 // ============================================================
-
 router.post("/", async (req, res) => {
     try {
         const clientId = getId(req.body.client_id);
@@ -6004,7 +6003,8 @@ router.post("/", async (req, res) => {
 
         if (existingRows && existingRows.length > 0) {
             return sendError(
-                res, 409,
+                res,
+                409,
                 "A payroll record already exists for this employee, deployment, and month",
                 { existing_payroll_id: existingRows[0].id }
             );
@@ -6024,7 +6024,7 @@ router.post("/", async (req, res) => {
         if (!candidate) return sendError(res, 404, "Candidate not found");
 
         // --------------------------------------------------------
-        // NUMERIC FIELDS (admin-entered)
+        // NUMERIC FIELDS
         // --------------------------------------------------------
 
         const numField = (name, required = false) => {
@@ -6044,29 +6044,77 @@ router.post("/", async (req, res) => {
             return num;
         };
 
-        let basicSalary, allowances, overtime, bonus,
-            pf, esic, tax, professionalTax, lop,
-            employerPf, employerEsic;
+        let basicSalary,
+            hra,
+            conveyance,
+            medicalAllowance,
+            otherAllowance,
+            allowances,
+            overtime,
+            bonus,
+            pf,
+            esic,
+            tax,
+            professionalTax,
+            lop,
+            gratuity,
+            pfWages,
+            employerPf,
+            employerEsic;
 
         try {
             basicSalary = numField("basic_salary", true);
+
+            // Separate salary components
+            hra = numField("hra");
+            conveyance = numField("conveyance");
+            medicalAllowance = numField("medical_allowance");
+            otherAllowance = numField("other_allowance");
+
+            // Keep old allowances field for backward compatibility
             allowances = numField("allowances");
+
             overtime = numField("overtime");
             bonus = numField("bonus");
+
+            // Employee deductions
             pf = numField("pf");
             esic = numField("esic");
             tax = numField("tax");
             professionalTax = numField("professional_tax");
             lop = numField("lop");
+
+            // Employer / other components
+            gratuity = numField("gratuity");
             employerPf = numField("employer_pf");
             employerEsic = numField("employer_esic");
         } catch (err) {
             return sendError(res, 400, err.message);
         }
 
-        const bankName = req.body.bank_name ? String(req.body.bank_name).trim() : null;
-        const accountNumber = req.body.account_number ? String(req.body.account_number).trim() : null;
-        const ifscCode = req.body.ifsc_code ? String(req.body.ifsc_code).trim() : null;
+        // --------------------------------------------------------
+        // OTHER EMPLOYEE DETAILS
+        // --------------------------------------------------------
+
+        const bankName = req.body.bank_name
+            ? String(req.body.bank_name).trim()
+            : null;
+
+        const accountNumber = req.body.account_number
+            ? String(req.body.account_number).trim()
+            : null;
+
+        const ifscCode = req.body.ifsc_code
+            ? String(req.body.ifsc_code).trim()
+            : null;
+
+        const joiningDate = req.body.joining_date
+            ? String(req.body.joining_date).trim()
+            : null;
+
+        const pran = req.body.pran
+            ? String(req.body.pran).trim()
+            : null;
 
         const attendanceId = req.body.attendance_id
             ? getId(req.body.attendance_id)
@@ -6076,15 +6124,70 @@ router.post("/", async (req, res) => {
         // CALCULATED TOTALS
         // --------------------------------------------------------
 
-        const grossSalary = basicSalary + allowances + overtime + bonus;
+        /*
+         * Gross Salary
+         *
+         * Basic Salary
+         * + HRA
+         * + Conveyance
+         * + Medical Allowance
+         * + Other Allowance
+         * + Overtime
+         * + Bonus
+         *
+         * `allowances` is kept for backward compatibility.
+         */
 
-        const totalDeductions = pf + esic + tax + professionalTax + lop;
+        const totalSeparateAllowances =
+            hra +
+            conveyance +
+            medicalAllowance +
+            otherAllowance;
 
-        const netSalary = Math.max(0, grossSalary - totalDeductions);
+        const grossSalary =
+            basicSalary +
+            totalSeparateAllowances +
+            allowances +
+            overtime +
+            bonus;
 
-        const totalEmployerContribution = employerPf + employerEsic;
+        /*
+         * PF Wages
+         *
+         * As requested:
+         * Gross Salary - HRA
+         */
 
-        const totalEmployerCost = grossSalary + totalEmployerContribution;
+        pfWages = Math.max(0, grossSalary - hra);
+
+        // --------------------------------------------------------
+        // DEDUCTIONS
+        // --------------------------------------------------------
+
+        const totalDeductions =
+            pf +
+            esic +
+            tax +
+            professionalTax +
+            lop;
+
+        const netSalary = Math.max(
+            0,
+            grossSalary - totalDeductions
+        );
+
+        // --------------------------------------------------------
+        // EMPLOYER CONTRIBUTION
+        // --------------------------------------------------------
+
+        const totalEmployerContribution =
+            employerPf +
+            employerEsic;
+
+        const totalEmployerCost =
+            grossSalary +
+            totalEmployerContribution +
+            gratuity;
 
         // --------------------------------------------------------
         // INSERT
@@ -6096,31 +6199,137 @@ router.post("/", async (req, res) => {
                 employee_name: candidate.full_name,
                 salary_month: salaryMonth,
 
+                // ------------------------------------------------
+                // EARNINGS
+                // ------------------------------------------------
+
                 basic_salary: Number(basicSalary.toFixed(2)),
-                allowances: Number(allowances.toFixed(2)),
-                overtime: Number(overtime.toFixed(2)),
-                bonus: Number(bonus.toFixed(2)),
-                gross_salary: Number(grossSalary.toFixed(2)),
 
-                pf: Number(pf.toFixed(2)),
-                esic: Number(esic.toFixed(2)),
-                tax: Number(tax.toFixed(2)),
-                professional_tax: Number(professionalTax.toFixed(2)),
-                lop: Number(lop.toFixed(2)),
-                total_deductions: Number(totalDeductions.toFixed(2)),
+                hra: Number(hra.toFixed(2)),
 
-                net_salary: Number(netSalary.toFixed(2)),
+                conveyance: Number(conveyance.toFixed(2)),
 
-                employer_pf: Number(employerPf.toFixed(2)),
-                employer_esic: Number(employerEsic.toFixed(2)),
-                total_employer_contribution: Number(totalEmployerContribution.toFixed(2)),
-                total_employer_cost: Number(totalEmployerCost.toFixed(2)),
+                medical_allowance: Number(
+                    medicalAllowance.toFixed(2)
+                ),
+
+                other_allowance: Number(
+                    otherAllowance.toFixed(2)
+                ),
+
+                // Existing field kept
+                allowances: Number(
+                    allowances.toFixed(2)
+                ),
+
+                overtime: Number(
+                    overtime.toFixed(2)
+                ),
+
+                bonus: Number(
+                    bonus.toFixed(2)
+                ),
+
+                gross_salary: Number(
+                    grossSalary.toFixed(2)
+                ),
+
+                // ------------------------------------------------
+                // PF WAGES
+                // ------------------------------------------------
+
+                pf_wages: Number(
+                    pfWages.toFixed(2)
+                ),
+
+                // ------------------------------------------------
+                // DEDUCTIONS
+                // ------------------------------------------------
+
+                pf: Number(
+                    pf.toFixed(2)
+                ),
+
+                esic: Number(
+                    esic.toFixed(2)
+                ),
+
+                tax: Number(
+                    tax.toFixed(2)
+                ),
+
+                professional_tax: Number(
+                    professionalTax.toFixed(2)
+                ),
+
+                lop: Number(
+                    lop.toFixed(2)
+                ),
+
+                total_deductions: Number(
+                    totalDeductions.toFixed(2)
+                ),
+
+                // ------------------------------------------------
+                // NET SALARY
+                // ------------------------------------------------
+
+                net_salary: Number(
+                    netSalary.toFixed(2)
+                ),
+
+                // ------------------------------------------------
+                // GRATUITY
+                // ------------------------------------------------
+
+                gratuity: Number(
+                    gratuity.toFixed(2)
+                ),
+
+                // ------------------------------------------------
+                // EMPLOYER CONTRIBUTION
+                // ------------------------------------------------
+
+                employer_pf: Number(
+                    employerPf.toFixed(2)
+                ),
+
+                employer_esic: Number(
+                    employerEsic.toFixed(2)
+                ),
+
+                total_employer_contribution: Number(
+                    totalEmployerContribution.toFixed(2)
+                ),
+
+                total_employer_cost: Number(
+                    totalEmployerCost.toFixed(2)
+                ),
+
+                // ------------------------------------------------
+                // BANK DETAILS
+                // ------------------------------------------------
 
                 bank_name: bankName,
                 account_number: accountNumber,
                 ifsc_code: ifscCode,
 
+                // ------------------------------------------------
+                // EMPLOYEE DETAILS
+                // ------------------------------------------------
+
+                joining_date: joiningDate,
+                pran: pran,
+
+                // ------------------------------------------------
+                // STATUS
+                // ------------------------------------------------
+
                 status: "Pending",
+
+                // ------------------------------------------------
+                // REFERENCES
+                // ------------------------------------------------
 
                 employee_ref_id: employeeId,
                 attendance_id: attendanceId,
@@ -6141,10 +6350,15 @@ router.post("/", async (req, res) => {
 
     } catch (error) {
         console.error("POST /api/payroll:", error);
-        return sendError(res, 500, "Failed to create payroll record", error.message);
+
+        return sendError(
+            res,
+            500,
+            "Failed to create payroll record",
+            error.message
+        );
     }
 });
-
 
 // ============================================================
 // EDIT PAYROLL
