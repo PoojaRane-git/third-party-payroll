@@ -30,12 +30,12 @@ const COMPANY_EMAIL =
 
 const STAMP_IMAGE = path.join(
     __dirname,
-    "../assets/talent-corner-stamp.png"
+    "../assets/talent-corner-stamp.jpeg"
 );
 
 const SIGNATURE_IMAGE = path.join(
     __dirname,
-    "../assets/talent-corner-signature.png"
+    "../assets/talent-corner-signature.jpeg"
 );
 
 // ============================================================
