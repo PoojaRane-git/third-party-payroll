@@ -101,6 +101,70 @@ const getBillingMonth = (record) =>
   );
 
 // =====================================================
+// NORMALIZE BILLING MONTH
+// =====================================================
+
+const normalizeMonth = (value) => {
+  if (!value || value === "N/A") {
+    return "";
+  }
+
+  const stringValue = String(value);
+
+  // YYYY-MM
+  if (/^\d{4}-\d{2}$/.test(stringValue)) {
+    return stringValue;
+  }
+
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(stringValue)) {
+    return stringValue.substring(0, 7);
+  }
+
+  // MM-YYYY
+  if (/^\d{2}-\d{4}$/.test(stringValue)) {
+    const [month, year] =
+      stringValue.split("-");
+
+    return `${year}-${month}`;
+  }
+
+  return stringValue;
+};
+
+// =====================================================
+// DISPLAY MONTH
+// =====================================================
+
+const formatMonth = (value) => {
+  if (!value) return "";
+
+  const normalized =
+    normalizeMonth(value);
+
+  if (!/^\d{4}-\d{2}$/.test(normalized)) {
+    return value;
+  }
+
+  const [year, month] =
+    normalized.split("-");
+
+  const date = new Date(
+    Number(year),
+    Number(month) - 1,
+    1
+  );
+
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      month: "long",
+      year: "numeric",
+    }
+  );
+};
+
+// =====================================================
 // ATTENDANCE VALUES
 // =====================================================
 
@@ -238,11 +302,8 @@ function Attendance({
           ...new Set(
             records
               .map(getBillingMonth)
-              .filter(
-                (month) =>
-                  month &&
-                  month !== "N/A"
-              )
+              .map(normalizeMonth)
+              .filter(Boolean)
           ),
         ];
 
@@ -258,9 +319,13 @@ function Attendance({
           setMonthFilter((current) => {
             if (
               current &&
-              uniqueMonths.includes(current)
+              uniqueMonths.includes(
+                normalizeMonth(current)
+              )
             ) {
-              return current;
+              return normalizeMonth(
+                current
+              );
             }
 
             return sortedMonths[0];
@@ -316,11 +381,8 @@ function Attendance({
       ...new Set(
         attendanceRecords
           .map(getBillingMonth)
-          .filter(
-            (month) =>
-              month &&
-              month !== "N/A"
-          )
+          .map(normalizeMonth)
+          .filter(Boolean)
       ),
     ];
 
@@ -339,8 +401,12 @@ function Attendance({
       monthFilter
         ? attendanceRecords.filter(
             (record) =>
-              getBillingMonth(record) ===
-              monthFilter
+              normalizeMonth(
+                getBillingMonth(record)
+              ) ===
+              normalizeMonth(
+                monthFilter
+              )
           )
         : attendanceRecords;
 
@@ -377,7 +443,12 @@ function Attendance({
 
         const monthMatches =
           !monthFilter ||
-          recordMonth === monthFilter;
+          normalizeMonth(
+            recordMonth
+          ) ===
+            normalizeMonth(
+              monthFilter
+            );
 
         const clientMatches =
           clientFilter === "All" ||
@@ -513,7 +584,10 @@ function Attendance({
                 <CalendarDays className="h-4 w-4 text-slate-500" />
 
                 <span className="text-xs font-bold text-slate-700">
-                  Showing: {monthFilter}
+                  Showing:{" "}
+                  {formatMonth(
+                    monthFilter
+                  )}
                 </span>
 
               </div>
@@ -533,38 +607,22 @@ function Attendance({
 
               <CalendarDays className="h-4 w-4 text-slate-400" />
 
-              <select
-                value={monthFilter}
+              <input
+                type="month"
+                value={normalizeMonth(
+                  monthFilter
+                )}
                 onChange={(e) => {
                   setMonthFilter(
                     e.target.value
                   );
 
-                  setClientFilter("All");
+                  setClientFilter(
+                    "All"
+                  );
                 }}
-                className="text-xs font-semibold text-slate-700 bg-transparent outline-none min-w-[150px]"
-              >
-
-                {months.length === 0 ? (
-
-                  <option value="">
-                    No months
-                  </option>
-
-                ) : (
-
-                  months.map((month) => (
-                    <option
-                      key={month}
-                      value={month}
-                    >
-                      {month}
-                    </option>
-                  ))
-
-                )}
-
-              </select>
+                className="text-xs font-semibold text-slate-700 bg-transparent outline-none cursor-pointer"
+              />
 
             </div>
 
@@ -659,7 +717,11 @@ function Attendance({
             </p>
 
             <p className="text-xs text-slate-400 mt-1">
-              {monthFilter || "Selected month"}
+              {monthFilter
+                ? formatMonth(
+                    monthFilter
+                  )
+                : "Selected month"}
             </p>
 
           </div>
@@ -788,7 +850,9 @@ function Attendance({
 
                 <p className="text-xs text-slate-500 mt-1">
                   {monthFilter
-                    ? `Showing attendance for ${monthFilter}`
+                    ? `Showing attendance for ${formatMonth(
+                        monthFilter
+                      )}`
                     : "Select a billing month"}
                 </p>
 
@@ -873,8 +937,11 @@ function Attendance({
                       <p className="text-xs text-slate-400 mt-1">
                         No attendance summary is
                         available for{" "}
-                        {monthFilter ||
-                          "the selected month"}.
+                        {monthFilter
+                          ? formatMonth(
+                              monthFilter
+                            )
+                          : "the selected month"}.
                       </p>
 
                     </td>
@@ -1001,7 +1068,9 @@ function Attendance({
                           <td className="p-4">
 
                             <div className="text-sm font-semibold text-slate-700">
-                              {month}
+                              {formatMonth(
+                                month
+                              )}
                             </div>
 
                             {totalDays > 0 && (
