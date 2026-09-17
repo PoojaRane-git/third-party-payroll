@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 
 import api from "../../services/api";
 import EmployeeLayout from "./EmployeeLayout";
-import { generatePayslipPDF } from "../../../../../backend/utils/Payslippdf"; // adjust this relative path to match your project structure
+
 
 // =====================================================
 // COMPONENT
