@@ -2977,27 +2977,6 @@ router.post("/:id/email", async (req, res) => {
         }
 
         // ========================================================
-        // STATUS
-        // ========================================================
-
-        const payrollStatus = String(
-            payroll.status || ""
-        )
-            .trim()
-            .toLowerCase();
-
-        if (
-            payrollStatus !== "approved" &&
-            payrollStatus !== "locked"
-        ) {
-            return sendError(
-                res,
-                400,
-                "Payslip can be emailed only after payroll is Approved or Locked."
-            );
-        }
-
-        // ========================================================
         // EMPLOYEE ID
         // ========================================================
 
@@ -3215,8 +3194,8 @@ router.post("/:id/email", async (req, res) => {
         // ========================================================
 
         const salaryMonth =
-            payroll.salary_month ||
-            "2025-08";
+    payroll.salary_month ||
+    new Date().toISOString().slice(0, 7);
 
         // ========================================================
         // PREPARE DATA FOR SAME PAYSLIP PDF
