@@ -3892,7 +3892,6 @@ router.get("/lookup/prefill", async (req, res) => {
                 half_days,
                 lop_days,
                 payable_days
-                
             `)
             .eq(
                 "employee_id",
@@ -3920,6 +3919,10 @@ router.get("/lookup/prefill", async (req, res) => {
 
         // ========================================================
         // EXISTING PAYROLL CHECK
+        //
+        // IMPORTANT:
+        // third_party_payroll.status was deleted.
+        // Therefore DO NOT select or use status here.
         // ========================================================
 
         const {
@@ -3928,8 +3931,7 @@ router.get("/lookup/prefill", async (req, res) => {
         } = await supabase
             .from("third_party_payroll")
             .select(`
-                id,
-                status
+                id
             `)
             .eq(
                 "employee_ref_id",
@@ -3999,12 +4001,11 @@ router.get("/lookup/prefill", async (req, res) => {
             attendance?.overtime_hours || 0
         );
 
-
         // ========================================================
         // PAYABLE DAYS
         //
         // Use stored payable_days when available.
-        // Otherwise calculate:
+        // Otherwise:
         //
         // Present + Leave + Half Day × 0.5
         // ========================================================
@@ -4110,6 +4111,8 @@ router.get("/lookup/prefill", async (req, res) => {
                 project_name:
                     deployment.project_name || "",
 
+                // IMPORTANT:
+                // This is deployment status, NOT payroll status.
                 deployment_status:
                     deployment.status || null,
 
@@ -4166,6 +4169,8 @@ router.get("/lookup/prefill", async (req, res) => {
 
                 // ==================================================
                 // EXISTING PAYROLL
+                //
+                // No payroll status because the column was deleted.
                 // ==================================================
 
                 already_exists:
@@ -4176,10 +4181,6 @@ router.get("/lookup/prefill", async (req, res) => {
 
                 existing_payroll_id:
                     existingPayroll?.[0]?.id ||
-                    null,
-
-                existing_payroll_status:
-                    existingPayroll?.[0]?.status ||
                     null
             }
         });
@@ -4198,7 +4199,6 @@ router.get("/lookup/prefill", async (req, res) => {
         );
     }
 });
-
 
 
 // ============================================================
