@@ -1140,13 +1140,6 @@ const handleSelectEmployee = async (deploymentId) => {
 
     const info = json?.data;
 
-    if (!info.attendance) {
-    alert(
-        `No attendance record found for ${info.employee_name || "this employee"} for ${salaryMonth}.\n\nPayroll cannot be created without attendance.`
-    );
-
-    return;
-}
 
     if (!info) {
       throw new Error(
