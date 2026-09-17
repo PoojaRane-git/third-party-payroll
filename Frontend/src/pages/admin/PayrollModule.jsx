@@ -251,6 +251,7 @@ export default function PayrollModule({
 
   const [editSaving, setEditSaving] =
     useState(false);
+     const [payslipRecords, setPayslipRecords] = useState([]);
 
   // =====================================================
   // CREATE PAYROLL STATE
@@ -282,6 +283,8 @@ export default function PayrollModule({
 
   const [createError, setCreateError] =
     useState("");
+   
+
 const ELIGIBLE_PAYSLIP_STATUSES = ["Approved", "Locked"];
 
   // =====================================================
