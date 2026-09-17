@@ -4762,7 +4762,9 @@ router.post("/:id/email", async (req, res) => {
                 uan_number,
                 esic_number,
                 gender,
-                department
+                department,
+                employee_code,
+                pay_rate
             `)
             .eq("id", candidateId)
             .maybeSingle();
@@ -5136,849 +5138,943 @@ router.post("/:id/email", async (req, res) => {
             "Head Office";
 
         // ========================================================
-        // SALARY
-        // Same values as payroll / PaySlip
-        // ========================================================
+// SALARY COMPONENTS
+// SAME STRUCTURE AS THE PAYSLIP IMAGE
+// ========================================================
 
-        const basicSalary = Number(
-            payroll.basic_salary || 0
+const basicSalary = Number(
+    payroll.basic_salary || 0
+);
+
+const hra = Number(
+    payroll.hra || 0
+);
+
+const conveyance = Number(
+    payroll.conveyance || 0
+);
+
+const medicalAllowance = Number(
+    payroll.medical_allowance || 0
+);
+
+const otherAllowance = Number(
+    payroll.other_allowance || 0
+);
+
+const gratuity = Number(
+    payroll.gratuity || 0
+);
+
+const overtime = Number(
+    payroll.overtime || 0
+);
+
+const bonus = Number(
+    payroll.bonus || 0
+);
+
+// --------------------------------------------------------
+// FIXED / MONTHLY GROSS
+// --------------------------------------------------------
+
+const fixedGrossSalary =
+    Number(
+        deployment?.pay_rate ||
+        candidate.pay_rate ||
+        0
+    ) || (
+        basicSalary > 0
+            ? Math.round(basicSalary * 2)
+            : 0
+    );
+
+// --------------------------------------------------------
+// GROSS COMPONENTS
+// Used in the third "Gross Salary" column
+// --------------------------------------------------------
+
+const grossBasic =
+    Math.round(fixedGrossSalary * 0.50);
+
+const grossHra =
+    Math.round(grossBasic * 0.50);
+
+const grossConveyance = 1200;
+
+const grossMedical = 1000;
+
+const grossOther =
+    Math.max(
+        0,
+        Math.round(
+            fixedGrossSalary -
+            grossBasic -
+            grossHra -
+            grossConveyance -
+            grossMedical
+        )
+    );
+
+// --------------------------------------------------------
+// DEDUCTIONS
+// --------------------------------------------------------
+
+const pf = Number(
+    payroll.pf || 0
+);
+
+const esic = Number(
+    payroll.esic || 0
+);
+
+const tax = Number(
+    payroll.tax || 0
+);
+
+const professionalTax = Number(
+    payroll.professional_tax || 0
+);
+
+const lop = Number(
+    payroll.lop || 0
+);
+
+const totalDeductions = Number(
+    payroll.total_deductions ??
+    (
+        pf +
+        esic +
+        tax +
+        professionalTax +
+        lop
+    )
+);
+
+const grossSalary = Number(
+    payroll.gross_salary || 0
+);
+
+const netSalary = Number(
+    payroll.net_salary ??
+    Math.max(
+        0,
+        grossSalary -
+        totalDeductions
+    )
+);
+
+// ========================================================
+// PDF
+// ========================================================
+
+const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4"
+});
+
+const pageWidth = 210;
+const pageHeight = 297;
+
+// ========================================================
+// COMPANY HEADER
+// ========================================================
+
+doc.setFont("helvetica", "bold");
+doc.setFontSize(17);
+
+doc.text(
+    "Talent Corner HR Services Pvt Ltd.",
+    17,
+    18
+);
+
+doc.setFont("helvetica", "normal");
+doc.setFontSize(8.5);
+
+doc.text(
+    "708/709, Bhaveshwar Arcade NX",
+    17,
+    25
+);
+
+doc.text(
+    "Opp Shreyas Cinema, LBS Marg, Ghatkopar(W),",
+    17,
+    29
+);
+
+doc.text(
+    "Mumbai-400086",
+    17,
+    33
+);
+
+doc.text(
+    "UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)",
+    17,
+    37
+);
+
+doc.text(
+    "E-Mail : accounts@talentcorner.in",
+    17,
+    41
+);
+
+// ========================================================
+// OUTER PAYSLIP BORDER
+// ========================================================
+
+doc.setLineWidth(0.6);
+
+doc.rect(
+    17,
+    51,
+    176,
+    232
+);
+
+// ========================================================
+// PAYSLIP TITLE
+// ========================================================
+
+doc.setFont("helvetica", "bold");
+doc.setFontSize(15);
+
+doc.text(
+    "Pay Slip",
+    22,
+    61
+);
+
+doc.setFont("helvetica", "normal");
+doc.setFontSize(9);
+
+doc.text(
+    `for ${monthStart} to ${monthEnd}`,
+    22,
+    67
+);
+
+doc.line(
+    22,
+    72,
+    188,
+    72
+);
+
+// ========================================================
+// CENTER TITLE
+// ========================================================
+
+doc.setFont("helvetica", "bold");
+doc.setFontSize(12);
+
+doc.text(
+    `Pay Slip for ${monthStart} to ${monthEnd}`,
+    pageWidth / 2,
+    79,
+    {
+        align: "center"
+    }
+);
+
+doc.text(
+    String(employeeName).toUpperCase(),
+    pageWidth / 2,
+    85,
+    {
+        align: "center"
+    }
+);
+
+doc.line(
+    22,
+    91,
+    188,
+    91
+);
+
+// ========================================================
+// EMPLOYEE DETAILS
+// ========================================================
+
+const leftX = 22;
+const rightX = 111;
+
+let leftY = 99;
+let rightY = 99;
+
+const addInfo = (
+    x,
+    y,
+    label,
+    value
+) => {
+
+    doc.setFont(
+        "helvetica",
+        "normal"
+    );
+
+    doc.setFontSize(7.5);
+
+    doc.text(
+        label,
+        x,
+        y
+    );
+
+    doc.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    doc.text(
+        String(value || "N/A"),
+        x + 40,
+        y
+    );
+};
+
+// LEFT
+
+addInfo(
+    leftX,
+    leftY,
+    "Employee Number:",
+    employeeNumber
+);
+
+leftY += 7;
+
+addInfo(
+    leftX,
+    leftY,
+    "Function:",
+    "CS"
+);
+
+leftY += 7;
+
+addInfo(
+    leftX,
+    leftY,
+    "Designation:",
+    candidate.designation || "N/A"
+);
+
+leftY += 7;
+
+addInfo(
+    leftX,
+    leftY,
+    "Location:",
+    location
+);
+
+leftY += 7;
+
+// BANK DETAILS
+
+doc.setFont(
+    "helvetica",
+    "normal"
+);
+
+doc.setFontSize(7.5);
+
+doc.text(
+    "Bank Details:",
+    leftX,
+    leftY
+);
+
+doc.setFont(
+    "helvetica",
+    "bold"
+);
+
+doc.text(
+    `Name - ${payroll.bank_name || "N/A"}`,
+    leftX + 40,
+    leftY
+);
+
+leftY += 4;
+
+doc.text(
+    `BRANCH - N/A`,
+    leftX + 40,
+    leftY
+);
+
+leftY += 4;
+
+doc.text(
+    `IFSC code - ${payroll.ifsc_code || "N/A"}`,
+    leftX + 40,
+    leftY
+);
+
+leftY += 4;
+
+doc.text(
+    `ACC NO. ${payroll.account_number || "N/A"}`,
+    leftX + 40,
+    leftY
+);
+
+leftY += 8;
+
+addInfo(
+    leftX,
+    leftY,
+    "Date of joining:",
+    dateOfJoining
+);
+
+// RIGHT
+
+addInfo(
+    rightX,
+    rightY,
+    "Tax Regime:",
+    "Regular Tax Regime"
+);
+
+rightY += 7;
+
+addInfo(
+    rightX,
+    rightY,
+    "Income Tax Number (PAN):",
+    candidate.pan_number || "N/A"
+);
+
+rightY += 7;
+
+addInfo(
+    rightX,
+    rightY,
+    "Universal Account Number (UAN):",
+    candidate.uan_number || "N/A"
+);
+
+rightY += 7;
+
+addInfo(
+    rightX,
+    rightY,
+    "PF account number:",
+    payroll.pran || "N/A"
+);
+
+rightY += 7;
+
+addInfo(
+    rightX,
+    rightY,
+    "ESI Number:",
+    candidate.esic_number || "N/A"
+);
+
+rightY += 7;
+
+addInfo(
+    rightX,
+    rightY,
+    "PR Account Number (PRAN):",
+    payroll.pran || "N/A"
+);
+
+// ========================================================
+// SALARY TABLE
+// ========================================================
+
+const tableX = 22;
+const tableY = 143;
+
+const widths = [
+    38,
+    23,
+    23,
+    38,
+    23,
+    23
+];
+
+const rowHeight = 7;
+
+const headers = [
+    "Earnings",
+    "Amount",
+    "Gross Salary",
+    "Deductions",
+    "Amount",
+    "Gross Salary"
+];
+
+// --------------------------------------------------------
+// HEADER
+// --------------------------------------------------------
+
+let x = tableX;
+
+doc.setFont(
+    "helvetica",
+    "bold"
+);
+
+doc.setFontSize(7.5);
+
+headers.forEach(
+    (header, index) => {
+
+        doc.setFillColor(
+            242,
+            242,
+            242
         );
-
-        const allowances = Number(
-            payroll.allowances || 0
-        );
-
-        const overtime = Number(
-            payroll.overtime || 0
-        );
-
-        const bonus = Number(
-            payroll.bonus || 0
-        );
-
-        const grossSalary = Number(
-            payroll.gross_salary ??
-            (
-                basicSalary +
-                allowances +
-                overtime +
-                bonus
-            )
-        );
-
-        const pf = Number(
-            payroll.pf || 0
-        );
-
-        const esic = Number(
-            payroll.esic || 0
-        );
-
-        const tax = Number(
-            payroll.tax || 0
-        );
-
-        const professionalTax = Number(
-            payroll.professional_tax || 0
-        );
-
-        const lop = Number(
-            payroll.lop || 0
-        );
-
-        const totalDeductions = Number(
-            payroll.total_deductions ??
-            (
-                pf +
-                esic +
-                tax +
-                professionalTax +
-                lop
-            )
-        );
-
-        const netSalary = Number(
-            payroll.net_salary ??
-            Math.max(
-                0,
-                grossSalary -
-                totalDeductions
-            )
-        );
-
-        // ========================================================
-        // PDF
-        // Same payslip-style format
-        // ========================================================
-
-        const doc = new jsPDF({
-            orientation: "portrait",
-            unit: "mm",
-            format: "a4"
-        });
-
-        const pageWidth = 210;
-
-        // ========================================================
-        // COMPANY HEADER
-        // ========================================================
-
-        doc.setFont(
-            "helvetica",
-            "bold"
-        );
-
-        doc.setFontSize(17);
-
-        doc.text(
-            "Talent Corner HR Services Pvt. Ltd.",
-            17,
-            18
-        );
-
-        doc.setFont(
-            "helvetica",
-            "normal"
-        );
-
-        doc.setFontSize(9);
-
-        doc.text(
-            "708/709, Bhaveshwar Arcade NX",
-            17,
-            25
-        );
-
-        doc.text(
-            "Opp Shreyas Cinema, LBS Marg",
-            17,
-            29
-        );
-
-        doc.text(
-            "Ghatkopar(W), Mumbai-400086",
-            17,
-            33
-        );
-
-        doc.text(
-            "GSTIN : 27AACCT6635P1ZP",
-            17,
-            37
-        );
-
-        doc.text(
-            "UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)",
-            17,
-            41
-        );
-
-        doc.text(
-            "E-Mail : accounts@talentcorner.in",
-            17,
-            45
-        );
-
-        // ========================================================
-        // PAYSLIP BOX
-        // ========================================================
-
-        doc.setLineWidth(0.5);
 
         doc.rect(
-            17,
-            51,
-            pageWidth - 34,
-            232
-        );
-
-        // ========================================================
-        // PAYSLIP TITLE
-        // ========================================================
-
-        doc.setFont(
-            "helvetica",
-            "bold"
-        );
-
-        doc.setFontSize(16);
-
-        doc.text(
-            "Pay Slip",
-            29,
-            62
-        );
-
-        doc.setFont(
-            "helvetica",
-            "normal"
-        );
-
-        doc.setFontSize(10);
-
-        doc.text(
-            `for ${monthStart} to ${monthEnd}`,
-            29,
-            68
-        );
-
-        doc.line(
-            29,
-            72,
-            181,
-            72
-        );
-
-        // ========================================================
-        // CENTER HEADING
-        // ========================================================
-
-        doc.setFont(
-            "helvetica",
-            "bold"
-        );
-
-        doc.setFontSize(13);
-
-        doc.text(
-            `Pay Slip for ${monthStart} to ${monthEnd}`,
-            pageWidth / 2,
-            80,
-            {
-                align: "center"
-            }
-        );
-
-        doc.text(
-            String(employeeName).toUpperCase(),
-            pageWidth / 2,
-            86,
-            {
-                align: "center"
-            }
-        );
-
-        doc.line(
-            29,
-            91,
-            181,
-            91
-        );
-
-        // ========================================================
-        // EMPLOYEE DETAILS
-        // ========================================================
-
-        const leftX = 29;
-        const rightX = 108;
-
-        let leftY = 99;
-        let rightY = 99;
-
-        const labelWidth = 31;
-
-        const addInfo = (
             x,
-            y,
-            label,
-            value
-        ) => {
-            doc.setFont(
-                "helvetica",
-                "normal"
-            );
-
-            doc.setFontSize(8);
-
-            doc.text(
-                label,
-                x,
-                y
-            );
-
-            doc.setFont(
-                "helvetica",
-                "bold"
-            );
-
-            doc.text(
-                String(value || "N/A"),
-                x + labelWidth,
-                y
-            );
-        };
-
-        addInfo(
-            leftX,
-            leftY,
-            "Employee Number:",
-            employeeNumber
-        );
-
-        leftY += 7;
-
-        addInfo(
-            leftX,
-            leftY,
-            "Function:",
-            "CS"
-        );
-
-        leftY += 7;
-
-        addInfo(
-            leftX,
-            leftY,
-            "Designation:",
-            candidate.designation || "N/A"
-        );
-
-        leftY += 7;
-
-        addInfo(
-            leftX,
-            leftY,
-            "Location:",
-            location
-        );
-
-        leftY += 7;
-
-        doc.setFont(
-            "helvetica",
-            "normal"
-        );
-
-        doc.setFontSize(8);
-
-        doc.text(
-            "Bank Details:",
-            leftX,
-            leftY
-        );
-
-        doc.setFont(
-            "helvetica",
-            "bold"
+            tableY,
+            widths[index],
+            rowHeight,
+            "FD"
         );
 
         doc.text(
-            `Name - ${payroll.bank_name || "N/A"}`,
-            leftX + labelWidth,
-            leftY
+            header,
+            x + 2,
+            tableY + 5
         );
 
-        leftY += 4;
+        x += widths[index];
+    }
+);
 
-        doc.text(
-            "BRANCH - N/A",
-            leftX + labelWidth,
-            leftY
-        );
+// ========================================================
+// ROW HELPER
+// ========================================================
 
-        leftY += 4;
+const drawSalaryRow = (
+    y,
+    earningLabel,
+    earningAmount,
+    earningGross,
+    deductionLabel = "",
+    deductionAmount = "",
+    deductionGross = ""
+) => {
 
-        doc.text(
-            `IFSC code - ${payroll.ifsc_code || "N/A"}`,
-            leftX + labelWidth,
-            leftY
-        );
+    let currentX = tableX;
 
-        leftY += 4;
+    const values = [
+        earningLabel,
+        formatNumberWithCommas(
+            earningAmount
+        ),
+        formatNumberWithCommas(
+            earningGross
+        ),
+        deductionLabel,
+        deductionAmount === ""
+            ? ""
+            : formatNumberWithCommas(
+                deductionAmount
+            ),
+        deductionGross === ""
+            ? ""
+            : formatNumberWithCommas(
+                deductionGross
+            )
+    ];
 
-        doc.text(
-            `ACC NO. - ${payroll.account_number || "N/A"}`,
-            leftX + labelWidth,
-            leftY
-        );
+    values.forEach(
+        (value, index) => {
 
-        leftY += 7;
-
-        addInfo(
-            leftX,
-            leftY,
-            "Date of joining:",
-            dateOfJoining
-        );
-
-        // ========================================================
-        // RIGHT SIDE
-        // ========================================================
-
-        addInfo(
-            rightX,
-            rightY,
-            "Tax Regime:",
-            "Regular Tax Regime"
-        );
-
-        rightY += 7;
-
-        addInfo(
-            rightX,
-            rightY,
-            "Income Tax Number (PAN):",
-            candidate.pan_number || "N/A"
-        );
-
-        rightY += 7;
-
-        addInfo(
-            rightX,
-            rightY,
-            "Universal Account Number (UAN):",
-            candidate.uan_number || "N/A"
-        );
-
-        rightY += 7;
-
-        addInfo(
-            rightX,
-            rightY,
-            "PF account number:",
-            payroll.pran || "N/A"
-        );
-
-        rightY += 7;
-
-        addInfo(
-            rightX,
-            rightY,
-            "ESI Number:",
-            candidate.esic_number || "N/A"
-        );
-
-        rightY += 7;
-
-        addInfo(
-            rightX,
-            rightY,
-            "PR Account Number (PRAN):",
-            payroll.pran || "N/A"
-        );
-
-        // ========================================================
-        // SALARY TABLE
-        // ========================================================
-
-        const tableX = 29;
-        const tableY = 145;
-
-        const widths = [
-            35,
-            22,
-            22,
-            35,
-            22,
-            22
-        ];
-
-        const rowHeight = 9;
-
-        const headers = [
-            "Earnings",
-            "Amount",
-            "Gross Salary",
-            "Deductions",
-            "Amount",
-            "Gross Salary"
-        ];
-
-        let x = tableX;
-
-        doc.setFont(
-            "helvetica",
-            "bold"
-        );
-
-        doc.setFontSize(7.5);
-
-        headers.forEach(
-            (header, index) => {
-                doc.setFillColor(
-                    242,
-                    242,
-                    242
-                );
-
-                doc.rect(
-                    x,
-                    tableY,
-                    widths[index],
-                    rowHeight,
-                    "FD"
-                );
-
-                doc.text(
-                    header,
-                    x + 2,
-                    tableY + 6
-                );
-
-                x += widths[index];
-            }
-        );
-
-        // ========================================================
-        // TABLE ROW
-        // ========================================================
-
-        const drawRow = (
-            y,
-            earningsLabel,
-            earningsAmount,
-            deductionLabel,
-            deductionAmount
-        ) => {
-            let currentX = tableX;
-
-            const values = [
-                earningsLabel,
-                formatNumberWithCommas(
-                    earningsAmount
-                ),
-                formatNumberWithCommas(
-                    earningsAmount
-                ),
-                deductionLabel,
-                deductionAmount === ""
-                    ? ""
-                    : formatNumberWithCommas(
-                        deductionAmount
-                    ),
-                deductionLabel
-                    ? "-"
-                    : ""
-            ];
-
-            values.forEach(
-                (value, index) => {
-                    doc.rect(
-                        currentX,
-                        y,
-                        widths[index],
-                        rowHeight
-                    );
-
-                    if (
-                        index === 1 ||
-                        index === 2 ||
-                        index === 4 ||
-                        index === 5
-                    ) {
-                        doc.text(
-                            String(value),
-                            currentX +
-                            widths[index] -
-                            2,
-                            y + 6,
-                            {
-                                align: "right"
-                            }
-                        );
-                    } else {
-                        doc.text(
-                            String(value),
-                            currentX + 2,
-                            y + 6
-                        );
-                    }
-
-                    currentX += widths[index];
-                }
-            );
-        };
-
-        // ========================================================
-        // SALARY ROWS
-        // ========================================================
-
-        drawRow(
-            tableY + rowHeight,
-            "Basic Salary",
-            basicSalary,
-            "Provident Fund",
-            pf
-        );
-
-        drawRow(
-            tableY + rowHeight * 2,
-            "HRA / Allowances",
-            allowances,
-            esic > 0 ? "ESIC" : "",
-            esic > 0 ? esic : ""
-        );
-
-        drawRow(
-            tableY + rowHeight * 3,
-            "Overtime",
-            overtime,
-            tax > 0 ? "Income Tax" : "",
-            tax > 0 ? tax : ""
-        );
-
-        drawRow(
-            tableY + rowHeight * 4,
-            "Bonus",
-            bonus,
-            professionalTax > 0
-                ? "Professional Tax"
-                : "",
-            professionalTax > 0
-                ? professionalTax
-                : ""
-        );
-
-        drawRow(
-            tableY + rowHeight * 5,
-            "LOP",
-            lop,
-            lop > 0
-                ? "Loss of Pay"
-                : "",
-            lop > 0
-                ? lop
-                : ""
-        );
-
-        // ========================================================
-        // EMPTY ROW
-        // ========================================================
-
-        let emptyX = tableX;
-
-        const emptyY =
-            tableY + rowHeight * 6;
-
-        widths.forEach((width) => {
             doc.rect(
-                emptyX,
-                emptyY,
-                width,
+                currentX,
+                y,
+                widths[index],
                 rowHeight
             );
 
-            emptyX += width;
-        });
+            if (
+                index === 1 ||
+                index === 2 ||
+                index === 4 ||
+                index === 5
+            ) {
 
-        // ========================================================
-        // TOTAL ROW
-        // ========================================================
+                doc.text(
+                    String(value),
+                    currentX +
+                    widths[index] -
+                    2,
+                    y + 5,
+                    {
+                        align: "right"
+                    }
+                );
 
-        const totalY =
-            tableY + rowHeight * 7;
+            } else {
 
-        let totalX = tableX;
+                doc.text(
+                    String(value),
+                    currentX + 2,
+                    y + 5
+                );
+            }
 
-        const totalValues = [
-            "Total Earnings",
-            formatNumberWithCommas(
-                grossSalary
-            ),
-            formatNumberWithCommas(
-                grossSalary
-            ),
-            "Total Deductions",
-            formatNumberWithCommas(
-                totalDeductions
-            ),
-            formatNumberWithCommas(
-                totalDeductions
-            )
-        ];
+            currentX += widths[index];
+        }
+    );
+};
 
-        doc.setFont(
-            "helvetica",
-            "bold"
+// ========================================================
+// EARNINGS / DEDUCTIONS
+// ========================================================
+
+let rowY =
+    tableY + rowHeight;
+
+// BASIC
+
+drawSalaryRow(
+    rowY,
+    "Basic Salary",
+    basicSalary,
+    grossBasic,
+    "Provident Fund",
+    pf,
+    "-"
+);
+
+rowY += rowHeight;
+
+// HRA
+
+drawSalaryRow(
+    rowY,
+    "HRA",
+    hra,
+    grossHra,
+    esic > 0 ? "ESIC" : "",
+    esic > 0 ? esic : "",
+    esic > 0 ? "-" : ""
+);
+
+rowY += rowHeight;
+
+// CONVEYANCE
+
+drawSalaryRow(
+    rowY,
+    "Conveyance Expenses",
+    conveyance,
+    grossConveyance,
+    professionalTax > 0
+        ? "Professional Tax"
+        : "",
+    professionalTax > 0
+        ? professionalTax
+        : "",
+    professionalTax > 0
+        ? "-"
+        : ""
+);
+
+rowY += rowHeight;
+
+// MEDICAL
+
+drawSalaryRow(
+    rowY,
+    "Medical Allowance",
+    medicalAllowance,
+    grossMedical,
+    tax > 0
+        ? "Income Tax"
+        : "",
+    tax > 0
+        ? tax
+        : "",
+    tax > 0
+        ? "-"
+        : ""
+);
+
+rowY += rowHeight;
+
+// OTHER
+
+drawSalaryRow(
+    rowY,
+    "Other Expenses",
+    otherAllowance,
+    grossOther,
+    lop > 0
+        ? "Loss of Pay"
+        : "",
+    lop > 0
+        ? lop
+        : "",
+    lop > 0
+        ? "-"
+        : ""
+);
+
+rowY += rowHeight;
+
+// GRATUITY
+
+drawSalaryRow(
+    rowY,
+    "Gratuity",
+    gratuity,
+    0,
+    "",
+    "",
+    ""
+);
+
+rowY += rowHeight;
+
+// ========================================================
+// TOTAL ROW
+// ========================================================
+
+const totalEarnings =
+    Number(basicSalary) +
+    Number(hra) +
+    Number(conveyance) +
+    Number(medicalAllowance) +
+    Number(otherAllowance) +
+    Number(gratuity);
+
+let totalX = tableX;
+
+const totalValues = [
+    "Total Earnings",
+    formatNumberWithCommas(
+        totalEarnings
+    ),
+    formatNumberWithCommas(
+        grossSalary
+    ),
+    "Total Deductions",
+    formatNumberWithCommas(
+        totalDeductions
+    ),
+    formatNumberWithCommas(
+        totalDeductions
+    )
+];
+
+doc.setFont(
+    "helvetica",
+    "bold"
+);
+
+doc.setFontSize(7.5);
+
+totalValues.forEach(
+    (value, index) => {
+
+        doc.setFillColor(
+            243,
+            243,
+            243
         );
 
-        doc.setFontSize(7.5);
+        doc.rect(
+            totalX,
+            rowY,
+            widths[index],
+            rowHeight,
+            "FD"
+        );
 
-        totalValues.forEach(
-            (value, index) => {
-                doc.setFillColor(
-                    243,
-                    243,
-                    243
-                );
+        if (
+            index === 1 ||
+            index === 2 ||
+            index === 4 ||
+            index === 5
+        ) {
 
-                doc.rect(
-                    totalX,
-                    totalY,
-                    widths[index],
-                    rowHeight,
-                    "FD"
-                );
-
-                if (
-                    index === 1 ||
-                    index === 2 ||
-                    index === 4 ||
-                    index === 5
-                ) {
-                    doc.text(
-                        String(value),
-                        totalX +
-                        widths[index] -
-                        2,
-                        totalY + 6,
-                        {
-                            align: "right"
-                        }
-                    );
-                } else {
-                    doc.text(
-                        String(value),
-                        totalX + 2,
-                        totalY + 6
-                    );
+            doc.text(
+                String(value),
+                totalX +
+                widths[index] -
+                2,
+                rowY + 5,
+                {
+                    align: "right"
                 }
+            );
 
-                totalX += widths[index];
-            }
+        } else {
+
+            doc.text(
+                String(value),
+                totalX + 2,
+                rowY + 5
+            );
+        }
+
+        totalX += widths[index];
+    }
+);
+
+// ========================================================
+// NET AMOUNT
+// ========================================================
+
+rowY += rowHeight;
+
+let netX = tableX;
+
+const netValues = [
+    "",
+    "",
+    "",
+    "Net Amount",
+    formatNumberWithCommas(
+        netSalary
+    ),
+    formatNumberWithCommas(
+        netSalary
+    )
+];
+
+netValues.forEach(
+    (value, index) => {
+
+        doc.rect(
+            netX,
+            rowY,
+            widths[index],
+            rowHeight
         );
 
-        // ========================================================
-        // NET ROW
-        // ========================================================
+        doc.setFont(
+            "helvetica",
+            "bold"
+        );
 
-        const netY =
-            totalY + rowHeight;
+        if (
+            index === 4 ||
+            index === 5
+        ) {
 
-        let netX = tableX;
-
-        const netValues = [
-            "",
-            "",
-            "",
-            "Net Amount",
-            formatNumberWithCommas(
-                netSalary
-            ),
-            formatNumberWithCommas(
-                netSalary
-            )
-        ];
-
-        netValues.forEach(
-            (value, index) => {
-                doc.rect(
-                    netX,
-                    netY,
-                    widths[index],
-                    rowHeight
-                );
-
-                doc.setFont(
-                    "helvetica",
-                    "bold"
-                );
-
-                if (
-                    index === 4 ||
-                    index === 5
-                ) {
-                    doc.text(
-                        String(value),
-                        netX +
-                        widths[index] -
-                        2,
-                        netY + 6,
-                        {
-                            align: "right"
-                        }
-                    );
-                } else {
-                    doc.text(
-                        String(value),
-                        netX + 2,
-                        netY + 6
-                    );
+            doc.text(
+                String(value),
+                netX +
+                widths[index] -
+                2,
+                rowY + 5,
+                {
+                    align: "right"
                 }
+            );
 
-                netX += widths[index];
-            }
-        );
+        } else {
 
-        // ========================================================
-        // AMOUNT IN WORDS
-        // ========================================================
+            doc.text(
+                String(value),
+                netX + 2,
+                rowY + 5
+            );
+        }
 
-        const wordsY =
-            netY + 18;
+        netX += widths[index];
+    }
+);
 
-        doc.setFont(
-            "helvetica",
-            "bold"
-        );
+// ========================================================
+// AMOUNT IN WORDS
+// ========================================================
 
-        doc.setFontSize(8);
+const wordsY =
+    rowY + 17;
 
-        doc.text(
-            "Amount (in words):",
-            tableX,
-            wordsY
-        );
+doc.setFont(
+    "helvetica",
+    "bold"
+);
 
-        doc.setFont(
-            "helvetica",
-            "normal"
-        );
+doc.setFontSize(8);
 
-        doc.text(
-            `INR ${numberToWordsIndian(
-                Math.round(netSalary)
-            )} Only`,
-            tableX,
-            wordsY + 6
-        );
+doc.text(
+    "Amount (in words):",
+    tableX,
+    wordsY
+);
 
-        doc.line(
-            tableX,
-            wordsY + 10,
-            181,
-            wordsY + 10
-        );
+doc.setFont(
+    "helvetica",
+    "normal"
+);
 
-        // ========================================================
-        // SIGNATURE
-        // ========================================================
+doc.text(
+    `INR ${numberToWordsIndian(
+        Math.round(netSalary)
+    )} Only`,
+    tableX,
+    wordsY + 6
+);
 
-        const signatureY =
-            wordsY + 25;
+doc.line(
+    tableX,
+    wordsY + 10,
+    188,
+    wordsY + 10
+);
 
-        doc.setFont(
-            "helvetica",
-            "bold"
-        );
+// ========================================================
+// SIGNATURE
+// ========================================================
 
-        doc.setFontSize(8);
+const signatureY =
+    wordsY + 25;
 
-        doc.text(
-            "for Talent Corner HR Services Pvt. Ltd.",
-            181,
-            signatureY,
-            {
-                align: "right"
-            }
-        );
+doc.setFont(
+    "helvetica",
+    "bold"
+);
 
-        doc.text(
-            "Authorised Signatory",
-            181,
-            signatureY + 18,
-            {
-                align: "right"
-            }
-        );
+doc.setFontSize(8);
 
-        // ========================================================
-        // PDF BUFFER
-        // ========================================================
+doc.text(
+    "for Talent Corner HR Services Pvt Ltd.",
+    188,
+    signatureY,
+    {
+        align: "right"
+    }
+);
 
-        const pdfBuffer = Buffer.from(
-            doc.output("arraybuffer")
-        );
+doc.text(
+    "Authorised Signatory",
+    188,
+    signatureY + 18,
+    {
+        align: "right"
+    }
+);
+
+// ========================================================
+// PDF BUFFER
+// ========================================================
+
+const pdfBuffer = Buffer.from(
+    doc.output("arraybuffer")
+);
 
         // ========================================================
         // FILE NAME
