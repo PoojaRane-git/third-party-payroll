@@ -212,6 +212,8 @@ const EMPTY_PAYROLL_FORM = {
   account_number: "",
   ifsc_code: "",
 };  
+
+const ELIGIBLE_PAYSLIP_STATUSES = ["Approved", "Locked"];
 // =====================================================
 // COMPONENT
 // =====================================================
@@ -308,7 +310,45 @@ export default function PayrollModule({
     useState("");
    
 
-const ELIGIBLE_PAYSLIP_STATUSES = ["Approved", "Locked"];
+    const openEditModal = (record) => {
+  const status = normalizeStatus(record?.status);
+
+  if (status === "Locked") {
+    alert("Locked payroll cannot be edited.");
+    return;
+  }
+
+  setEditRecord(record);
+
+  setEditForm({
+    basic_salary: record.basic_salary ?? 0,
+    hra: record.hra ?? 0,
+    conveyance: record.conveyance ?? 0,
+    medical_allowance: record.medical_allowance ?? 0,
+    other_allowance: record.other_allowance ?? 0,
+    allowances: record.allowances ?? 0,
+    overtime: record.overtime ?? record.overtime_amount ?? 0,
+    bonus: record.bonus ?? 0,
+
+    pf: record.pf ?? record.employee_pf ?? 0,
+    esic: record.esic ?? record.employee_esic ?? 0,
+    tax: record.tax ?? record.tds ?? 0,
+    professional_tax: record.professional_tax ?? 0,
+    lop: record.lop ?? record.lop_deduction ?? 0,
+
+    employer_pf: record.employer_pf ?? record.employerPF ?? 0,
+    employer_esic: record.employer_esic ?? record.employerESIC ?? 0,
+    gratuity: record.gratuity ?? 0,
+    pf_wages: record.pf_wages ?? 0,
+
+    bank_name: record.bank_name ?? "",
+    account_number: record.account_number ?? record.bank_account_number ?? "",
+    ifsc_code: record.ifsc_code ?? record.bank_ifsc ?? "",
+  });
+
+  setEditModalOpen(true);
+};
+
 
   // =====================================================
   // FETCH CLIENTS
@@ -911,34 +951,25 @@ const ELIGIBLE_PAYSLIP_STATUSES = ["Approved", "Locked"];
       );
     };
 
-  const handleSaveEdit =
-    async () => {
-      if (!editRecord) {
-        return;
-      }
+const handleSaveEdit = async () => {
+  if (!editRecord) return;
 
-      const status =
-        normalizeStatus(
-          editRecord.status
-        );
+  const status = normalizeStatus(editRecord.status);
 
-      try {
-        setEditSaving(true);
+  if (status === "Locked") {
+    alert("Locked payroll cannot be edited.");
+    return;
+  }
 
-        const numericFields = [
-          "basic_salary",
-          "allowances",
-          "overtime",
-          "bonus",
-          "pf",
-          "esic",
-          "tax",
-          "professional_tax",
-          "lop",
-          "employer_pf",
-          "employer_esic",
-        ];
+  try {
+    setEditSaving(true);
 
+    const numericFields = [
+      "basic_salary", "hra", "conveyance", "medical_allowance", "other_allowance",
+      "allowances", "overtime", "bonus",
+      "pf", "esic", "tax", "professional_tax", "lop",
+      "employer_pf", "employer_esic", "gratuity", "pf_wages",
+    ];
         const payload = {
           ...editForm,
         };
@@ -1140,23 +1171,26 @@ const handleSelectEmployee = async (deploymentId) => {
 
     const info = json?.data;
 
-    if (!info.attendance) {
-    alert(
-        `No attendance record found for ${info.employee_name || "this employee"} for ${salaryMonth}.\n\nPayroll cannot be created without attendance.`
-    );
-
-    return;
+   if (!info) {
+  throw new Error("Employee information was not returned.");
 }
 
-    if (!info) {
-      throw new Error(
-        "Employee information was not returned."
-      );
-    }
+   if (!info.attendance) {
+  alert(
+    `No attendance record found for ${info.employee_name || "this employee"} for ${salaryMonth}.\n\nPayroll cannot be created without attendance.`
+  );
+  return;
+}
 
     setPrefillInfo(info);
 const payRate = Number(info.pay_rate || 0);
-const daysInMonth = Number(info.total_days || 0);
+const daysInMonth =
+  Number(info.total_days || 0) || getCalendarDaysInMonth(salaryMonth);
+
+if (!daysInMonth) {
+  setCreateError("Could not determine the number of days in this salary month.");
+  return;
+}
 
 let payableDays = Number(info.payable_days);
 
@@ -1228,12 +1262,16 @@ const pf = Math.round(
   Math.min(pfWages, 15000) * 0.12
 );
 
-const esic = 0;
+const esic = (esicApplicable && grossSalary <= 21000)
+  ? Math.round(grossSalary * 0.0075)
+  : 0;
 
 const professionalTax =
   grossSalary > 25000 ? 200 : 0;
 
 const tax = 0;
+
+// Payable days already account for unpaid/LOP days
 const lop = 0;
 
 const totalDeductions =
@@ -1253,7 +1291,11 @@ const gratuity = Math.round(
 );
 
 const employerPf = pf;
-const employerEsic = 0;
+
+const employerEsic =
+  (esicApplicable && grossSalary <= 21000)
+    ? Math.round(grossSalary * 0.0325)
+    : 0;
 
 const totalEmployerContribution =
   employerPf + employerEsic;
