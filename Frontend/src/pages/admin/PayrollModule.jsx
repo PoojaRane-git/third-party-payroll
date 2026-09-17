@@ -282,6 +282,7 @@ export default function PayrollModule({
 
   const [createError, setCreateError] =
     useState("");
+const ELIGIBLE_PAYSLIP_STATUSES = ["Approved", "Locked"];
 
   // =====================================================
   // FETCH CLIENTS
@@ -717,21 +718,7 @@ export default function PayrollModule({
 
   // =====================================================
   // PAYSLIP RECORDS
-  // =====================================================
-
-  const payslipRecords =
-    useMemo(() => {
-      return filteredPayrollRecords.filter(
-        (record) =>
-          ELIGIBLE_PAYSLIP_STATUSES.includes(
-            normalizeStatus(
-              record.status
-            )
-          )
-      );
-    }, [
-      filteredPayrollRecords,
-    ]);
+  // ====================================================
 
   // =====================================================
   // KEEP SELECTED SLIP VALID
