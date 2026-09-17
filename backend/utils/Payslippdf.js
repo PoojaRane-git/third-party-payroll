@@ -878,7 +878,11 @@ const generatePayslipPDF = async (
         "bold"
     );
 
-    doc.setFontSize(7.5);
+    // ========================================================
+    // INCREASED TABLE HEADER FONT
+    // ========================================================
+
+    doc.setFontSize(9);
 
     headers.forEach(
         (header, index) => {
@@ -957,7 +961,11 @@ const generatePayslipPDF = async (
                     "normal"
                 );
 
-                doc.setFontSize(7);
+                // ====================================================
+                // INCREASED TABLE CONTENT FONT
+                // ====================================================
+
+                doc.setFontSize(8.5);
 
                 if (
                     index === 1 ||
@@ -1137,7 +1145,11 @@ const generatePayslipPDF = async (
         "bold"
     );
 
-    doc.setFontSize(7.5);
+    // ========================================================
+    // INCREASED TOTAL FONT
+    // ========================================================
+
+    doc.setFontSize(8.5);
 
     totalValues.forEach(
         (value, index) => {
@@ -1213,7 +1225,11 @@ const generatePayslipPDF = async (
                 "bold"
             );
 
-            doc.setFontSize(7.5);
+            // ====================================================
+            // INCREASED NET AMOUNT FONT
+            // ====================================================
+
+            doc.setFontSize(8.5);
 
             if (
                 index === 4 ||
