@@ -67,7 +67,7 @@ const loadImage = (url) => {
     });
 };
 
-const PaySlip = () => {
+const PaySlip = (employees, payrollData, financialYears) => {
     const [financialYears, setFinancialYears] = useState([]);
     const [selectedYear, setSelectedYear] = useState('');
     const [selectedMonths, setSelectedMonths] = useState([]);
