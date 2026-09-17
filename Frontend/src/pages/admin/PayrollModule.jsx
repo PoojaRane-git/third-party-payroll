@@ -1404,12 +1404,6 @@ const handleCreatePayroll =
     return;
 }
 
-if (!prefillInfo?.attendance_id) {
-    alert(
-        `No attendance record found for ${createForm.employee_name || "this employee"} for ${salaryMonth}.\n\nPayroll cannot be created.`
-    );
-    return;
-}
     if (
       !selectedDeploymentId ||
       !prefillInfo
