@@ -30,17 +30,6 @@ import api from "../services/api";
 // CONSTANTS
 // =====================================================
 
-const PAYROLL_STATUSES = {
-  PENDING: "Pending",
-  APPROVED: "Approved",
-  LOCKED: "Locked",
-};
-
-const ELIGIBLE_PAYSLIP_STATUSES = [
-  PAYROLL_STATUSES.APPROVED,
-  PAYROLL_STATUSES.LOCKED,
-];
-
 // =====================================================
 // HELPERS
 // =====================================================
@@ -783,120 +772,6 @@ export default function PayrollModule({
   }, [payslipRecords]);
 
   // =====================================================
-  // STATUS CLASS
-  // =====================================================
-
-  const getStatusClass = (
-    status
-  ) => {
-    const normalized =
-      normalizeStatus(status);
-
-    if (
-      normalized ===
-      PAYROLL_STATUSES.LOCKED
-    ) {
-      return "bg-indigo-50 text-indigo-700";
-    }
-
-    if (
-      normalized ===
-      PAYROLL_STATUSES.APPROVED
-    ) {
-      return "bg-emerald-50 text-emerald-700";
-    }
-
-    if (
-      normalized ===
-      PAYROLL_STATUSES.PENDING
-    ) {
-      return "bg-amber-50 text-amber-700";
-    }
-
-    return "bg-slate-100 text-slate-700";
-  };
-
-  // =====================================================
-  // UPDATE PAYROLL STATUS
-  // =====================================================
-
-  const handleUpdateStatus =
-    async (
-      id,
-      currentStatus
-    ) => {
-      const status =
-        normalizeStatus(
-          currentStatus
-        );
-
-      let newStatus = null;
-
-      if (
-        status ===
-        PAYROLL_STATUSES.PENDING
-      ) {
-        newStatus =
-          PAYROLL_STATUSES.APPROVED;
-      } else if (
-        status ===
-        PAYROLL_STATUSES.APPROVED
-      ) {
-        newStatus =
-          PAYROLL_STATUSES.LOCKED;
-      } else {
-        return;
-      }
-
-      try {
-        const response =
-          await api.patch(
-            `/payroll/${id}/status`,
-            {
-              status: newStatus,
-            }
-          );
-
-        const json =
-          response?.data;
-
-        if (
-          json?.success ===
-          false
-        ) {
-          throw new Error(
-            json?.message ||
-            json?.error ||
-            "Failed to update payroll status."
-          );
-        }
-
-        await fetchPayroll();
-
-        alert(
-          `Payroll status updated to ${newStatus}.`
-        );
-      } catch (err) {
-        console.error(
-          "Payroll status update error:",
-          err
-        );
-
-        const message =
-          err?.response
-            ?.data?.error ||
-          err?.response
-            ?.data?.message ||
-          err?.message ||
-          "Failed to update payroll status.";
-
-        alert(
-          `Failed to update payroll status: ${message}`
-        );
-      }
-    };
-
-  // =====================================================
   // RUN BULK PAYROLL
   // =====================================================
 
@@ -997,97 +872,6 @@ export default function PayrollModule({
   // =====================================================
   // EDIT PAYROLL
   // =====================================================
-
-  const openEditModal = (
-    record
-  ) => {
-    const status =
-      normalizeStatus(
-        record?.status
-      );
-
-    if (
-      status ===
-      PAYROLL_STATUSES.LOCKED
-    ) {
-      alert(
-        "Locked payroll cannot be edited."
-      );
-      return;
-    }
-
-    setEditRecord(record);
-
-    setEditForm({
-      basic_salary:
-        record.basic_salary ??
-        0,
-
-      allowances:
-        record.allowances ??
-        0,
-
-      overtime:
-        record.overtime ??
-        record.overtime_amount ??
-        0,
-
-      bonus:
-        record.bonus ??
-        0,
-
-      pf:
-        record.pf ??
-        record.employee_pf ??
-        0,
-
-      esic:
-        record.esic ??
-        record.employee_esic ??
-        0,
-
-      tax:
-        record.tax ??
-        record.tds ??
-        0,
-
-      professional_tax:
-        record.professional_tax ??
-        0,
-
-      lop:
-        record.lop ??
-        record.lop_deduction ??
-        0,
-
-      employer_pf:
-        record.employer_pf ??
-        record.employerPF ??
-        0,
-
-      employer_esic:
-        record.employer_esic ??
-        record.employerESIC ??
-        0,
-
-      bank_name:
-        record.bank_name ??
-        "",
-
-      account_number:
-        record.account_number ??
-        record.bank_account_number ??
-        "",
-
-      ifsc_code:
-        record.ifsc_code ??
-        record.bank_ifsc ??
-        "",
-    });
-
-    setEditModalOpen(true);
-  };
-
   const handleEditFieldChange =
     (
       field,
@@ -1111,16 +895,6 @@ export default function PayrollModule({
         normalizeStatus(
           editRecord.status
         );
-
-      if (
-        status ===
-        PAYROLL_STATUSES.LOCKED
-      ) {
-        alert(
-          "Locked payroll cannot be edited."
-        );
-        return;
-      }
 
       try {
         setEditSaving(true);
@@ -3131,44 +2905,9 @@ const handleCreatePayroll =
 
                                 <div className="flex justify-end gap-2 flex-wrap">
 
-                                  {/* APPROVE / LOCK */}
-
-                                  {status !==
-                                    PAYROLL_STATUSES.LOCKED && (
-                                      <button
-                                        onClick={() =>
-                                          handleUpdateStatus(
-                                            rec.id,
-                                            status
-                                          )
-                                        }
-                                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition inline-flex items-center gap-1 shadow-sm"
-                                      >
-
-                                        {status ===
-                                          PAYROLL_STATUSES.APPROVED ? (
-                                          <>
-                                            <Lock className="h-3.5 w-3.5" />
-                                            Lock
-                                          </>
-                                        ) : (
-                                          <>
-                                            <CheckCircle2 className="h-3.5 w-3.5" />
-                                            Approve
-                                          </>
-                                        )}
-
-                                      </button>
-                                    )}
-
                                   {/* EDIT */}
 
                                   {(
-                                    status ===
-                                    PAYROLL_STATUSES.PENDING ||
-                                    status ===
-                                    PAYROLL_STATUSES.APPROVED
-                                  ) && (
                                       <button
                                         onClick={() =>
                                           openEditModal(
