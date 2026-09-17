@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 
 import api from "../../services/api";
 import EmployeeLayout from "./EmployeeLayout";
-import { generatePayslipPDF } from "../../admin/PaySlipf";
+import { generatePayslipPDF } from "../../admin/PaySlip";
 
 // =====================================================
 // DATE-RANGE HELPER — turns "2025-08" (or any parseable date) into
