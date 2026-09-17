@@ -265,87 +265,135 @@ const EmployeePayslip = () => {
   // =====================================================
   // DOWNLOAD PAYSLIP (now via the shared payslipPdf template)
   // =====================================================
+// =====================================================
+// DOWNLOAD PAYSLIP
+// USE BACKEND PAYSLIP PDF TEMPLATE
+// =====================================================
 
-  const downloadPayslip =
-    async (payslip) => {
-      try {
-        setDownloading(
-          payslip.id
+const downloadPayslip =
+  async (payslip) => {
+
+    try {
+
+      setDownloading(
+        payslip.id
+      );
+
+      console.log(
+        "Generating employee payslip PDF:",
+        payslip.id
+      );
+
+      // ---------------------------------------------
+      // GET PDF FROM BACKEND
+      // ---------------------------------------------
+
+      const response =
+        await api.get(
+          `/employee/payroll/${payslip.id}/pdf`,
+          {
+            responseType: "blob",
+          }
         );
 
-        const employee = {
-          name: payslip.employee_name,
-          id: payslip.employee_ref_id,
-          department: payslip.department,
-          designation: payslip.designation,
-          branchOfficeName: payslip.branch_office_name,
-          bankACNumber: payslip.account_number,
-          bankName: payslip.bank_name,
-          joiningDate: payslip.joining_date,
-          panCard: payslip.pan_card,
-          uanNumber: payslip.uan_number,
-          pfACNumber: payslip.pf_ac_number,
-          esiRegistrationNumber: payslip.esi_number,
-          pran: payslip.pran,
-        };
+      // ---------------------------------------------
+      // CREATE DOWNLOAD URL
+      // ---------------------------------------------
 
-        const earnings = [
-          { label: "Basic Salary", value: Number(payslip.basic_salary ?? 0) },
-          { label: "HRA", value: Number(payslip.hra ?? 0) },
-          { label: "Conveyance", value: Number(payslip.conveyance ?? 0) },
-          { label: "Medical Allowance", value: Number(payslip.medical_allowance ?? 0) },
-          { label: "Other Allowance", value: Number(payslip.other_allowance ?? 0) },
-          { label: "Overtime", value: Number(payslip.overtime ?? 0) },
-          { label: "Bonus", value: Number(payslip.bonus ?? 0) },
-        ].filter((item) => item.value);
-
-        const deductions = [
-          { label: "Employee PF", value: Number(payslip.pf ?? 0) },
-          { label: "ESIC", value: Number(payslip.esic ?? 0) },
-          { label: "Tax / TDS", value: Number(payslip.tax ?? 0) },
-          { label: "Professional Tax", value: Number(payslip.professional_tax ?? 0) },
-          { label: "LOP Deduction", value: Number(payslip.lop ?? 0) },
-        ].filter((item) => item.value);
-
-        const netPayable = Number(
-          payslip.net_salary ??
-            earnings.reduce((sum, item) => sum + item.value, 0) -
-              deductions.reduce((sum, item) => sum + item.value, 0)
+      const blob =
+        new Blob(
+          [response.data],
+          {
+            type: "application/pdf",
+          }
         );
 
-        const month = String(
-          payslip.salary_month || "payslip"
-        ).replace(/[^a-zA-Z0-9-_]/g, "-");
+      const url =
+        window.URL.createObjectURL(
+          blob
+        );
 
-        const employeeFileName = String(
-          payslip.employee_name || "Employee"
+      // ---------------------------------------------
+      // FILE NAME
+      // ---------------------------------------------
+
+      const employeeFileName =
+        String(
+          payslip.employee_name ||
+          "Employee"
         )
-          .replace(/[^a-zA-Z0-9]/g, "_")
-          .replace(/_+/g, "_");
+          .replace(
+            /[^a-zA-Z0-9]/g,
+            "_"
+          )
+          .replace(
+            /_+/g,
+            "_"
+          );
 
-        generatePayslipPDF({
-          employee,
-          periodLabel: `for the month of ${formatSalaryMonth(
-            payslip.salary_month
-          )}`,
-          earnings,
-          deductions,
-          netPayable,
-          filename: `${employeeFileName}_Payslip_${month}.pdf`,
-        });
-      } catch (error) {
-        console.error(
-          "Payslip download error:",
-          error
+      const month =
+        String(
+          payslip.salary_month ||
+          "payslip"
+        ).replace(
+          /[^a-zA-Z0-9-_]/g,
+          "-"
         );
 
-        alert(
-          "Unable to download payslip."
+      // ---------------------------------------------
+      // DOWNLOAD
+      // ---------------------------------------------
+
+      const link =
+        document.createElement(
+          "a"
         );
-      } finally {
-        setDownloading(null);
-      }
-    };
+
+      link.href = url;
+
+      link.download =
+        `${employeeFileName}_Payslip_${month}.pdf`;
+
+      document.body.appendChild(
+        link
+      );
+
+      link.click();
+
+      link.remove();
+
+      // ---------------------------------------------
+      // CLEAN URL
+      // ---------------------------------------------
+
+      window.URL.revokeObjectURL(
+        url
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Payslip download error:",
+        error
+      );
+
+      console.error(
+        "Server response:",
+        error.response?.data
+      );
+
+      alert(
+        error.response?.data?.message ||
+        "Unable to download payslip."
+      );
+
+    } finally {
+
+      setDownloading(
+        null
+      );
+    }
+  };
 
   // =====================================================
   // LOADING

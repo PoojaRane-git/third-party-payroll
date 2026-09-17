@@ -1,5 +1,20 @@
 const { jsPDF } = require("jspdf");
+const fs = require("fs");
+const path = require("path");
 
+// ============================================================
+// SIGNATURE / STAMP IMAGES
+// ============================================================
+
+const STAMP_IMAGE = path.join(
+    __dirname,
+    "../assets/talent-corner-stamp.png"
+);
+
+const SIGNATURE_IMAGE = path.join(
+    __dirname,
+    "../assets/talent-corner-signature.png"
+);
 
 // ============================================================
 // HELPERS
@@ -14,10 +29,26 @@ const money = (value) => {
     });
 };
 
+const formatNumberWithCommas = (value) => {
+    return Number(value || 0).toLocaleString(
+        "en-IN",
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }
+    );
+};
+
+// ============================================================
+// NUMBER TO WORDS
+// ============================================================
+
 const numberToWordsIndian = (number) => {
     number = Math.floor(Number(number || 0));
 
-    if (number === 0) return "Zero";
+    if (number === 0) {
+        return "Zero";
+    }
 
     const ones = [
         "",
@@ -56,11 +87,15 @@ const numberToWordsIndian = (number) => {
     ];
 
     const twoDigits = (n) => {
-        if (n < 20) return ones[n];
+        if (n < 20) {
+            return ones[n];
+        }
 
         return (
             tens[Math.floor(n / 10)] +
-            (n % 10 ? " " + ones[n % 10] : "")
+            (n % 10
+                ? " " + ones[n % 10]
+                : "")
         );
     };
 
@@ -69,34 +104,55 @@ const numberToWordsIndian = (number) => {
 
         if (n >= 10000000) {
             result +=
-                convert(Math.floor(n / 10000000)) +
+                convert(
+                    Math.floor(
+                        n / 10000000
+                    )
+                ) +
                 " Crore ";
+
             n %= 10000000;
         }
 
         if (n >= 100000) {
             result +=
-                convert(Math.floor(n / 100000)) +
+                convert(
+                    Math.floor(
+                        n / 100000
+                    )
+                ) +
                 " Lakh ";
+
             n %= 100000;
         }
 
         if (n >= 1000) {
             result +=
-                convert(Math.floor(n / 1000)) +
+                convert(
+                    Math.floor(
+                        n / 1000
+                    )
+                ) +
                 " Thousand ";
+
             n %= 1000;
         }
 
         if (n >= 100) {
             result +=
-                ones[Math.floor(n / 100)] +
+                ones[
+                    Math.floor(n / 100)
+                ] +
                 " Hundred ";
+
             n %= 100;
         }
 
         if (n > 0) {
-            if (result !== "") result += "and ";
+            if (result !== "") {
+                result += "and ";
+            }
+
             result += twoDigits(n);
         }
 
@@ -118,7 +174,9 @@ const getMonthRange = (salaryMonth) => {
         };
     }
 
-    const [year, month] = String(salaryMonth)
+    const [year, month] = String(
+        salaryMonth
+    )
         .split("-")
         .map(Number);
 
@@ -142,11 +200,14 @@ const getMonthRange = (salaryMonth) => {
     );
 
     const formatDate = (date) =>
-        date.toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        });
+        date.toLocaleDateString(
+            "en-GB",
+            {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+            }
+        );
 
     return {
         start: formatDate(startDate),
@@ -156,10 +217,11 @@ const getMonthRange = (salaryMonth) => {
 
 // ============================================================
 // GENERATE PAYSLIP PDF
-// SAME FORMAT AS YOUR IMAGE
 // ============================================================
 
-const generatePayslipPDF = async (payroll) => {
+const generatePayslipPDF = async (
+    payroll
+) => {
     if (!payroll) {
         throw new Error(
             "Payroll data is missing"
@@ -205,7 +267,9 @@ const generatePayslipPDF = async (payroll) => {
     const {
         start: monthStart,
         end: monthEnd,
-    } = getMonthRange(salaryMonth);
+    } = getMonthRange(
+        salaryMonth
+    );
 
     const bankName =
         payroll.bank_name ||
@@ -259,13 +323,17 @@ const generatePayslipPDF = async (payroll) => {
         0
     );
 
-    const medicalAllowance = Number(
-        payroll.medical_allowance || 0
-    );
+    const medicalAllowance =
+        Number(
+            payroll.medical_allowance ||
+            0
+        );
 
-    const otherAllowance = Number(
-        payroll.other_allowance || 0
-    );
+    const otherAllowance =
+        Number(
+            payroll.other_allowance ||
+            0
+        );
 
     const gratuity = Number(
         payroll.gratuity || 0
@@ -279,9 +347,11 @@ const generatePayslipPDF = async (payroll) => {
         payroll.esic || 0
     );
 
-    const professionalTax = Number(
-        payroll.professional_tax || 0
-    );
+    const professionalTax =
+        Number(
+            payroll.professional_tax ||
+            0
+        );
 
     const tax = Number(
         payroll.tax || 0
@@ -289,6 +359,14 @@ const generatePayslipPDF = async (payroll) => {
 
     const lop = Number(
         payroll.lop || 0
+    );
+
+    const overtime = Number(
+        payroll.overtime || 0
+    );
+
+    const bonus = Number(
+        payroll.bonus || 0
     );
 
     const grossSalary = Number(
@@ -299,21 +377,22 @@ const generatePayslipPDF = async (payroll) => {
             conveyance +
             medicalAllowance +
             otherAllowance +
-            payroll.overtime +
-            payroll.bonus
+            overtime +
+            bonus
         )
     );
 
-    const totalDeductions = Number(
-        payroll.total_deductions ??
-        (
-            pf +
-            esic +
-            professionalTax +
-            tax +
-            lop
-        )
-    );
+    const totalDeductions =
+        Number(
+            payroll.total_deductions ??
+            (
+                pf +
+                esic +
+                professionalTax +
+                tax +
+                lop
+            )
+        );
 
     const netSalary = Number(
         payroll.net_salary ??
@@ -328,8 +407,12 @@ const generatePayslipPDF = async (payroll) => {
     // ========================================================
 
     const fixedGross =
-        Number(payroll.fixed_gross_salary) ||
-        Number(payroll.pay_rate) ||
+        Number(
+            payroll.fixed_gross_salary
+        ) ||
+        Number(
+            payroll.pay_rate
+        ) ||
         (
             basicSalary > 0
                 ? basicSalary * 2
@@ -366,7 +449,7 @@ const generatePayslipPDF = async (payroll) => {
         );
 
     // ========================================================
-    // OUTER BORDER
+    // OUTER PAYSLIP BORDER
     // ========================================================
 
     doc.setLineWidth(0.6);
@@ -542,14 +625,16 @@ const generatePayslipPDF = async (payroll) => {
         );
 
         doc.text(
-            String(value || "N/A"),
+            String(
+                value || "N/A"
+            ),
             x + 40,
             y
         );
     };
 
     // ========================================================
-    // LEFT
+    // LEFT DETAILS
     // ========================================================
 
     addInfo(
@@ -589,7 +674,7 @@ const generatePayslipPDF = async (payroll) => {
     leftY += 7;
 
     // ========================================================
-    // BANK
+    // BANK DETAILS
     // ========================================================
 
     doc.setFont(
@@ -650,7 +735,7 @@ const generatePayslipPDF = async (payroll) => {
     );
 
     // ========================================================
-    // RIGHT
+    // RIGHT DETAILS
     // ========================================================
 
     addInfo(
@@ -707,6 +792,7 @@ const generatePayslipPDF = async (payroll) => {
 
     // ========================================================
     // SALARY TABLE
+    // NO CELL BORDERS
     // ========================================================
 
     const tableX = 22;
@@ -748,6 +834,8 @@ const generatePayslipPDF = async (payroll) => {
     headers.forEach(
         (header, index) => {
 
+            // Background only.
+            // NO BORDER.
             doc.setFillColor(
                 242,
                 242,
@@ -759,7 +847,7 @@ const generatePayslipPDF = async (payroll) => {
                 tableY,
                 widths[index],
                 rowHeight,
-                "FD"
+                "F"
             );
 
             doc.text(
@@ -774,6 +862,7 @@ const generatePayslipPDF = async (payroll) => {
 
     // ========================================================
     // ROW HELPER
+    // NO BORDERS
     // ========================================================
 
     const drawSalaryRow = (
@@ -815,12 +904,9 @@ const generatePayslipPDF = async (payroll) => {
         values.forEach(
             (value, index) => {
 
-                doc.rect(
-                    currentX,
-                    y,
-                    widths[index],
-                    rowHeight
-                );
+                // IMPORTANT:
+                // No doc.rect() here.
+                // Therefore there are NO cell borders.
 
                 doc.setFont(
                     "helvetica",
@@ -863,31 +949,11 @@ const generatePayslipPDF = async (payroll) => {
     };
 
     // ========================================================
-    // FORMAT NUMBER
-    // ========================================================
-
-    const formatNumberWithCommas = (
-        value
-    ) => {
-        return Number(
-            value || 0
-        ).toLocaleString(
-            "en-IN",
-            {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            }
-        );
-    };
-
-    // ========================================================
     // SALARY ROWS
     // ========================================================
 
     let rowY =
         tableY + rowHeight;
-
-    // BASIC
 
     drawSalaryRow(
         rowY,
@@ -900,8 +966,6 @@ const generatePayslipPDF = async (payroll) => {
     );
 
     rowY += rowHeight;
-
-    // HRA
 
     drawSalaryRow(
         rowY,
@@ -921,8 +985,6 @@ const generatePayslipPDF = async (payroll) => {
 
     rowY += rowHeight;
 
-    // CONVEYANCE
-
     drawSalaryRow(
         rowY,
         "Conveyance Expenses",
@@ -940,8 +1002,6 @@ const generatePayslipPDF = async (payroll) => {
     );
 
     rowY += rowHeight;
-
-    // MEDICAL
 
     drawSalaryRow(
         rowY,
@@ -961,8 +1021,6 @@ const generatePayslipPDF = async (payroll) => {
 
     rowY += rowHeight;
 
-    // OTHER
-
     drawSalaryRow(
         rowY,
         "Other Expenses",
@@ -981,8 +1039,6 @@ const generatePayslipPDF = async (payroll) => {
 
     rowY += rowHeight;
 
-    // GRATUITY
-
     drawSalaryRow(
         rowY,
         "Gratuity",
@@ -997,6 +1053,7 @@ const generatePayslipPDF = async (payroll) => {
 
     // ========================================================
     // TOTAL
+    // NO TABLE BORDER
     // ========================================================
 
     const totalEarnings =
@@ -1047,12 +1104,14 @@ const generatePayslipPDF = async (payroll) => {
                 243
             );
 
+            // FILL ONLY.
+            // NO BORDER.
             doc.rect(
                 totalX,
                 rowY,
                 widths[index],
                 rowHeight,
-                "FD"
+                "F"
             );
 
             if (
@@ -1088,6 +1147,7 @@ const generatePayslipPDF = async (payroll) => {
 
     // ========================================================
     // NET AMOUNT
+    // NO TABLE BORDER
     // ========================================================
 
     rowY += rowHeight;
@@ -1110,12 +1170,7 @@ const generatePayslipPDF = async (payroll) => {
     netValues.forEach(
         (value, index) => {
 
-            doc.rect(
-                netX,
-                rowY,
-                widths[index],
-                rowHeight
-            );
+            // No rectangle here.
 
             doc.setFont(
                 "helvetica",
@@ -1140,7 +1195,7 @@ const generatePayslipPDF = async (payroll) => {
                     }
                 );
 
-            } else {
+            } else if (value) {
 
                 doc.text(
                     String(value),
@@ -1196,11 +1251,17 @@ const generatePayslipPDF = async (payroll) => {
     );
 
     // ========================================================
-    // SIGNATURE
+    // SIGNATURE / STAMP
+    // FIXED POSITION
     // ========================================================
 
-    const signatureY =
-        wordsY + 25;
+    const signatureTextY = 245;
+    const signatureImageY = 247;
+    const stampImageY = 239;
+
+    // ========================================================
+    // COMPANY SIGNATURE TEXT
+    // ========================================================
 
     doc.setFont(
         "helvetica",
@@ -1212,80 +1273,83 @@ const generatePayslipPDF = async (payroll) => {
     doc.text(
         "for Talent Corner HR Services Pvt Ltd.",
         188,
-        signatureY,
+        signatureTextY,
         {
             align: "right",
         }
     );
 
     // ========================================================
-    // SIGNATURE PLACEHOLDER
+    // SIGNATURE IMAGE
     // ========================================================
 
-    doc.setFont(
-        "helvetica",
-        "italic"
-    );
+    if (
+        fs.existsSync(
+            SIGNATURE_IMAGE
+        )
+    ) {
+        try {
 
-    doc.setFontSize(18);
+            doc.addImage(
+                SIGNATURE_IMAGE,
+                "PNG",
+                145,
+                signatureImageY,
+                28,
+                12
+            );
 
-    doc.text(
-        "✓",
-        157,
-        wordsY + 31
-    );
+        } catch (error) {
+
+            console.error(
+                "Unable to add signature image:",
+                error.message
+            );
+        }
+
+    } else {
+
+        console.warn(
+            "Signature image not found:",
+            SIGNATURE_IMAGE
+        );
+    }
 
     // ========================================================
-    // STAMP
+    // STAMP IMAGE
     // ========================================================
 
-    doc.setLineWidth(0.5);
+    if (
+        fs.existsSync(
+            STAMP_IMAGE
+        )
+    ) {
+        try {
 
-    doc.circle(
-        178,
-        wordsY + 31,
-        10
-    );
+            doc.addImage(
+                STAMP_IMAGE,
+                "PNG",
+                171,
+                stampImageY,
+                25,
+                25
+            );
 
-    doc.circle(
-        178,
-        wordsY + 31,
-        7
-    );
+        } catch (error) {
 
-    doc.setFont(
-        "helvetica",
-        "bold"
-    );
-
-    doc.setFontSize(5);
-
-    doc.text(
-        "TALENT CORNER HR",
-        178,
-        wordsY + 28,
-        {
-            align: "center",
+            console.error(
+                "Unable to add stamp image:",
+                error.message
+            );
         }
-    );
 
-    doc.text(
-        "MUMBAI",
-        178,
-        wordsY + 32,
-        {
-            align: "center",
-        }
-    );
+    } else {
 
-    doc.text(
-        "AUTHORISED",
-        178,
-        wordsY + 35,
-        {
-            align: "center",
-        }
-    );
+        console.warn(
+            "Stamp image not found:",
+            STAMP_IMAGE
+        );
+    }
 
     // ========================================================
     // RETURN BUFFER
