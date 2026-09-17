@@ -813,7 +813,7 @@ const generatePayslipPDF = async (
         pan
     );
 
-    rightY += 7;
+    rightY += 8;
 
     addInfo(
         rightX,
@@ -822,7 +822,7 @@ const generatePayslipPDF = async (
         uan
     );
 
-    rightY += 7;
+    rightY += 8;
 
     addInfo(
         rightX,
