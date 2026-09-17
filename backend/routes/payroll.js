@@ -5540,8 +5540,8 @@ router.get("/lookup/prefill", async (req, res) => {
                 employee_id,
                 half_days,
                 lop_days,
-                payable_days,
-                advance
+                payable_days
+                
             `)
             .eq(
                 "employee_id",
@@ -5648,9 +5648,6 @@ router.get("/lookup/prefill", async (req, res) => {
             attendance?.overtime_hours || 0
         );
 
-        const advance = Number(
-            attendance?.advance || 0
-        );
 
         // ========================================================
         // PAYABLE DAYS
@@ -5805,9 +5802,6 @@ router.get("/lookup/prefill", async (req, res) => {
 
                 overtime_hours:
                     overtimeHours,
-
-                advance:
-                    advance,
 
                 total_days:
                     calendarDays,
@@ -6156,9 +6150,7 @@ router.post("/", async (req, res) => {
             attendance.overtime_hours || 0
         );
 
-        const advanceDeduction = Math.round(
-            Number(attendance.advance || 0)
-        );
+       const advanceDeduction = 0;
 
         // --------------------------------------------------------
         // DAYS IN MONTH
