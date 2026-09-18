@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "../../../lib/supabaseClient";
-import logo from "../../../assets/Logo.jpeg";
+import logo from "../../../assets/Logo.png";
 
 const EmployeeSidebar = () => {
   const navigate = useNavigate();

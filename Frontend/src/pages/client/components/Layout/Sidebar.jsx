@@ -12,7 +12,7 @@ import {
   LogOut,
 } from "lucide-react";
 
-import logo from "../../../../assets/Logo.jpeg";
+import logo from "../../../../assets/Logo.png";
 
 function Sidebar({ clientName, onLogout }) {
   const navigate = useNavigate();
