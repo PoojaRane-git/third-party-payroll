@@ -23,6 +23,10 @@ const EmployeePayslip = () => {
   const [error, setError] =
     useState("");
 
+  // NEW: selected monthly payslip for viewing
+  const [selectedPayslip, setSelectedPayslip] =
+    useState(null);
+
   // =====================================================
   // FETCH PAYSLIPS
   // =====================================================
@@ -244,12 +248,12 @@ const EmployeePayslip = () => {
         );
 
         // ---------------------------------------------
-        // GET PDF FROM BACKEND
+        // GET PDF FROM EXISTING BACKEND ROUTE
         // ---------------------------------------------
 
         const response =
           await api.get(
-            `/employee/payroll/${payslip.id}/pdf`,
+            `/employee/employee/payroll/${payslip.id}/pdf`,
             {
               responseType: "blob",
             }
@@ -496,6 +500,35 @@ const EmployeePayslip = () => {
                       }}
                     >
 
+                      {/* NEW: VIEW MONTHLY PAYSLIP */}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedPayslip(
+                            payslip
+                          )
+                        }
+                        style={{
+                          padding:
+                            "10px 16px",
+                          border:
+                            "1px solid #d1d5db",
+                          borderRadius:
+                            "8px",
+                          cursor:
+                            "pointer",
+                          fontWeight:
+                            "600",
+                          background:
+                            "#ffffff",
+                        }}
+                      >
+                        View Payslip
+                      </button>
+
+                      {/* DOWNLOAD */}
+
                       <button
                         type="button"
                         onClick={() =>
@@ -528,6 +561,7 @@ const EmployeePayslip = () => {
                           ? "Generating..."
                           : "Download Payslip"}
                       </button>
+
                     </div>
                   </div>
 
@@ -974,6 +1008,586 @@ const EmployeePayslip = () => {
         )}
 
       </div>
+
+      {/* =====================================================
+          VIEW MONTHLY PAYSLIP MODAL
+      ===================================================== */}
+
+      {selectedPayslip && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            zIndex: 9999,
+          }}
+          onClick={() =>
+            setSelectedPayslip(null)
+          }
+        >
+
+          <div
+            style={{
+              background: "#ffffff",
+              width: "100%",
+              maxWidth: "800px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              borderRadius: "12px",
+              padding: "30px",
+              position: "relative",
+            }}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            {/* MODAL HEADER */}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems: "center",
+                marginBottom: "25px",
+              }}
+            >
+
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                  }}
+                >
+                  {formatSalaryMonth(
+                    selectedPayslip.salary_month
+                  )}
+                </h2>
+
+                <p>
+                  Payslip ID:{" "}
+                  {display(
+                    selectedPayslip.id
+                  )}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedPayslip(null)
+                }
+                style={{
+                  border: "none",
+                  background:
+                    "transparent",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+
+            </div>
+
+            {/* MODAL CONTENT */}
+
+            <h3>
+              Earnings
+            </h3>
+
+            <div className="profile-grid">
+
+              <div>
+                <span>
+                  Basic Salary
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.basic_salary
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  HRA
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.hra
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Conveyance
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.conveyance
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Medical Allowance
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.medical_allowance
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Other Allowance
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.other_allowance
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Overtime
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.overtime
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Bonus
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.bonus
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Gross Salary
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.gross_salary
+                  )}
+                </strong>
+              </div>
+
+            </div>
+
+            {/* DEDUCTIONS */}
+
+            <h3
+              style={{
+                marginTop: "25px",
+              }}
+            >
+              Deductions
+            </h3>
+
+            <div className="profile-grid">
+
+              <div>
+                <span>
+                  Employee PF
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.pf
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  ESIC
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.esic
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Tax / TDS
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.tax
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Professional Tax
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.professional_tax
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  LOP Deduction
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.lop
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Total Deductions
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.total_deductions
+                  )}
+                </strong>
+              </div>
+
+            </div>
+
+            {/* NET SALARY */}
+
+            <div
+              style={{
+                marginTop: "25px",
+                padding: "20px",
+                borderRadius: "10px",
+                background: "#f8fafc",
+              }}
+            >
+
+              <span>
+                Net Salary
+              </span>
+
+              <h2
+                style={{
+                  margin:
+                    "5px 0 0",
+                }}
+              >
+                ₹
+                {money(
+                  selectedPayslip.net_salary
+                )}
+              </h2>
+
+            </div>
+
+            {/* STATUTORY */}
+
+            <h3
+              style={{
+                marginTop: "25px",
+              }}
+            >
+              Statutory Details
+            </h3>
+
+            <div className="profile-grid">
+
+              <div>
+                <span>
+                  PF Wages
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.pf_wages
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Gratuity
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.gratuity
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Joining Date
+                </span>
+
+                <strong>
+                  {formatDate(
+                    selectedPayslip.joining_date
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  PRAN
+                </span>
+
+                <strong>
+                  {display(
+                    selectedPayslip.pran
+                  )}
+                </strong>
+              </div>
+
+            </div>
+
+            {/* EMPLOYER CONTRIBUTION */}
+
+            <h3
+              style={{
+                marginTop: "25px",
+              }}
+            >
+              Employer Contribution
+            </h3>
+
+            <div className="profile-grid">
+
+              <div>
+                <span>
+                  Employer PF
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.employer_pf
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Employer ESIC
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.employer_esic
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Total Employer Contribution
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.total_employer_contribution
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Total Employer Cost
+                </span>
+
+                <strong>
+                  ₹
+                  {money(
+                    selectedPayslip.total_employer_cost
+                  )}
+                </strong>
+              </div>
+
+            </div>
+
+            {/* BANK DETAILS */}
+
+            <h3
+              style={{
+                marginTop: "25px",
+              }}
+            >
+              Bank Details
+            </h3>
+
+            <div className="profile-grid">
+
+              <div>
+                <span>
+                  Bank Name
+                </span>
+
+                <strong>
+                  {display(
+                    selectedPayslip.bank_name
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Account Number
+                </span>
+
+                <strong>
+                  {display(
+                    selectedPayslip.account_number
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  IFSC Code
+                </span>
+
+                <strong>
+                  {display(
+                    selectedPayslip.ifsc_code
+                  )}
+                </strong>
+              </div>
+
+            </div>
+
+            {/* MODAL FOOTER */}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent:
+                  "flex-end",
+                gap: "12px",
+                marginTop: "30px",
+                paddingTop: "20px",
+                borderTop:
+                  "1px solid #e5e7eb",
+              }}
+            >
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedPayslip(null)
+                }
+                style={{
+                  padding:
+                    "10px 18px",
+                  border:
+                    "1px solid #d1d5db",
+                  borderRadius:
+                    "8px",
+                  background:
+                    "#ffffff",
+                  cursor:
+                    "pointer",
+                  fontWeight:
+                    "600",
+                }}
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  downloadPayslip(
+                    selectedPayslip
+                  );
+                }}
+                disabled={
+                  downloading ===
+                  selectedPayslip.id
+                }
+                style={{
+                  padding:
+                    "10px 18px",
+                  border:
+                    "none",
+                  borderRadius:
+                    "8px",
+                  cursor:
+                    downloading ===
+                    selectedPayslip.id
+                      ? "not-allowed"
+                      : "pointer",
+                  fontWeight:
+                    "600",
+                }}
+              >
+                {downloading ===
+                selectedPayslip.id
+                  ? "Generating..."
+                  : "Download Payslip"}
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
     </EmployeeLayout>
   );
 };
