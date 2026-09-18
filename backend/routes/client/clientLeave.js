@@ -39,7 +39,6 @@ function calculateLeaveDays(startDate, endDate) {
         ) + 1
     );
 }
-
 // =====================================================
 // GET PENDING LEAVE REQUESTS
 // GET /api/client/leave/pending
@@ -49,9 +48,13 @@ router.get("/pending", async (req, res) => {
     try {
         const client = await getClientContext(req);
 
+        // =================================================
+        // GET LEAVE REQUESTS
+        // =================================================
+
         const {
-            data,
-            error,
+            data: leaveRequests,
+            error: leaveError,
         } = await supabaseAdmin
             .from("leave_applications")
             .select("*")
@@ -61,7 +64,131 @@ router.get("/pending", async (req, res) => {
                 ascending: false,
             });
 
-        if (error) throw error;
+        if (leaveError) {
+            throw leaveError;
+        }
+
+        const requests = leaveRequests || [];
+
+        // =================================================
+        // GET EMPLOYEE IDs
+        // =================================================
+
+        const employeeIds = [
+            ...new Set(
+                requests
+                    .map(
+                        (leave) =>
+                            leave.employee_id
+                    )
+                    .filter(
+                        (id) =>
+                            id !== null &&
+                            id !== undefined
+                    )
+            ),
+        ];
+
+        // =================================================
+        // GET EMPLOYEE DETAILS
+        // =================================================
+
+        let employeeMap = {};
+
+        if (employeeIds.length > 0) {
+
+            const {
+                data: employees,
+                error: employeeError,
+            } = await supabaseAdmin
+                .from("candidates")
+                .select("*")
+                .in("id", employeeIds);
+
+            if (employeeError) {
+                throw employeeError;
+            }
+
+            (employees || []).forEach(
+                (employee) => {
+                    employeeMap[employee.id] =
+                        employee;
+                }
+            );
+        }
+
+        // =================================================
+        // ATTACH EMPLOYEE NAME + ID
+        // =================================================
+
+        const enrichedRequests =
+            requests.map((leave) => {
+
+                const employee =
+                    employeeMap[
+                        leave.employee_id
+                    ] || {};
+
+                // -----------------------------------------
+                // FIND EMPLOYEE NAME
+                // -----------------------------------------
+
+                let employeeName =
+                    employee.name ||
+                    employee.full_name ||
+                    employee.candidate_name ||
+                    "";
+
+                // If first_name + last_name exist
+                if (
+                    !employeeName &&
+                    employee.first_name
+                ) {
+                    employeeName =
+                        employee.last_name
+                            ? `${employee.first_name} ${employee.last_name}`
+                            : employee.first_name;
+                }
+
+                // -----------------------------------------
+                // FALLBACK
+                // -----------------------------------------
+
+                if (!employeeName) {
+                    employeeName =
+                        `Employee${leave.employee_id}`;
+                }
+
+                return {
+                    ...leave,
+
+                    // Employee ID
+                    employee_id:
+                        leave.employee_id,
+
+                    // Employee name
+                    employee_name:
+                        employeeName,
+
+                    // Optional nested employee object
+                    employee: {
+                        id:
+                            employee.id ||
+                            leave.employee_id,
+
+                        name:
+                            employeeName,
+
+                        full_name:
+                            employee.full_name ||
+                            employeeName,
+                    },
+                };
+            });
+
+        // =================================================
+        // LOG
+        // =================================================
 
         console.log(
             "CLIENT ID:",
@@ -70,12 +197,16 @@ router.get("/pending", async (req, res) => {
 
         console.log(
             "PENDING LEAVE REQUESTS:",
-            data || []
+            enrichedRequests
         );
+
+        // =================================================
+        // RESPONSE
+        // =================================================
 
         return res.json({
             success: true,
-            data: data || [],
+            data: enrichedRequests,
         });
 
     } catch (error) {
@@ -87,13 +218,13 @@ router.get("/pending", async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            error: "Failed to fetch pending leave requests.",
-            details: error.message,
+            error:
+                "Failed to fetch pending leave requests.",
+            details:
+                error.message,
         });
     }
 });
-
-
 // =====================================================
 // APPROVE LEAVE
 // PATCH /api/client/leave/:id/approve
