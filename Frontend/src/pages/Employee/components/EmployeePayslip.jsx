@@ -23,9 +23,13 @@ const EmployeePayslip = () => {
   const [error, setError] =
     useState("");
 
-  // NEW: selected monthly payslip for viewing
+  // Selected monthly payslip for viewing
   const [selectedPayslip, setSelectedPayslip] =
     useState(null);
+
+  // Selected salary month from calendar
+  const [selectedMonth, setSelectedMonth] =
+    useState("");
 
   // =====================================================
   // FETCH PAYSLIPS
@@ -231,6 +235,23 @@ const EmployeePayslip = () => {
   };
 
   // =====================================================
+  // FILTER PAYSLIPS BY SELECTED MONTH
+  // =====================================================
+
+  const filteredPayslips =
+    selectedMonth
+      ? payslips.filter(
+          (payslip) =>
+            String(
+              payslip.salary_month ||
+                ""
+            ).startsWith(
+              selectedMonth
+            )
+        )
+      : payslips;
+
+  // =====================================================
   // DOWNLOAD PAYSLIP
   // USE BACKEND PAYSLIP PDF TEMPLATE
   // =====================================================
@@ -247,21 +268,13 @@ const EmployeePayslip = () => {
           payslip.id
         );
 
-        // ---------------------------------------------
-        // GET PDF FROM EXISTING BACKEND ROUTE
-        // ---------------------------------------------
-
         const response =
           await api.get(
-            `/employee/employee/payroll/${payslip.id}/pdf`,
+            `/employee/payroll/${payslip.id}/pdf`,
             {
               responseType: "blob",
             }
           );
-
-        // ---------------------------------------------
-        // CREATE DOWNLOAD BLOB
-        // ---------------------------------------------
 
         const blob =
           response.data instanceof Blob
@@ -274,18 +287,10 @@ const EmployeePayslip = () => {
                 }
               );
 
-        // ---------------------------------------------
-        // CREATE DOWNLOAD URL
-        // ---------------------------------------------
-
         const url =
           window.URL.createObjectURL(
             blob
           );
-
-        // ---------------------------------------------
-        // FILE NAME
-        // ---------------------------------------------
 
         const employeeFileName =
           String(
@@ -310,10 +315,6 @@ const EmployeePayslip = () => {
             "-"
           );
 
-        // ---------------------------------------------
-        // DOWNLOAD
-        // ---------------------------------------------
-
         const link =
           document.createElement(
             "a"
@@ -331,10 +332,6 @@ const EmployeePayslip = () => {
         link.click();
 
         link.remove();
-
-        // ---------------------------------------------
-        // CLEAN URL
-        // ---------------------------------------------
 
         window.URL.revokeObjectURL(
           url
@@ -419,6 +416,118 @@ const EmployeePayslip = () => {
         )}
 
         {/* =================================================
+            SALARY MONTH CALENDAR
+        ================================================= */}
+
+        {payslips.length > 0 && (
+          <div
+            className="table-card"
+            style={{
+              marginBottom: "25px",
+              padding: "20px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems: "center",
+                gap: "15px",
+                flexWrap: "wrap",
+              }}
+            >
+
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                  }}
+                >
+                  Salary Month
+                </h3>
+
+                <p
+                  style={{
+                    margin:
+                      "5px 0 0",
+                    color:
+                      "#6b7280",
+                  }}
+                >
+                  Select a month to
+                  view your payslip.
+                </p>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems:
+                    "center",
+                  gap: "10px",
+                  flexWrap:
+                    "wrap",
+                }}
+              >
+
+                <input
+                  type="month"
+                  value={
+                    selectedMonth
+                  }
+                  onChange={(event) =>
+                    setSelectedMonth(
+                      event.target.value
+                    )
+                  }
+                  style={{
+                    padding:
+                      "10px 12px",
+                    border:
+                      "1px solid #d1d5db",
+                    borderRadius:
+                      "8px",
+                    fontSize:
+                      "14px",
+                    cursor:
+                      "pointer",
+                  }}
+                />
+
+                {selectedMonth && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedMonth(
+                        ""
+                      )
+                    }
+                    style={{
+                      padding:
+                        "10px 16px",
+                      border:
+                        "1px solid #d1d5db",
+                      borderRadius:
+                        "8px",
+                      background:
+                        "#ffffff",
+                      cursor:
+                        "pointer",
+                      fontWeight:
+                        "600",
+                    }}
+                  >
+                    Show All Months
+                  </button>
+                )}
+
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================
             NO PAYSLIPS
         ================================================= */}
 
@@ -433,10 +542,32 @@ const EmployeePayslip = () => {
               will appear here.
             </p>
           </div>
+        ) : filteredPayslips.length === 0 ? (
+
+          /* =================================================
+              NO PAYSLIP FOR SELECTED MONTH
+          ================================================= */
+
+          <div className="empty-state">
+            <h3>
+              No payslip for selected month
+            </h3>
+
+            <p>
+              There is no salary record
+              available for{" "}
+              <strong>
+                {formatSalaryMonth(
+                  selectedMonth
+                )}
+              </strong>.
+            </p>
+          </div>
+
         ) : (
           <div>
 
-            {payslips.map(
+            {filteredPayslips.map(
               (payslip) => (
                 <div
                   key={payslip.id}
@@ -500,7 +631,7 @@ const EmployeePayslip = () => {
                       }}
                     >
 
-                      {/* NEW: VIEW MONTHLY PAYSLIP */}
+                      {/* VIEW MONTHLY PAYSLIP */}
 
                       <button
                         type="button"
