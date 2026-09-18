@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "../../../lib/supabaseClient";
+import logo from "../../../assets/Logo.jpeg";
 
 const EmployeeSidebar = () => {
   const navigate = useNavigate();
@@ -138,7 +139,11 @@ const EmployeeSidebar = () => {
       <div className="sidebar-logo">
 
         <div className="logo-box">
-          <span>TC</span>
+          <img
+            src={logo}
+            alt="Talent Corner"
+            className="employee-sidebar-logo"
+          />
         </div>
 
         <div className="logo-text">

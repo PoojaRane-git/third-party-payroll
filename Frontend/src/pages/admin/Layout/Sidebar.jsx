@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../../../lib/supabaseClient";
+import logo from "../../../assets/Logo.jpeg";
 
 import {
   Home,
@@ -206,49 +207,46 @@ function Sidebar() {
   };
 
   // =========================================================
-// LOGOUT
-// =========================================================
+  // LOGOUT
+  // =========================================================
 
-const handleLogout = async () => {
-  try {
-    console.log("Logging out...");
+  const handleLogout = async () => {
+    try {
+      console.log("Logging out...");
 
-    const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
 
-    if (error) {
-      console.error("Supabase logout error:", error);
-      throw error;
+      if (error) {
+        console.error("Supabase logout error:", error);
+        throw error;
+      }
+
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("access_token");
+      sessionStorage.removeItem("user");
+
+      setMobileSidebarOpen(false);
+      setShowOptionsDropdown(false);
+
+      console.log("Logout successful");
+
+      alert("You have been logged out successfully.");
+
+      navigate("/login", {
+        replace: true,
+      });
+
+    } catch (error) {
+      console.error("LOGOUT ERROR:", error);
+
+      alert(
+        `Unable to logout. ${
+          error?.message || "Please try again."
+        }`
+      );
     }
+  };
 
-    // Clear old locally stored authentication data
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("access_token");
-    sessionStorage.removeItem("user");
-
-    // Close sidebar/dropdown
-    setMobileSidebarOpen(false);
-    setShowOptionsDropdown(false);
-
-    console.log("Logout successful");
-
-    // SUCCESS ALERT
-    alert("You have been logged out successfully.");
-
-    // Redirect to login
-    navigate("/login", {
-      replace: true,
-    });
-
-  } catch (error) {
-    console.error("LOGOUT ERROR:", error);
-
-    alert(
-      `Unable to logout. ${
-        error?.message || "Please try again."
-      }`
-    );
-  }
-};
   // =========================================================
   // CLOSE MOBILE SIDEBAR
   // =========================================================
@@ -497,30 +495,18 @@ const handleLogout = async () => {
                 min-w-0
               `}
             >
-              <div
+              {/* LOGO */}
+
+              <img
+                src={logo}
+                alt="Talent Corner"
                 className="
-                  bg-indigo-600
-                  text-white
-
-                  font-black
-
-                  px-2.5
-                  py-1.5
-
-                  rounded-xl
-
-                  text-xs
-
-                  tracking-wider
-
-                  shadow-lg
-                  shadow-indigo-500/20
-
+                  w-10
+                  h-10
+                  object-contain
                   shrink-0
                 "
-              >
-                TP
-              </div>
+              />
 
               {!desktopSidebarCollapsed && (
                 <span
@@ -774,8 +760,6 @@ const handleLogout = async () => {
                 </button>
 
                 <div className="my-1 border-t border-slate-800" />
-
-                {/* DROPDOWN LOGOUT */}
 
                 <button
                   type="button"
@@ -1176,8 +1160,6 @@ const handleLogout = async () => {
                 </div>
               )}
             </div>
-
-            {/* ARROW */}
 
             {!desktopSidebarCollapsed && (
               <ChevronDown

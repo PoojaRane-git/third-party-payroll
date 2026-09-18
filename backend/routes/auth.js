@@ -1355,10 +1355,8 @@ router.post(
                 gstin,
                 billing_address,
                 state_code,
-                credit_terms,
                 contact_person,
                 phone,
-                service_fee,
             } = req.body;
 
             const clientEmail =
@@ -1370,15 +1368,11 @@ router.post(
                 String(password || "");
 
             const companyName =
-                String(
-                    company_name || ""
-                ).trim();
+                String(company_name || "").trim();
 
             const contactPerson =
                 contact_person
-                    ? String(
-                        contact_person
-                    ).trim()
+                    ? String(contact_person).trim()
                     : null;
 
             const clientPhone =
@@ -1386,12 +1380,15 @@ router.post(
                     ? String(phone).trim()
                     : null;
 
+            // ==================================================
+            // VALIDATION
+            // ==================================================
+
             if (
                 !clientEmail ||
                 !clientPassword ||
                 !companyName
             ) {
-
                 return res.status(400).json({
                     success: false,
                     message:
@@ -1399,10 +1396,7 @@ router.post(
                 });
             }
 
-            if (
-                clientPassword.length < 8
-            ) {
-
+            if (clientPassword.length < 8) {
                 return res.status(400).json({
                     success: false,
                     message:
@@ -1433,7 +1427,6 @@ router.post(
                 .maybeSingle();
 
             if (existingClientUserError) {
-
                 return res.status(500).json({
                     success: false,
                     message:
@@ -1444,7 +1437,6 @@ router.post(
             }
 
             if (existingClientUser) {
-
                 return res.status(409).json({
                     success: false,
                     message:
@@ -1473,7 +1465,6 @@ router.post(
                 .maybeSingle();
 
             if (existingClientError) {
-
                 return res.status(500).json({
                     success: false,
                     message:
@@ -1484,7 +1475,6 @@ router.post(
             }
 
             if (existingClient) {
-
                 return res.status(409).json({
                     success: false,
                     message:
@@ -1519,7 +1509,6 @@ router.post(
                 authError ||
                 !authData?.user
             ) {
-
                 return res.status(400).json({
                     success: false,
                     message:
@@ -1548,9 +1537,7 @@ router.post(
 
                         gstin:
                             gstin
-                                ? String(
-                                    gstin
-                                )
+                                ? String(gstin)
                                     .trim()
                                     .toUpperCase()
                                 : null,
@@ -1569,13 +1556,6 @@ router.post(
                                 ).trim()
                                 : null,
 
-                        credit_terms:
-                            credit_terms
-                                ? String(
-                                    credit_terms
-                                ).trim()
-                                : "Net 30",
-
                         contact_person:
                             contactPerson,
 
@@ -1584,15 +1564,6 @@ router.post(
 
                         phone:
                             clientPhone,
-
-                        service_fee:
-                            service_fee === "" ||
-                            service_fee === null ||
-                            service_fee === undefined
-                                ? null
-                                : Number(
-                                    service_fee
-                                ),
 
                         status:
                             "Pending",
@@ -1682,6 +1653,7 @@ router.post(
                 !clientUser
             ) {
 
+                // Remove client record
                 await supabaseAdmin
                     .from("clients")
                     .delete()
@@ -1690,6 +1662,7 @@ router.post(
                         clientId
                     );
 
+                // Remove Supabase Auth user
                 await supabaseAdmin
                     .auth
                     .admin
@@ -1711,6 +1684,10 @@ router.post(
 
             clientUserId =
                 clientUser.id;
+
+            // ==================================================
+            // SUCCESS
+            // ==================================================
 
             return res.status(201).json({
 
@@ -1747,6 +1724,10 @@ router.post(
                 "signup-client error:",
                 error
             );
+
+            // ==================================================
+            // CLEANUP IF SOMETHING FAILS
+            // ==================================================
 
             if (clientUserId) {
 
@@ -1790,7 +1771,6 @@ router.post(
         }
     }
 );
-
 // ============================================================
 // ADMIN SIGNUP
 // ============================================================

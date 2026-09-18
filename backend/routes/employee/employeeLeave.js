@@ -103,7 +103,6 @@ router.get(
                     candidate_id,
                     client_id,
                     project_name,
-                    designation,
                     start_date,
                     end_date,
                     status

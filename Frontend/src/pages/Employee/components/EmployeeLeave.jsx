@@ -194,28 +194,26 @@ const EmployeeLeave = () => {
     // =====================================================
     // FETCH ACTIVE DEPLOYMENT
     // =====================================================
-
-    const fetchDeployment = async () => {
-        const response =
-            await api.get(
-                "/employee/deployment"
-            );
-
-        const data = response?.data;
-
-        if (
-            !data?.deployment_id
-        ) {
-            throw new Error(
-                "No active deployment found for this employee."
-            );
-        }
-
-        setDeploymentId(
-            Number(data.deployment_id)
+const fetchDeployment = async () => {
+    const response =
+        await api.get(
+            "/employee/leave/deployment"
         );
-    };
 
+    const data = response?.data;
+
+    if (
+        !data?.deployment_id
+    ) {
+        throw new Error(
+            "No active deployment found for this employee."
+        );
+    }
+
+    setDeploymentId(
+        Number(data.deployment_id)
+    );
+};
     // =====================================================
     // LOAD ALL DATA
     // =====================================================

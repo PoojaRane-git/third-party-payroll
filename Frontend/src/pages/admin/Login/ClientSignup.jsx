@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from "react";
+
+import React, {
+  useEffect,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 
 import api from "../../services/api";
 
@@ -17,16 +20,18 @@ function ClientSignup() {
     gstin: "",
     billing_address: "",
     state_code: "",
-    credit_terms: "Net 30",
-    service_fee: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
 
   // =====================================================
   // HANDLE INPUT CHANGE
@@ -54,9 +59,10 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
       gstin: "",
       billing_address: "",
       state_code: "",
-      credit_terms: "Net 30",
-      service_fee: "",
     });
+
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   // =====================================================
@@ -99,28 +105,39 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
       setLoading(true);
 
       const response = await api.post(
-  "/auth/signup-client",
-  {
-    company_name: formData.company_name,
-    contact_person: formData.contact_person,
-    email: formData.email,
-    phone: formData.phone,
-    password: formData.password,
-    gstin: formData.gstin,
-    billing_address: formData.billing_address,
-    state_code: formData.state_code,
-    credit_terms: formData.credit_terms,
-    service_fee: formData.service_fee,
-  }
-);
+        "/auth/signup-client",
+        {
+          company_name:
+            formData.company_name,
+
+          contact_person:
+            formData.contact_person,
+
+          email:
+            formData.email,
+
+          phone:
+            formData.phone,
+
+          password:
+            formData.password,
+
+          gstin:
+            formData.gstin,
+
+          billing_address:
+            formData.billing_address,
+
+          state_code:
+            formData.state_code,
+        }
+      );
 
       if (response.data.success) {
         setSuccess(
           "Client registration submitted successfully. Your account is waiting for admin approval."
         );
 
-        // IMPORTANT:
-        // Keep email because we need it to check approval status.
         setSubmitted(true);
       }
     } catch (err) {
@@ -143,78 +160,90 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   // =====================================================
 
   useEffect(() => {
-    if (!submitted || !formData.email) {
+    if (
+      !submitted ||
+      !formData.email
+    ) {
       return;
     }
 
     let interval;
 
-    const checkClientApproval = async () => {
-      try {
-        const response = await api.get(
-  "/auth/client-status",
-  {
-    params: {
-      email: formData.email,
-    },
-  }
-);
+    const checkClientApproval =
+      async () => {
+        try {
+          const response =
+            await api.get(
+              "/auth/client-status",
+              {
+                params: {
+                  email:
+                    formData.email,
+                },
+              }
+            );
 
-        if (!response.data?.success) {
-          return;
-        }
+          if (
+            !response.data?.success
+          ) {
+            return;
+          }
 
-        const status = String(
-          response.data.status || ""
-        ).toLowerCase();
+          const status =
+            String(
+              response.data.status ||
+                ""
+            ).toLowerCase();
 
-        console.log(
-          "Client approval status:",
-          status
-        );
-
-        // =================================================
-        // CLIENT APPROVED
-        // =================================================
-
-        if (status === "active") {
-          clearInterval(interval);
-
-          alert(
-            "Your client account has been approved by the administrator! You can now login."
+          console.log(
+            "Client approval status:",
+            status
           );
 
-          navigate("/login", {
-            replace: true,
-          });
+          // =================================================
+          // CLIENT APPROVED
+          // =================================================
 
-          return;
-        }
+          if (status === "active") {
+            clearInterval(interval);
 
-        // =================================================
-        // CLIENT REJECTED
-        // =================================================
+            alert(
+              "Your client account has been approved by the administrator! You can now login."
+            );
 
-        if (status === "rejected") {
-          clearInterval(interval);
+            navigate("/login", {
+              replace: true,
+            });
 
-          alert(
-            "Your client registration has been rejected by the administrator."
+            return;
+          }
+
+          // =================================================
+          // CLIENT REJECTED
+          // =================================================
+
+          if (
+            status === "rejected"
+          ) {
+            clearInterval(interval);
+
+            alert(
+              "Your client registration has been rejected by the administrator."
+            );
+
+            setError(
+              "Your client registration was rejected."
+            );
+
+            return;
+          }
+        } catch (error) {
+          console.error(
+            "Client approval status check error:",
+            error
           );
-
-          setError(
-            "Your client registration was rejected."
-          );
-
-          return;
         }
-      } catch (error) {
-        console.error(
-          "Client approval status check error:",
-          error
-        );
-      }
-    };
+      };
 
     // Check immediately
     checkClientApproval();
@@ -365,7 +394,9 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
                 <input
                   type="text"
                   name="company_name"
-                  value={formData.company_name}
+                  value={
+                    formData.company_name
+                  }
                   onChange={handleChange}
                   disabled={loading}
                   className="w-full border rounded-lg px-4 py-3"
@@ -383,7 +414,9 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
                 <input
                   type="text"
                   name="contact_person"
-                  value={formData.contact_person}
+                  value={
+                    formData.contact_person
+                  }
                   onChange={handleChange}
                   disabled={loading}
                   className="w-full border rounded-lg px-4 py-3"
@@ -454,7 +487,9 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
                 <textarea
                   name="billing_address"
-                  value={formData.billing_address}
+                  value={
+                    formData.billing_address
+                  }
                   onChange={handleChange}
                   rows={3}
                   disabled={loading}
@@ -473,7 +508,9 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
                 <input
                   type="text"
                   name="state_code"
-                  value={formData.state_code}
+                  value={
+                    formData.state_code
+                  }
                   onChange={handleChange}
                   disabled={loading}
                   className="w-full border rounded-lg px-4 py-3"
@@ -481,93 +518,103 @@ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
                 />
               </div>
 
-              {/* Credit Terms */}
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Credit Terms
-                </label>
-
-                <select
-                  name="credit_terms"
-                  value={formData.credit_terms}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className="w-full border rounded-lg px-4 py-3"
-                >
-                  <option value="Net 15">
-                    Net 15
-                  </option>
-
-                  <option value="Net 30">
-                    Net 30
-                  </option>
-
-                  <option value="Net 45">
-                    Net 45
-                  </option>
-
-                  <option value="Net 60">
-                    Net 60
-                  </option>
-                </select>
-              </div>
-
-              {/* Service Fee */}
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Service Fee
-                </label>
-
-                <input
-                  type="number"
-                  name="service_fee"
-                  value={formData.service_fee}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className="w-full border rounded-lg px-4 py-3"
-                  placeholder="Enter service fee"
-                />
-              </div>
-
-              {/* Password */}
+              {/* =================================================
+                  PASSWORD
+              ================================================= */}
 
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Password *
                 </label>
 
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className="w-full border rounded-lg px-4 py-3"
-                  placeholder="Minimum 8 characters"
-                />
+                <div className="relative">
+
+                  <input
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
+                    name="password"
+                    value={
+                      formData.password
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    disabled={loading}
+                    className="w-full border rounded-lg px-4 py-3 pr-20"
+                    placeholder="Minimum 8 characters"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPassword(
+                        !showPassword
+                      )
+                    }
+                    disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    {showPassword
+                      ? "Hide"
+                      : "Show"}
+                  </button>
+
+                </div>
               </div>
 
-              {/* Confirm Password */}
+              {/* =================================================
+                  CONFIRM PASSWORD
+              ================================================= */}
 
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Confirm Password *
                 </label>
 
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className="w-full border rounded-lg px-4 py-3"
-                  placeholder="Confirm password"
-                />
+                <div className="relative">
+
+                  <input
+                    type={
+                      showConfirmPassword
+                        ? "text"
+                        : "password"
+                    }
+                    name="confirmPassword"
+                    value={
+                      formData.confirmPassword
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    disabled={loading}
+                    className="w-full border rounded-lg px-4 py-3 pr-20"
+                    placeholder="Confirm password"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowConfirmPassword(
+                        !showConfirmPassword
+                      )
+                    }
+                    disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    {showConfirmPassword
+                      ? "Hide"
+                      : "Show"}
+                  </button>
+
+                </div>
               </div>
 
-              {/* Submit */}
+              {/* =================================================
+                  SUBMIT
+              ================================================= */}
 
               <button
                 type="submit"

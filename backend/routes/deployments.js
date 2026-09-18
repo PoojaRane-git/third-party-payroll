@@ -27,10 +27,6 @@ const calculateBillRate = (payRate, contract) => {
     const billingModel =
         String(contract.billing_model || "").trim();
 
-    // ---------------------------------------------------------
-    // Percentage Markup
-    // ---------------------------------------------------------
-
     if (billingModel === "Percentage Markup") {
 
         const markupPercentage =
@@ -53,11 +49,6 @@ const calculateBillRate = (payRate, contract) => {
         );
     }
 
-
-    // ---------------------------------------------------------
-    // Fixed Per-Head Fee
-    // ---------------------------------------------------------
-
     if (billingModel === "Fixed Per-Head Fee") {
 
         const perHeadFee =
@@ -77,16 +68,12 @@ const calculateBillRate = (payRate, contract) => {
         );
     }
 
-
     throw new Error(
         `Unsupported billing model: ${billingModel}`
     );
 };
 
 
-// =========================================================
-// FORMAT DEPLOYMENT RESPONSE
-// =========================================================
 // =========================================================
 // FORMAT DEPLOYMENT RESPONSE
 // =========================================================
@@ -116,10 +103,6 @@ const formatDeployment = (deployment) => {
 
         ...deployment,
 
-        // =====================================================
-        // EMPLOYEE
-        // =====================================================
-
         employee_name:
             deployment.candidates?.full_name ||
             "N/A",
@@ -137,11 +120,6 @@ const formatDeployment = (deployment) => {
             deployment.designation ||
             "N/A",
 
-
-        // =====================================================
-        // CLIENT
-        // =====================================================
-
         client_name:
             deployment.clients?.company_name ||
             "N/A",
@@ -149,11 +127,6 @@ const formatDeployment = (deployment) => {
         company_name:
             deployment.clients?.company_name ||
             "N/A",
-
-
-        // =====================================================
-        // CONTRACT
-        // =====================================================
 
         contract_number:
             deployment.client_contracts?.contract_number ||
@@ -189,10 +162,6 @@ const formatDeployment = (deployment) => {
             deployment.client_contracts?.gst_type ||
             "N/A",
 
-        // =====================================================
-        // CONTRACT DATES
-        // =====================================================
-
         contract_start_date:
             deployment.client_contracts?.start_date ||
             null,
@@ -200,11 +169,6 @@ const formatDeployment = (deployment) => {
         contract_end_date:
             deployment.client_contracts?.end_date ||
             null,
-
-
-        // =====================================================
-        // FINANCIAL
-        // =====================================================
 
         pay_rate:
             payRate,
@@ -261,17 +225,9 @@ router.get(
                     gst_type,
                     contract_status
                 `)
-                .eq(
-                    "client_id",
-                    clientId
-                )
-                .eq(
-                    "contract_status",
-                    "Active"
-                )
-                .order("id", {
-                    ascending: false,
-                });
+                .eq("client_id", clientId)
+                .eq("contract_status", "Active")
+                .order("id", { ascending: false });
 
             if (error) {
                 throw error;
@@ -387,20 +343,12 @@ router.post(
                 });
             }
 
-
-            // =====================================================
-            // VERIFY CLIENT
-            // =====================================================
-
             const {
                 data: client,
                 error: clientError,
             } = await supabase
                 .from("clients")
-                .select(`
-                    id,
-                    company_name
-                `)
+                .select(`id, company_name`)
                 .eq("id", clientId)
                 .maybeSingle();
 
@@ -416,11 +364,6 @@ router.post(
                 });
             }
 
-
-            // =====================================================
-            // CREATE CONTRACT
-            // =====================================================
-
             const {
                 data: contract,
                 error,
@@ -428,46 +371,34 @@ router.post(
                 .from("client_contracts")
                 .insert([
                     {
-                        client_id:
-                            clientId,
+                        client_id: clientId,
 
                         contract_number:
-                            String(
-                                contract_number
-                            ).trim(),
+                            String(contract_number).trim(),
 
                         contract_title:
                             contract_title
-                                ? String(
-                                    contract_title
-                                ).trim()
+                                ? String(contract_title).trim()
                                 : null,
 
-                        billing_model:
-                            billing_model,
+                        billing_model: billing_model,
 
                         markup_percentage:
-                            billing_model ===
-                            "Percentage Markup"
+                            billing_model === "Percentage Markup"
                                 ? markup
                                 : 0,
 
                         per_head_fee:
-                            billing_model ===
-                            "Fixed Per-Head Fee"
+                            billing_model === "Fixed Per-Head Fee"
                                 ? perHeadFee
                                 : 0,
 
-                        credit_terms:
-                            credit_terms ||
-                            "Net 30",
+                        credit_terms: credit_terms || "Net 30",
 
                         gst_type:
-                            gst_type ||
-                            "Inter-State (IGST)",
+                            gst_type || "Inter-State (IGST)",
 
-                        contract_status:
-                            "Active",
+                        contract_status: "Active",
                     },
                 ])
                 .select()
@@ -475,10 +406,7 @@ router.post(
 
             if (error) {
 
-                console.error(
-                    "Create contract error:",
-                    error
-                );
+                console.error("Create contract error:", error);
 
                 if (error.code === "23505") {
                     return res.status(409).json({
@@ -493,8 +421,7 @@ router.post(
 
             return res.status(201).json({
                 success: true,
-                message:
-                    "Contract created successfully",
+                message: "Contract created successfully",
                 data: contract,
             });
 
@@ -525,8 +452,7 @@ router.get("/", async (req, res) => {
 
     try {
 
-        const clientId =
-            req.query.client_id;
+        const clientId = req.query.client_id;
 
         let query =
             supabase
@@ -559,44 +485,30 @@ router.get("/", async (req, res) => {
                         contract_status
                     )
                 `)
-                .order("id", {
-                    ascending: false,
-                });
-
+                .order("id", { ascending: false });
 
         if (clientId) {
 
-            const id =
-                getId(clientId);
+            const id = getId(clientId);
 
             if (!id) {
                 return res.status(400).json({
                     success: false,
-                    message:
-                        "Invalid client_id",
+                    message: "Invalid client_id",
                 });
             }
 
-            query =
-                query.eq(
-                    "client_id",
-                    id
-                );
+            query = query.eq("client_id", id);
         }
 
-        const {
-            data,
-            error,
-        } = await query;
+        const { data, error } = await query;
 
         if (error) {
             throw error;
         }
 
         const formattedData =
-            (data || []).map(
-                formatDeployment
-            );
+            (data || []).map(formatDeployment);
 
         return res.json({
             success: true,
@@ -605,10 +517,7 @@ router.get("/", async (req, res) => {
 
     } catch (err) {
 
-        console.error(
-            "GET /api/deployments:",
-            err
-        );
+        console.error("GET /api/deployments:", err);
 
         return res.status(500).json({
             success: false,
@@ -631,9 +540,7 @@ router.get(
         try {
 
             const clientId =
-                getId(
-                    req.params.clientId
-                );
+                getId(req.params.clientId);
 
             if (!clientId) {
                 return res.status(400).json({
@@ -643,10 +550,7 @@ router.get(
                 });
             }
 
-            const {
-                data,
-                error,
-            } =
+            const { data, error } =
                 await supabase
                     .from("deployments")
                     .select(`
@@ -677,22 +581,15 @@ router.get(
                             contract_status
                         )
                     `)
-                    .eq(
-                        "client_id",
-                        clientId
-                    )
-                    .order("id", {
-                        ascending: false,
-                    });
+                    .eq("client_id", clientId)
+                    .order("id", { ascending: false });
 
             if (error) {
                 throw error;
             }
 
             const formattedData =
-                (data || []).map(
-                    formatDeployment
-                );
+                (data || []).map(formatDeployment);
 
             return res.json({
                 success: true,
@@ -716,7 +613,7 @@ router.get(
 
 
 // =========================================================
-// CREATE DEPLOYMENT
+// CREATE DEPLOYMENT  —  FIXED (candidates.deployment_id removed)
 //
 // POST /api/deployments
 //
@@ -726,6 +623,15 @@ router.get(
 // - status     = Active
 // - pay_rate   = candidates.pay_rate
 // - bill_rate  = calculated from contract
+//
+// FIX: candidates.deployment_id is no longer selected, checked,
+// or written. A raw SQL UPDATE against it returned Postgres
+// 42703 ("column does not exist"), so it's not safe to rely on.
+// "Is this candidate already deployed" is now answered ONLY by
+// querying the deployments table directly (the "EXTRA ACTIVE
+// DEPLOYMENT CHECK" below, which already existed as a second,
+// more reliable guard). employment_status is still written —
+// that column is confirmed to exist.
 // =========================================================
 
 router.post("/", async (req, res) => {
@@ -741,66 +647,51 @@ router.post("/", async (req, res) => {
             status,
         } = req.body;
 
-
-        // =====================================================
-        // VALIDATE IDs
-        // =====================================================
-
-        const candidateId =
-            getId(candidate_id);
-
-        const clientId =
-            getId(client_id);
-
-        const contractId =
-            getId(contract_id);
+        const candidateId = getId(candidate_id);
+        const clientId = getId(client_id);
+        const contractId = getId(contract_id);
 
         if (!candidateId) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Valid candidate_id is required",
+                message: "Valid candidate_id is required",
             });
         }
 
         if (!clientId) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Valid client_id is required",
+                message: "Valid client_id is required",
             });
         }
 
         if (!contractId) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Valid contract_id is required",
+                message: "Valid contract_id is required",
             });
         }
 
-        if (
-            !project_name ||
-            !String(project_name).trim()
-        ) {
+        if (!project_name || !String(project_name).trim()) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Project name is required",
+                message: "Project name is required",
             });
         }
 
         if (!start_date) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Deployment start date is required",
+                message: "Deployment start date is required",
             });
         }
 
 
         // =====================================================
         // GET CANDIDATE
+        //
+        // deployment_id removed from this select — not trusted
+        // or used anywhere in this route anymore.
         // =====================================================
 
         const {
@@ -814,14 +705,10 @@ router.post("/", async (req, res) => {
                 email,
                 designation,
                 pay_rate,
-                deployment_id,
                 employment_status,
                 auth_user_id
             `)
-            .eq(
-                "id",
-                candidateId
-            )
+            .eq("id", candidateId)
             .maybeSingle();
 
         if (candidateError) {
@@ -831,30 +718,18 @@ router.post("/", async (req, res) => {
         if (!candidate) {
             return res.status(404).json({
                 success: false,
-                message:
-                    "Employee not found",
+                message: "Employee not found",
             });
         }
 
 
         // =====================================================
-        // EMPLOYEE MUST NOT ALREADY BE DEPLOYED
-        // =====================================================
-
-        if (
-            candidate.deployment_id !== null &&
-            candidate.deployment_id !== undefined
-        ) {
-            return res.status(409).json({
-                success: false,
-                message:
-                    "Employee is already deployed",
-            });
-        }
-
-
-        // =====================================================
-        // EXTRA ACTIVE DEPLOYMENT CHECK
+        // EMPLOYEE MUST NOT ALREADY HAVE AN ACTIVE DEPLOYMENT
+        //
+        // This is now the ONLY check for "already deployed" — it
+        // queries deployments directly instead of trusting a
+        // denormalized flag on candidates, so it can't drift out
+        // of sync the way candidates.deployment_id did.
         // =====================================================
 
         const {
@@ -863,28 +738,18 @@ router.post("/", async (req, res) => {
         } = await supabase
             .from("deployments")
             .select("id, status")
-            .eq(
-                "candidate_id",
-                candidateId
-            )
-            .eq(
-                "status",
-                "Active"
-            )
+            .eq("candidate_id", candidateId)
+            .eq("status", "Active")
             .limit(1);
 
         if (existingDeploymentError) {
             throw existingDeploymentError;
         }
 
-        if (
-            existingDeployments &&
-            existingDeployments.length > 0
-        ) {
+        if (existingDeployments && existingDeployments.length > 0) {
             return res.status(409).json({
                 success: false,
-                message:
-                    "Employee already has an active deployment",
+                message: "Employee already has an active deployment",
             });
         }
 
@@ -898,14 +763,8 @@ router.post("/", async (req, res) => {
             error: clientError,
         } = await supabase
             .from("clients")
-            .select(`
-                id,
-                company_name
-            `)
-            .eq(
-                "id",
-                clientId
-            )
+            .select(`id, company_name`)
+            .eq("id", clientId)
             .maybeSingle();
 
         if (clientError) {
@@ -915,8 +774,7 @@ router.post("/", async (req, res) => {
         if (!client) {
             return res.status(404).json({
                 success: false,
-                message:
-                    "Client not found",
+                message: "Client not found",
             });
         }
 
@@ -942,18 +800,9 @@ router.post("/", async (req, res) => {
                 gst_type,
                 contract_status
             `)
-            .eq(
-                "id",
-                contractId
-            )
-            .eq(
-                "client_id",
-                clientId
-            )
-            .eq(
-                "contract_status",
-                "Active"
-            )
+            .eq("id", contractId)
+            .eq("client_id", clientId)
+            .eq("contract_status", "Active")
             .maybeSingle();
 
         if (contractError) {
@@ -973,17 +822,12 @@ router.post("/", async (req, res) => {
         // EMPLOYEE PAY RATE
         // =====================================================
 
-        const payRate =
-            Number(candidate.pay_rate);
+        const payRate = Number(candidate.pay_rate);
 
-        if (
-            !Number.isFinite(payRate) ||
-            payRate < 0
-        ) {
+        if (!Number.isFinite(payRate) || payRate < 0) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Employee has an invalid pay rate",
+                message: "Employee has an invalid pay rate",
             });
         }
 
@@ -995,30 +839,18 @@ router.post("/", async (req, res) => {
         let billRate;
 
         try {
-
-            billRate =
-                calculateBillRate(
-                    payRate,
-                    contract
-                );
-
+            billRate = calculateBillRate(payRate, contract);
         } catch (calculationError) {
-
             return res.status(400).json({
                 success: false,
-                message:
-                    calculationError.message,
+                message: calculationError.message,
             });
         }
 
-        if (
-            !Number.isFinite(billRate) ||
-            billRate < payRate
-        ) {
+        if (!Number.isFinite(billRate) || billRate < payRate) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Calculated bill rate is invalid",
+                message: "Calculated bill rate is invalid",
             });
         }
 
@@ -1034,38 +866,16 @@ router.post("/", async (req, res) => {
             .from("deployments")
             .insert([
                 {
-                    candidate_id:
-                        candidateId,
-
-                    client_id:
-                        clientId,
-
-                    contract_id:
-                        contractId,
-
-                    project_name:
-                        String(
-                            project_name
-                        ).trim(),
-
-                    pay_rate:
-                        payRate,
-
-                    bill_rate:
-                        billRate,
-
-                    billing_model:
-                        contract.billing_model,
-
-                    start_date:
-                        start_date,
-
-                    // NEW DEPLOYMENT ALWAYS STARTS WITHOUT END DATE
-                    end_date:
-                        null,
-
-                    status:
-                        status || "Active",
+                    candidate_id: candidateId,
+                    client_id: clientId,
+                    contract_id: contractId,
+                    project_name: String(project_name).trim(),
+                    pay_rate: payRate,
+                    bill_rate: billRate,
+                    billing_model: contract.billing_model,
+                    start_date: start_date,
+                    end_date: null,
+                    status: status || "Active",
                 },
             ])
             .select()
@@ -1077,7 +887,10 @@ router.post("/", async (req, res) => {
 
 
         // =====================================================
-        // UPDATE CANDIDATE
+        // UPDATE CANDIDATE  —  employment_status ONLY
+        //
+        // deployment_id removed from this update. Writing it is
+        // what produced the 42703 "column does not exist" error.
         // =====================================================
 
         const {
@@ -1086,23 +899,15 @@ router.post("/", async (req, res) => {
         } = await supabase
             .from("candidates")
             .update({
-                deployment_id:
-                    deployment.id,
-
-                employment_status:
-                    "Active",
+                employment_status: "Active",
             })
-            .eq(
-                "id",
-                candidateId
-            )
+            .eq("id", candidateId)
             .select(`
                 id,
                 full_name,
                 email,
                 designation,
                 pay_rate,
-                deployment_id,
                 employment_status,
                 auth_user_id
             `)
@@ -1123,10 +928,7 @@ router.post("/", async (req, res) => {
             await supabase
                 .from("deployments")
                 .delete()
-                .eq(
-                    "id",
-                    deployment.id
-                );
+                .eq("id", deployment.id);
 
             throw candidateUpdateError;
         }
@@ -1140,15 +942,13 @@ router.post("/", async (req, res) => {
 
             success: true,
 
-            message:
-                "Employee deployed successfully",
+            message: "Employee deployed successfully",
 
             data: {
 
                 deployment,
 
-                candidate:
-                    updatedCandidate,
+                candidate: updatedCandidate,
 
                 client,
 
@@ -1156,63 +956,46 @@ router.post("/", async (req, res) => {
 
                 billing: {
 
-                    pay_rate:
-                        payRate,
+                    pay_rate: payRate,
 
-                    bill_rate:
-                        billRate,
+                    bill_rate: billRate,
 
                     service_charge:
-                        Number(
-                            (
-                                billRate -
-                                payRate
-                            ).toFixed(2)
-                        ),
+                        Number((billRate - payRate).toFixed(2)),
 
-                    billing_model:
-                        contract.billing_model,
+                    billing_model: contract.billing_model,
 
                     markup_percentage:
-                        Number(
-                            contract.markup_percentage ||
-                            0
-                        ),
+                        Number(contract.markup_percentage || 0),
 
                     per_head_fee:
-                        Number(
-                            contract.per_head_fee ||
-                            0
-                        ),
+                        Number(contract.per_head_fee || 0),
                 },
             },
         });
 
     } catch (err) {
 
-        console.error(
-            "POST /api/deployments:",
-            err
-        );
+        console.error("POST /api/deployments:", err);
 
         return res.status(500).json({
             success: false,
-            message:
-                err.message,
+            message: err.message,
         });
     }
 });
 
 
 // =========================================================
-// UPDATE DEPLOYMENT
+// UPDATE DEPLOYMENT  —  FIXED (candidates.deployment_id removed,
+// termination now verifies the candidate row actually updated)
 //
 // PATCH /api/deployments/:id
 //
 // Used for:
-// 1. Transfer
-// 2. Termination
-// 3. Future deployment closing/history
+// 1. Transfer      (status -> "Transferred")
+// 2. Termination    (status -> "Terminated")
+// 3. Generic field updates (project_name, etc.)
 // =========================================================
 
 router.patch("/:id", async (req, res) => {
@@ -1223,14 +1006,12 @@ router.patch("/:id", async (req, res) => {
         // VALIDATE DEPLOYMENT ID
         // =====================================================
 
-        const id =
-            getId(req.params.id);
+        const id = getId(req.params.id);
 
         if (!id) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Invalid deployment ID.",
+                message: "Invalid deployment ID.",
             });
         }
 
@@ -1245,17 +1026,11 @@ router.patch("/:id", async (req, res) => {
             project_name,
         } = req.body;
 
-
         const normalizedStatus =
-            status !== undefined
-                ? String(status).trim()
-                : undefined;
-
+            status !== undefined ? String(status).trim() : undefined;
 
         const normalizedStatusLower =
-            normalizedStatus
-                ? normalizedStatus.toLowerCase()
-                : "";
+            normalizedStatus ? normalizedStatus.toLowerCase() : "";
 
 
         // =====================================================
@@ -1273,15 +1048,12 @@ router.patch("/:id", async (req, res) => {
         if (
             normalizedStatus !== undefined &&
             !allowedStatuses.some(
-                (allowed) =>
-                    allowed.toLowerCase() ===
-                    normalizedStatusLower
+                (allowed) => allowed.toLowerCase() === normalizedStatusLower
             )
         ) {
             return res.status(400).json({
                 success: false,
-                message:
-                    `Invalid deployment status: ${normalizedStatus}`,
+                message: `Invalid deployment status: ${normalizedStatus}`,
             });
         }
 
@@ -1290,14 +1062,10 @@ router.patch("/:id", async (req, res) => {
         // TERMINATION REQUIRES END DATE
         // =====================================================
 
-        if (
-            normalizedStatusLower === "terminated" &&
-            !end_date
-        ) {
+        if (normalizedStatusLower === "terminated" && !end_date) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Termination date is required.",
+                message: "Termination date is required.",
             });
         }
 
@@ -1308,45 +1076,29 @@ router.patch("/:id", async (req, res) => {
 
         const updateData = {};
 
-
         if (end_date !== undefined) {
-            updateData.end_date =
-                end_date;
+            updateData.end_date = end_date;
         }
-
 
         if (normalizedStatus !== undefined) {
             updateData.status =
                 allowedStatuses.find(
-                    (allowed) =>
-                        allowed.toLowerCase() ===
-                        normalizedStatusLower
-                ) ||
-                normalizedStatus;
+                    (allowed) => allowed.toLowerCase() === normalizedStatusLower
+                ) || normalizedStatus;
         }
-
 
         if (project_name !== undefined) {
 
             const project =
-                project_name === null
-                    ? null
-                    : String(
-                        project_name
-                    ).trim();
+                project_name === null ? null : String(project_name).trim();
 
-            updateData.project_name =
-                project;
+            updateData.project_name = project;
         }
 
-
-        if (
-            Object.keys(updateData).length === 0
-        ) {
+        if (Object.keys(updateData).length === 0) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "No fields provided for update.",
+                message: "No fields provided for update.",
             });
         }
 
@@ -1373,33 +1125,23 @@ router.patch("/:id", async (req, res) => {
                 end_date,
                 status
             `)
-            .eq(
-                "id",
-                id
-            )
+            .eq("id", id)
             .maybeSingle();
-
 
         if (deploymentError) {
 
-            console.error(
-                "Error fetching deployment:",
-                deploymentError
-            );
+            console.error("Error fetching deployment:", deploymentError);
 
             return res.status(500).json({
                 success: false,
-                message:
-                    deploymentError.message,
+                message: deploymentError.message,
             });
         }
-
 
         if (!deployment) {
             return res.status(404).json({
                 success: false,
-                message:
-                    "Deployment not found.",
+                message: "Deployment not found.",
             });
         }
 
@@ -1410,32 +1152,20 @@ router.patch("/:id", async (req, res) => {
 
         if (end_date) {
 
-            const endDate =
-                new Date(end_date);
+            const endDate = new Date(end_date);
 
-            if (
-                Number.isNaN(
-                    endDate.getTime()
-                )
-            ) {
+            if (Number.isNaN(endDate.getTime())) {
                 return res.status(400).json({
                     success: false,
-                    message:
-                        "Invalid end date.",
+                    message: "Invalid end date.",
                 });
             }
 
-
             if (deployment.start_date) {
 
-                const startDate =
-                    new Date(
-                        deployment.start_date
-                    );
+                const startDate = new Date(deployment.start_date);
 
-                if (
-                    endDate < startDate
-                ) {
+                if (endDate < startDate) {
                     return res.status(400).json({
                         success: false,
                         message:
@@ -1451,17 +1181,13 @@ router.patch("/:id", async (req, res) => {
         // =====================================================
 
         if (
-            normalizedStatusLower ===
-                "terminated" &&
-            String(
-                deployment.status || ""
-            ).trim().toLowerCase() ===
+            normalizedStatusLower === "terminated" &&
+            String(deployment.status || "").trim().toLowerCase() ===
                 "terminated"
         ) {
             return res.status(409).json({
                 success: false,
-                message:
-                    "Deployment is already terminated.",
+                message: "Deployment is already terminated.",
             });
         }
 
@@ -1476,34 +1202,24 @@ router.patch("/:id", async (req, res) => {
         } = await supabase
             .from("deployments")
             .update(updateData)
-            .eq(
-                "id",
-                id
-            )
+            .eq("id", id)
             .select()
             .single();
 
-
         if (updateError) {
 
-            console.error(
-                "Error updating deployment:",
-                updateError
-            );
+            console.error("Error updating deployment:", updateError);
 
             return res.status(500).json({
                 success: false,
-                message:
-                    "Failed to update deployment.",
-                error:
-                    updateError.message,
+                message: "Failed to update deployment.",
+                error: updateError.message,
             });
         }
 
 
         // =====================================================
-        // TERMINATION
-        // =====================================================
+        // TERMINATION  —  FIXED
         //
         // When terminated:
         //
@@ -1512,75 +1228,75 @@ router.patch("/:id", async (req, res) => {
         //     end_date = supplied termination date
         //
         // candidates:
-        //     deployment_id     = NULL
         //     employment_status = Available
         //
+        // deployment_id is NOT written here — that column is not
+        // trusted anywhere in this codebase anymore.
+        //
+        // The candidate update below now chains .select() and
+        // checks the row count. Supabase returns error: null when
+        // an UPDATE matches zero rows (RLS block, bad candidate_id,
+        // etc.) — checking only the error object misses that, which
+        // is exactly what let a candidate's employment_status stay
+        // stale while the deployment said "Terminated".
         // =====================================================
 
-        if (
-            normalizedStatusLower ===
-            "terminated"
-        ) {
+        if (normalizedStatusLower === "terminated") {
 
             const {
-                error:
-                    candidateUpdateError,
+                data: candidateUpdateResult,
+                error: candidateUpdateError,
             } = await supabase
                 .from("candidates")
                 .update({
-                    deployment_id:
-                        null,
-
-                    employment_status:
-                        "Available",
+                    employment_status: "Available",
                 })
-                .eq(
-                    "id",
-                    deployment.candidate_id
-                );
+                .eq("id", deployment.candidate_id)
+                .select("id, employment_status"); // <-- REQUIRED: lets us see how many rows actually changed
+
+            const candidateUpdateFailed =
+                Boolean(candidateUpdateError) ||
+                !candidateUpdateResult ||
+                candidateUpdateResult.length === 0;
 
 
             // =================================================
-            // ROLLBACK IF CANDIDATE UPDATE FAILS
+            // ROLLBACK IF CANDIDATE UPDATE FAILS OR AFFECTED 0 ROWS
             // =================================================
 
-            if (candidateUpdateError) {
+            if (candidateUpdateFailed) {
 
                 console.error(
                     "Error updating candidate after termination:",
-                    candidateUpdateError
+                    candidateUpdateError ||
+                        `No candidate row matched id=${deployment.candidate_id} — check RLS policy on "candidates" UPDATE, or candidate_id validity.`
                 );
-
 
                 await supabase
                     .from("deployments")
                     .update({
-                        end_date:
-                            deployment.end_date,
-
-                        status:
-                            deployment.status,
+                        end_date: deployment.end_date,
+                        status: deployment.status,
                     })
-                    .eq(
-                        "id",
-                        deployment.id
-                    );
-
+                    .eq("id", deployment.id);
 
                 return res.status(500).json({
                     success: false,
 
                     message:
-                        "Deployment was not terminated because employee status could not be updated.",
+                        "Deployment was not terminated because employee status could not be updated. " +
+                        "This usually means a database permission (RLS) policy blocked the candidate update, " +
+                        "or the candidate record could not be found.",
 
                     error:
-                        candidateUpdateError.message,
+                        candidateUpdateError?.message ||
+                        "No candidate rows were updated.",
                 });
             }
 
 
             // =================================================
-            // SUCCESS
+            // SUCCESS — verified at least one row actually changed
             // =================================================
 
             return res.status(200).json({
@@ -1589,45 +1305,31 @@ router.patch("/:id", async (req, res) => {
                 message:
                     "Employee terminated successfully and moved to Unassigned.",
 
-                data:
-                    updatedDeployment,
+                data: updatedDeployment,
+
+                candidate: candidateUpdateResult[0],
             });
         }
 
 
         // =====================================================
         // TRANSFER
-        // =====================================================
         //
-        // Do NOT clear candidate.deployment_id here.
-        //
-        // Frontend:
-        //
-        // OLD DEPLOYMENT
-        //      ↓
-        // PATCH → Transferred
-        //      ↓
-        // NEW DEPLOYMENT
-        //      ↓
-        // POST /deployments
-        //      ↓
-        // candidate.deployment_id = NEW deployment ID
-        //
+        // This PATCH call closes the OLD deployment by setting its
+        // status to "Transferred". The frontend then creates the
+        // NEW deployment via POST /deployments. No candidates.*
+        // write happens here — employment_status stays "Active"
+        // throughout a transfer, which is correct since the
+        // employee never leaves active employment during the
+        // switch.
         // =====================================================
 
-        if (
-            normalizedStatusLower ===
-            "transferred"
-        ) {
+        if (normalizedStatusLower === "transferred") {
 
             return res.status(200).json({
                 success: true,
-
-                message:
-                    "Deployment transferred successfully.",
-
-                data:
-                    updatedDeployment,
+                message: "Deployment transferred successfully.",
+                data: updatedDeployment,
             });
         }
 
@@ -1638,30 +1340,23 @@ router.patch("/:id", async (req, res) => {
 
         return res.status(200).json({
             success: true,
-
-            message:
-                "Deployment updated successfully.",
-
-            data:
-                updatedDeployment,
+            message: "Deployment updated successfully.",
+            data: updatedDeployment,
         });
 
     } catch (error) {
 
-        console.error(
-            "PATCH /api/deployments/:id error:",
-            error
-        );
+        console.error("PATCH /api/deployments/:id error:", error);
 
         return res.status(500).json({
             success: false,
-
             message:
                 error?.message ||
                 "Internal server error while updating deployment.",
         });
     }
 });
+
 
 // =========================================================
 // GET ALL EMPLOYEE ACCOUNTS
@@ -1682,10 +1377,7 @@ router.get(
 
         try {
 
-            const {
-                data,
-                error,
-            } = await supabase
+            const { data, error } = await supabase
                 .from("employee_users")
                 .select(`
                     id,
@@ -1696,10 +1388,7 @@ router.get(
                     role,
                     status
                 `)
-                .order("id", {
-                    ascending: false,
-                });
-
+                .order("id", { ascending: false });
 
             if (error) {
                 console.error(
@@ -1709,11 +1398,9 @@ router.get(
 
                 return res.status(500).json({
                     success: false,
-                    message:
-                        error.message,
+                    message: error.message,
                 });
             }
-
 
             return res.status(200).json({
                 success: true,
