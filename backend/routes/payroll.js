@@ -933,6 +933,49 @@ router.get("/:id", async (req, res) => {
             candidate = data;
         }
 
+
+        // ============================================================
+// BUILD PAYSLIP DATA (shared by PDF download)
+// ============================================================
+
+async function buildPayslipData(payrollId) {
+    const { data: payroll, error } = await supabase
+        .from("third_party_payroll")
+        .select("*")
+        .eq("id", payrollId)
+        .maybeSingle();
+
+    if (error) throw error;
+    if (!payroll) return null;
+
+    const { data: candidate, error: cErr } = await supabase
+        .from("candidates")
+        .select(
+            "id, full_name, designation, employee_code, date_of_joining, city, pan_number, uan_number, esic_number, department"
+        )
+        .eq("id", payroll.employee_ref_id)
+        .maybeSingle();
+
+    if (cErr) throw cErr;
+
+    return {
+        ...payroll,
+        employee_name: candidate?.full_name || payroll.employee_name,
+        employee_code: candidate?.employee_code || candidate?.id || "N/A",
+        designation: candidate?.designation || "N/A",
+        department: candidate?.department || "",
+        location: candidate?.city || "Head Office",
+        pan_number: candidate?.pan_number || "N/A",
+        uan_number: candidate?.uan_number || "N/A",
+        esic_number: candidate?.esic_number || "N/A",
+        joining_date: candidate?.date_of_joining || payroll.joining_date || null,
+        bank_name: payroll.bank_name || "N/A",
+        account_number: payroll.account_number || "N/A",
+        ifsc_code: payroll.ifsc_code || "N/A",
+        pran: payroll.pran || "N/A"
+    };
+}
+
         // --------------------------------------------------------
         // FORMAT
         // --------------------------------------------------------
@@ -3812,6 +3855,41 @@ router.post("/:id/email", async (req, res) => {
     }
 
 });
+
+
+// ============================================================
+// DOWNLOAD PAYSLIP PDF
+// GET /api/payroll/:id/pdf
+// ============================================================
+
+router.get("/:id/pdf", async (req, res) => {
+    try {
+        const id = getId(req.params.id);
+        if (!id) return sendError(res, 400, "Invalid payroll ID");
+
+        const data = await buildPayslipData(id);
+        if (!data) return sendError(res, 404, "Payroll record not found");
+
+        const pdfBuffer = await generatePayslipPDF(data);
+
+        const cleanName = String(data.employee_name || "Employee")
+            .replace(/[^a-zA-Z0-9]+/g, "_")
+            .replace(/^_+|_+$/g, "");
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="Payslip_${cleanName}_${data.salary_month}.pdf"`
+        );
+
+        return res.send(pdfBuffer);
+    } catch (err) {
+        console.error("GET /api/payroll/:id/pdf:", err);
+        return sendError(res, 500, "Failed to generate payslip PDF", err.message);
+    }
+});
+
+
 // // ============================================================
 // LOOKUP: EMPLOYEES FOR A CLIENT (for the "Create Payroll" picker)
 //

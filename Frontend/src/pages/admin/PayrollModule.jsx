@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
 
 import {
@@ -2009,55 +2009,41 @@ export default function PayrollModule({
   // DOWNLOAD PDF
   // =====================================================
 
-  const handleDownload =
-    async () => {
-      if (!selectedSlip) {
-        alert(
-          "Please select a payslip."
-        );
-        return;
-      }
+  const handleDownload = async () => {
+  if (!selectedSlip?.id) {
+    alert("Please select a payslip.");
+    return;
+  }
 
-      try {
-        setPdfLoading(true);
+  try {
+    setPdfLoading(true);
 
-        const pdf =
-          await createPayslipPDF();
+    const response = await api.get(`/payroll/${selectedSlip.id}/pdf`, {
+      responseType: "blob",
+    });
 
-        const employeeName =
-          String(
-            selectedSlip.employee_name ||
-            "Employee"
-          )
-            .trim()
-            .replace(
-              /[^a-zA-Z0-9]+/g,
-              "_"
-            );
+    const name = String(selectedSlip.employee_name || "Employee")
+      .trim()
+      .replace(/[^a-zA-Z0-9]+/g, "_");
+    const month = normalizeSalaryMonth(selectedSlip.salary_month);
 
-        const month =
-          normalizeSalaryMonth(
-            selectedSlip.salary_month
-          );
-
-        pdf.save(
-          `Payslip_${employeeName}_${month}.pdf`
-        );
-      } catch (err) {
-        console.error(
-          "PDF generation error:",
-          err
-        );
-
-        alert(
-          `Failed to download payslip: ${err.message}`
-        );
-      } finally {
-        setPdfLoading(false);
-      }
-    };
-
-  // =====================================================
+    const url = URL.createObjectURL(
+      new Blob([response.data], { type: "application/pdf" })
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Payslip_${name}_${month}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("PDF download error:", err);
+    alert(`Failed to download payslip: ${err?.response?.data?.message || err.message}`);
+  } finally {
+    setPdfLoading(false);
+  }
+};
   // GENERATE PDF
   // =====================================================
 
