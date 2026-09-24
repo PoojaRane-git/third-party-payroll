@@ -6,8 +6,6 @@ import React, {
   useState,
 } from "react";
 
-import html2canvas from "html2canvas-pro";
-import jsPDF from "jspdf";
 
 import {
   CheckCircle2,
