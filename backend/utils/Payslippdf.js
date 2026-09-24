@@ -89,6 +89,13 @@ const loadImage = (fileName) => {
             return null;
         }
 
+                if (isPng) {
+            console.log(
+                `   PNG info -> width: ${buffer.readUInt32BE(16)}, height: ${buffer.readUInt32BE(20)}, ` +
+                `bitDepth: ${buffer[24]}, colorType: ${buffer[25]}, interlaced: ${buffer[28] === 1}`
+            );
+        }
+
         return {
             data: new Uint8Array(buffer),
             format: isPng ? "PNG" : "JPEG",
