@@ -529,11 +529,7 @@ function formatPayroll(
         total_employer_cost:
             Number(
                 row.total_employer_cost || 0
-            ),
-
-        status:
-            row.status ||
-            "Pending"
+            )
     };
 }
 // ============================================================
@@ -1255,7 +1251,6 @@ router.post("/generate", async (req, res) => {
                 id,
                 employee_name,
                 billing_month,
-                status,
                 present_days,
                 absent_days,
                 leave_days,
@@ -1530,8 +1525,7 @@ router.post("/generate", async (req, res) => {
                         "third_party_payroll"
                     )
                     .select(`
-                        id,
-                        status
+                        id
                     `)
                     .eq(
                         "employee_ref_id",
@@ -2605,8 +2599,8 @@ router.patch(
                     employer_pf,
                     employer_esic,
                     total_employer_contribution,
-                    total_employer_cost,
-                    status
+                    total_employer_cost
+                    
                 `)
                 .eq(
                     "id",
@@ -2626,57 +2620,6 @@ router.patch(
                     "Payroll record not found"
                 );
             }
-
-            const currentStatus =
-                payroll.status ||
-                "Pending";
-
-            // ----------------------------------------------------
-            // LOCKED
-            // ----------------------------------------------------
-
-            if (
-                currentStatus ===
-                "Locked"
-            ) {
-
-                return sendError(
-                    res,
-                    400,
-                    "Cannot modify a Locked payroll record"
-                );
-            }
-
-            // ----------------------------------------------------
-            // STATUS FLOW
-            // ----------------------------------------------------
-
-            if (
-                currentStatus ===
-                "Pending" &&
-                status !== "Approved"
-            ) {
-
-                return sendError(
-                    res,
-                    400,
-                    "Pending payroll can only be changed to Approved"
-                );
-            }
-
-            if (
-                currentStatus ===
-                "Approved" &&
-                status !== "Locked"
-            ) {
-
-                return sendError(
-                    res,
-                    400,
-                    "Approved payroll can only be changed to Locked"
-                );
-            }
-
             // ----------------------------------------------------
             // NO ATTENDANCE APPROVAL CHECK
             //

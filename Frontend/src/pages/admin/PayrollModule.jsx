@@ -274,7 +274,6 @@ export default function PayrollModule({
 
   const [editSaving, setEditSaving] =
     useState(false);
-  const [payslipRecords, setPayslipRecords] = useState([]);
 
   // =====================================================
   // CREATE PAYROLL STATE
@@ -741,6 +740,8 @@ export default function PayrollModule({
       selectedClient,
     ]);
 
+  const payslipRecords = filteredPayrollRecords;
+
   // =====================================================
   // PAYSLIP RECORDS
   // ====================================================
@@ -884,6 +885,28 @@ export default function PayrollModule({
   // =====================================================
   // EDIT PAYROLL
   // =====================================================
+
+  const openEditModal = (record) => {
+    setEditRecord(record);
+    setEditForm({
+      ...EMPTY_PAYROLL_FORM,
+      basic_salary: record.basic_salary ?? 0,
+      allowances: record.allowances ?? 0,
+      overtime: record.overtime ?? 0,
+      bonus: record.bonus ?? 0,
+      pf: record.pf ?? 0,
+      esic: record.esic ?? 0,
+      tax: record.tax ?? 0,
+      professional_tax: record.professional_tax ?? 0,
+      lop: record.lop ?? 0,
+      employer_pf: record.employer_pf ?? 0,
+      employer_esic: record.employer_esic ?? 0,
+      bank_name: record.bank_name ?? "",
+      account_number: record.account_number ?? "",
+      ifsc_code: record.ifsc_code ?? "",
+    });
+    setEditModalOpen(true);
+  };
   const handleEditFieldChange =
     (
       field,
@@ -940,7 +963,7 @@ export default function PayrollModule({
 
         const response =
           await api.patch(
-            `/payroll/${editRecord.id}/details`,
+            `/payroll/${editRecord.id}`,
             payload
           );
 
@@ -1327,10 +1350,8 @@ export default function PayrollModule({
       // =================================================
 
       if (info.already_exists) {
-        setCreateError(
-          `A payroll record already exists for this employee this month (status: ${info.existing_payroll_status || "Unknown"
-          }).`
-        );
+        setCreateError("A payroll record already exists for this employee this month.");
+
       }
 
     } catch (err) {
@@ -2010,40 +2031,40 @@ export default function PayrollModule({
   // =====================================================
 
   const handleDownload = async () => {
-  if (!selectedSlip?.id) {
-    alert("Please select a payslip.");
-    return;
-  }
+    if (!selectedSlip?.id) {
+      alert("Please select a payslip.");
+      return;
+    }
 
-  try {
-    setPdfLoading(true);
+    try {
+      setPdfLoading(true);
 
-    const response = await api.get(`/payroll/${selectedSlip.id}/pdf`, {
-      responseType: "blob",
-    });
+      const response = await api.get(`/payroll/${selectedSlip.id}/pdf`, {
+        responseType: "blob",
+      });
 
-    const name = String(selectedSlip.employee_name || "Employee")
-      .trim()
-      .replace(/[^a-zA-Z0-9]+/g, "_");
-    const month = normalizeSalaryMonth(selectedSlip.salary_month);
+      const name = String(selectedSlip.employee_name || "Employee")
+        .trim()
+        .replace(/[^a-zA-Z0-9]+/g, "_");
+      const month = normalizeSalaryMonth(selectedSlip.salary_month);
 
-    const url = URL.createObjectURL(
-      new Blob([response.data], { type: "application/pdf" })
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `Payslip_${name}_${month}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error("PDF download error:", err);
-    alert(`Failed to download payslip: ${err?.response?.data?.message || err.message}`);
-  } finally {
-    setPdfLoading(false);
-  }
-};
+      const url = URL.createObjectURL(
+        new Blob([response.data], { type: "application/pdf" })
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Payslip_${name}_${month}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF download error:", err);
+      alert(`Failed to download payslip: ${err?.response?.data?.message || err.message}`);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
   // GENERATE PDF
   // =====================================================
 
@@ -2120,72 +2141,72 @@ export default function PayrollModule({
   // =====================================================
   // EXPORT BANK FILE
   // =====================================================
-const handleExportBankFile = () => {
-  const approvedRecords = filteredPayrollRecords;
+  const handleExportBankFile = () => {
+    const approvedRecords = filteredPayrollRecords;
 
-  if (approvedRecords.length === 0) {
-    alert(
-      `No payroll records available for ${formatSalaryMonth(
-        salaryMonth
-      )}.`
-    );
+    if (approvedRecords.length === 0) {
+      alert(
+        `No payroll records available for ${formatSalaryMonth(
+          salaryMonth
+        )}.`
+      );
 
-    return;
-  }
+      return;
+    }
 
-  const csvHeader =
-    [
-      "Beneficiary Name",
-      "Account Number",
-      "IFSC Code",
-      "Amount",
-      "Salary Month",
-      "Bank Name",
-      "Client",
-    ]
-      .map(escapeCSV)
-      .join(",") + "\n";
-
-  const csvRows = approvedRecords
-    .map((record) =>
+    const csvHeader =
       [
-        record.employee_name || "",
-        record.account_number || "",
-        record.ifsc_code || "",
-        getNumericValue(record.net_salary),
-        normalizeSalaryMonth(record.salary_month),
-        record.bank_name || "",
-        getClientName(record),
+        "Beneficiary Name",
+        "Account Number",
+        "IFSC Code",
+        "Amount",
+        "Salary Month",
+        "Bank Name",
+        "Client",
       ]
         .map(escapeCSV)
-        .join(",")
-    )
-    .join("\n");
+        .join(",") + "\n";
 
-  const blob = new Blob(
-    [csvHeader + csvRows],
-    {
-      type: "text/csv;charset=utf-8;",
-    }
-  );
+    const csvRows = approvedRecords
+      .map((record) =>
+        [
+          record.employee_name || "",
+          record.account_number || "",
+          record.ifsc_code || "",
+          getNumericValue(record.net_salary),
+          normalizeSalaryMonth(record.salary_month),
+          record.bank_name || "",
+          getClientName(record),
+        ]
+          .map(escapeCSV)
+          .join(",")
+      )
+      .join("\n");
 
-  const url = URL.createObjectURL(blob);
+    const blob = new Blob(
+      [csvHeader + csvRows],
+      {
+        type: "text/csv;charset=utf-8;",
+      }
+    );
 
-  const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
 
-  link.href = url;
+    const link = document.createElement("a");
 
-  link.download =
-    `Corporate_Bank_Disbursal_${selectedClient}_${salaryMonth}.csv`;
+    link.href = url;
 
-  document.body.appendChild(link);
+    link.download =
+      `Corporate_Bank_Disbursal_${selectedClient}_${salaryMonth}.csv`;
 
-  link.click();
+    document.body.appendChild(link);
 
-  document.body.removeChild(link);
+    link.click();
 
-  URL.revokeObjectURL(url);
-};
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  };
   // =====================================================
   // LOADING
   // =====================================================
@@ -2570,10 +2591,6 @@ const handleExportBankFile = () => {
 
                       <th className="p-4">
                         Employer Cost
-                      </th>
-
-                      <th className="p-4">
-                        Status
                       </th>
 
                       <th className="p-4 text-right">
@@ -2996,8 +3013,8 @@ const handleExportBankFile = () => {
                       key={rec.id}
                       onClick={() => setSelectedSlip(rec)}
                       className={`p-3 rounded-xl cursor-pointer border transition ${String(selectedSlip?.id) === String(rec.id)
-                          ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
-                          : "border-slate-200 hover:bg-slate-50"
+                        ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
+                        : "border-slate-200 hover:bg-slate-50"
                         }`}
                     >
 
@@ -3106,16 +3123,6 @@ const handleExportBankFile = () => {
                         {formatSalaryMonth(selectedSlip.salary_month)}
 
                       </span>
-
-                      <p className="text-[11px] text-slate-400 mt-1">
-
-                        Status:{" "}
-
-                        <span className="font-semibold text-slate-700">
-                          {normalizeStatus(selectedSlip.status)}
-                        </span>
-
-                      </p>
 
                     </div>
 
@@ -3715,16 +3722,6 @@ const handleExportBankFile = () => {
                           editRecord.salary_month
                         )
                       }
-
-                      {" • "}
-
-                      <span className="font-semibold">
-                        {
-                          normalizeStatus(
-                            editRecord.status
-                          )
-                        }
-                      </span>
                     </p>
                   </div>
 
@@ -4330,8 +4327,7 @@ const handleExportBankFile = () => {
                           {" Status: "}
 
                           <strong>
-                            {prefillInfo.existing_payroll_status ||
-                              "Unknown"}
+                            {prefillInfo.existing_payroll_status || "Unknown"}
                           </strong>
 
                         </div>
