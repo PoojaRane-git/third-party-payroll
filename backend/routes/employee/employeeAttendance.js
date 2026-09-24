@@ -1,11 +1,18 @@
-const express = require("express");
+// ============================================================
+// EMPLOYEE ATTENDANCE ROUTER
+//
+// MOUNTED (see server.js) at BOTH:
+//   /api/emp-attendance
+//   /api/employee
+// ============================================================
 
+const express = require("express");
 const router = express.Router();
 
 const supabase = require("../../config/supabase");
-
 const authenticate = require("../../middleware/authenticate");
 const authorize = require("../../middleware/authorize");
+const { generatePayslipPDF } = require("../../utils/Payslippdf");
 
 const {
     recalculateMonthlySummary,
@@ -13,35 +20,43 @@ const {
     getMonthRange,
     DAILY_COLUMNS,
     SUMMARY_COLUMNS,
-} = require("../services/attendanceSummary");
+} = require("../../services/attendanceSummary");
 
-/*
-|--------------------------------------------------------------------------
-| Employee Attendance Authorization
-|--------------------------------------------------------------------------
-*/
+router.use(authenticate, authorize("employee"));
 
-router.use(authenticate);
-router.use(authorize("employee"));
-/*
-|--------------------------------------------------------------------------
-| GET /me
-|--------------------------------------------------------------------------
-|
-| Get logged-in employee profile information.
-|
-*/
+// ============================================================
+// HELPERS
+// ============================================================
+
+const sendError = (res, status, message, error = null) => {
+    console.error(message, error || "");
+
+    return res.status(status).json({
+        success: false,
+        message,
+        error: error?.message || error?.details || null,
+    });
+};
+
+const getCurrentMonthIST = () => getTodayIST().substring(0, 7);
+
+const getEmployeeId = (req) => {
+    const employeeId = Number(req.profile?.employee_id);
+
+    if (!employeeId) {
+        throw new Error("Employee ID is not linked to this account.");
+    }
+
+    return employeeId;
+};
+
+// ============================================================
+// GET /me
+// ============================================================
 
 router.get("/me", async (req, res) => {
     try {
-        const employeeId = req.profile?.employee_id;
-
-        if (!employeeId) {
-            return res.status(400).json({
-                success: false,
-                message: "Employee ID not found",
-            });
-        }
+        const employeeId = getEmployeeId(req);
 
         const { data: employee, error } = await supabase
             .from("candidates")
@@ -50,18 +65,18 @@ router.get("/me", async (req, res) => {
             .maybeSingle();
 
         if (error) {
-            console.error("Employee profile error:", error);
-
-            return res.status(500).json({
-                success: false,
-                message: "Failed to load employee profile",
-            });
+            return sendError(
+                res,
+                500,
+                "Failed to fetch employee profile.",
+                error
+            );
         }
 
         if (!employee) {
             return res.status(404).json({
                 success: false,
-                message: "Employee not found",
+                message: "Employee profile not found.",
             });
         }
 
@@ -70,508 +85,301 @@ router.get("/me", async (req, res) => {
             employee,
         });
     } catch (error) {
-        console.error("GET /me error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+        return sendError(
+            res,
+            500,
+            "Failed to fetch employee profile.",
+            error
+        );
     }
 });
 
-/*
-|--------------------------------------------------------------------------
-| GET /
-|--------------------------------------------------------------------------
-|
-| Get daily attendance for employee.
-|
-| Example:
-| /api/emp-attendance?billing_month=2026-09
-|
-*/
+// ============================================================
+// GET DAILY ATTENDANCE
+// GET /
+// (?billing_month=YYYY-MM or ?month=YYYY-MM)
+// ============================================================
 
 router.get("/", async (req, res) => {
     try {
-        const employeeId = req.profile?.employee_id;
-
-        if (!employeeId) {
-            return res.status(400).json({
-                success: false,
-                message: "Employee ID not found",
-            });
-        }
+        const employeeId = getEmployeeId(req);
 
         const billingMonth =
             req.query.billing_month ||
-            getTodayIST().substring(0, 7);
+            req.query.month ||
+            getCurrentMonthIST();
 
         const { monthStart, nextMonth } =
             getMonthRange(billingMonth);
 
-        const {
-            data,
-            error,
-        } = await supabase
+        const { data, error } = await supabase
             .from("third_party_emp_daily_attendance")
             .select(DAILY_COLUMNS)
             .eq("candidates_id", employeeId)
             .gte("attendance_date", monthStart)
             .lt("attendance_date", nextMonth)
             .order("attendance_date", {
-                ascending: true,
+                ascending: false,
             });
 
         if (error) {
-            console.error(
-                "Daily attendance error:",
+            return sendError(
+                res,
+                500,
+                "Failed to fetch attendance.",
                 error
             );
-
-            return res.status(500).json({
-                success: false,
-                message: "Failed to load attendance",
-            });
         }
 
         return res.json({
             success: true,
-            billing_month: billingMonth,
             attendance: data || [],
-            daily_attendance: data || [],
         });
     } catch (error) {
-        console.error("GET attendance error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+        return sendError(
+            res,
+            500,
+            "Failed to fetch employee attendance.",
+            error
+        );
     }
 });
 
-/*
-|--------------------------------------------------------------------------
-| GET /today
-|--------------------------------------------------------------------------
-|
-| Get today's attendance.
-|
-*/
+// ============================================================
+// GET /today
+// ============================================================
 
 router.get("/today", async (req, res) => {
     try {
-        const employeeId = req.profile?.employee_id;
+        const employeeId = getEmployeeId(req);
 
-        if (!employeeId) {
-            return res.status(400).json({
-                success: false,
-                message: "Employee ID not found",
-            });
-        }
-
-        const today = getTodayIST();
-
-        const {
-            data,
-            error,
-        } = await supabase
+        const { data, error } = await supabase
             .from("third_party_emp_daily_attendance")
             .select(DAILY_COLUMNS)
             .eq("candidates_id", employeeId)
-            .eq("attendance_date", today)
-            .order("id", {
-                ascending: false,
-            })
-            .limit(1)
+            .eq("attendance_date", getTodayIST())
             .maybeSingle();
 
         if (error) {
-            console.error(
-                "Today's attendance error:",
+            return sendError(
+                res,
+                500,
+                "Failed to fetch today's attendance.",
                 error
             );
-
-            return res.status(500).json({
-                success: false,
-                message: "Failed to load today's attendance",
-            });
         }
 
         return res.json({
             success: true,
-            date: today,
             attendance: data || null,
         });
     } catch (error) {
-        console.error("GET /today error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+        return sendError(
+            res,
+            500,
+            "Failed to fetch today's attendance.",
+            error
+        );
     }
 });
 
-/*
-|--------------------------------------------------------------------------
-| POST /check-in
-|--------------------------------------------------------------------------
-|
-| Check in employee.
-|
-| IMPORTANT:
-| The database does NOT allow "In Progress".
-|
-| Therefore check-in is stored as "Present".
-|
-| The monthly summary uses check_out to determine whether
-| the attendance is actually complete.
-|
-*/
+// ============================================================
+// POST /check-in
+// ============================================================
 
 router.post("/check-in", async (req, res) => {
     try {
-        const employeeId = req.profile?.employee_id;
-
-        if (!employeeId) {
-            return res.status(400).json({
-                success: false,
-                message: "Employee ID not found",
-            });
-        }
-
+        const employeeId = getEmployeeId(req);
         const today = getTodayIST();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Check if today's attendance already exists
-        |--------------------------------------------------------------------------
-        */
-
         const {
-            data: existingAttendance,
+            data: existing,
             error: existingError,
         } = await supabase
             .from("third_party_emp_daily_attendance")
-            .select(DAILY_COLUMNS)
+            .select(`
+                id,
+                candidates_id,
+                attendance_date,
+                check_in,
+                check_out,
+                status,
+                work_mode,
+                remarks
+            `)
             .eq("candidates_id", employeeId)
             .eq("attendance_date", today)
-            .order("id", {
-                ascending: false,
-            })
-            .limit(1)
             .maybeSingle();
 
         if (existingError) {
-            console.error(
-                "Existing attendance error:",
+            return sendError(
+                res,
+                500,
+                "Failed to check existing attendance.",
                 existingError
             );
-
-            return res.status(500).json({
-                success: false,
-                message: "Failed to check today's attendance",
-            });
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Prevent duplicate check-in
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            existingAttendance &&
-            existingAttendance.check_in &&
-            !existingAttendance.check_out
-        ) {
+        if (existing?.check_in) {
             return res.status(400).json({
                 success: false,
-                message: "You are already checked in",
-                attendance: existingAttendance,
+                message: "You have already checked in today.",
+                attendance: existing,
             });
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Get active deployment
-        |--------------------------------------------------------------------------
-        */
 
         const {
             data: deployment,
             error: deploymentError,
         } = await supabase
             .from("deployments")
-            .select(`
-                id,
-                client_id,
-                candidate_id,
-                start_date,
-                end_date,
-                status
-            `)
+            .select("id, client_id, candidate_id")
             .eq("candidate_id", employeeId)
             .eq("status", "Active")
-            .order("start_date", {
-                ascending: false,
-            })
             .limit(1)
             .maybeSingle();
 
         if (deploymentError) {
-            console.error(
-                "Deployment error:",
+            return sendError(
+                res,
+                500,
+                "Failed to find employee deployment.",
                 deploymentError
             );
-
-            return res.status(500).json({
-                success: false,
-                message: "Failed to load deployment information",
-            });
         }
 
         if (!deployment) {
-            return res.status(404).json({
+            return res.status(400).json({
                 success: false,
-                message: "Deployment information not found",
+                message: "No active deployment found for this employee.",
             });
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Request values
-        |--------------------------------------------------------------------------
-        */
-
         const workMode =
-            req.body?.work_mode ||
-            req.body?.workMode ||
-            "Office";
+            req.body?.work_mode || "Office";
 
         const remarks =
             req.body?.remarks || "";
 
         const now = new Date().toISOString();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Existing row with checkout
-        |--------------------------------------------------------------------------
-        |
-        | This normally means there is already a completed record today.
-        | We don't overwrite it.
-        |--------------------------------------------------------------------------
-        */
+        let result;
 
-        if (
-            existingAttendance &&
-            existingAttendance.check_in &&
-            existingAttendance.check_out
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: "Today's attendance is already completed",
-                attendance: existingAttendance,
-            });
-        }
+        // --------------------------------------------------------
+        // UPDATE EXISTING EMPTY RECORD
+        // --------------------------------------------------------
 
-        /*
-        |--------------------------------------------------------------------------
-        | Update existing incomplete row
-        |--------------------------------------------------------------------------
-        */
-
-        if (existingAttendance) {
-            const {
-                data: updatedAttendance,
-                error: updateError,
-            } = await supabase
+        if (existing) {
+            result = await supabase
                 .from("third_party_emp_daily_attendance")
                 .update({
+                    candidates_id: employeeId,
                     deployment_id: deployment.id,
                     client_id: deployment.client_id,
-
                     check_in: now,
                     check_out: null,
-
                     working_hours: 0,
                     overtime_hours: 0,
 
-                    /*
-                     * "Present" is allowed by the DB constraint.
-                     * We DO NOT use "In Progress".
-                     */
+                    // IMPORTANT:
+                    // "In Progress" is NOT allowed by DB constraint.
                     status: "Present",
 
                     work_mode: workMode,
                     remarks,
-
                     updated_at: now,
                 })
-                .eq("id", existingAttendance.id)
-                .eq("candidates_id", employeeId)
+                .eq("id", existing.id)
                 .select(DAILY_COLUMNS)
                 .single();
-
-            if (updateError) {
-                console.error(
-                    "Check-in update error:",
-                    updateError
-                );
-
-                return res.status(500).json({
-                    success: false,
-                    message: "Failed to check in",
-                    error: updateError.message,
-                });
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Recalculate monthly summary
-            |--------------------------------------------------------------------------
-            */
-
-            try {
-                await recalculateMonthlySummary(
-                    employeeId,
-                    today.substring(0, 7)
-                );
-            } catch (summaryError) {
-                console.error(
-                    "Summary recalculation error:",
-                    summaryError
-                );
-            }
-
-            return res.json({
-                success: true,
-                message: "Check-in successful",
-                attendance: updatedAttendance,
-            });
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Create new attendance
-        |--------------------------------------------------------------------------
-        */
+        // --------------------------------------------------------
+        // CREATE NEW RECORD
+        // --------------------------------------------------------
 
-        const {
-            data: attendance,
-            error: insertError,
-        } = await supabase
-            .from("third_party_emp_daily_attendance")
-            .insert({
-                candidates_id: employeeId,
-                deployment_id: deployment.id,
-                client_id: deployment.client_id,
+        else {
+            result = await supabase
+                .from("third_party_emp_daily_attendance")
+                .insert({
+                    candidates_id: employeeId,
+                    deployment_id: deployment.id,
+                    client_id: deployment.client_id,
+                    attendance_date: today,
+                    check_in: now,
+                    check_out: null,
+                    working_hours: 0,
+                    overtime_hours: 0,
+                    status: "Present",
+                    work_mode: workMode,
+                    remarks,
+                })
+                .select(DAILY_COLUMNS)
+                .single();
+        }
 
-                attendance_date: today,
-
-                check_in: now,
-                check_out: null,
-
-                working_hours: 0,
-                overtime_hours: 0,
-
-                /*
-                 * Allowed by check_daily_attendance_status.
-                 */
-                status: "Present",
-
-                work_mode: workMode,
-                remarks,
-            })
-            .select(DAILY_COLUMNS)
-            .single();
-
-        if (insertError) {
-            console.error(
-                "Check-in insert error:",
-                insertError
+        if (result.error) {
+            return sendError(
+                res,
+                500,
+                "Failed to check in.",
+                result.error
             );
-
-            return res.status(500).json({
-                success: false,
-                message: "Failed to check in",
-                error: insertError.message,
-            });
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Recalculate monthly summary
-        |--------------------------------------------------------------------------
-        */
+        // --------------------------------------------------------
+        // RECALCULATE MONTHLY SUMMARY
+        // --------------------------------------------------------
+
+        let summary = null;
 
         try {
-            await recalculateMonthlySummary(
+            summary = await recalculateMonthlySummary(
                 employeeId,
                 today.substring(0, 7)
             );
         } catch (summaryError) {
             console.error(
-                "Summary recalculation error:",
+                "Monthly summary database error:",
                 summaryError
             );
         }
 
-        return res.json({
+        return res.status(201).json({
             success: true,
-            message: "Check-in successful",
-            attendance,
+            message: "Attendance checked in successfully.",
+            attendance: result.data,
+            summary,
         });
     } catch (error) {
-        console.error("POST /check-in error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+        return sendError(
+            res,
+            500,
+            "Check-in failed.",
+            error
+        );
     }
 });
 
-/*
-|--------------------------------------------------------------------------
-| PATCH /:id/check-out
-|--------------------------------------------------------------------------
-|
-| Check out employee.
-|
-*/
+// ============================================================
+// PATCH /:id/check-out
+// ============================================================
 
 router.patch("/:id/check-out", async (req, res) => {
     try {
-        const employeeId = req.profile?.employee_id;
-
+        const employeeId = getEmployeeId(req);
         const attendanceId = Number(req.params.id);
 
-        if (!employeeId) {
+        if (!attendanceId) {
             return res.status(400).json({
                 success: false,
-                message: "Employee ID not found",
+                message: "Invalid attendance ID.",
             });
         }
-
-        if (!Number.isInteger(attendanceId)) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid attendance ID",
-            });
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Get attendance
-        |--------------------------------------------------------------------------
-        */
 
         const {
             data: attendance,
-            error: attendanceError,
+            error: fetchError,
         } = await supabase
             .from("third_party_emp_daily_attendance")
             .select(DAILY_COLUMNS)
@@ -579,129 +387,86 @@ router.patch("/:id/check-out", async (req, res) => {
             .eq("candidates_id", employeeId)
             .maybeSingle();
 
-        if (attendanceError) {
-            console.error(
-                "Checkout attendance lookup error:",
-                attendanceError
+        if (fetchError) {
+            return sendError(
+                res,
+                500,
+                "Failed to fetch attendance.",
+                fetchError
             );
-
-            return res.status(500).json({
-                success: false,
-                message: "Failed to find attendance",
-            });
         }
 
         if (!attendance) {
             return res.status(404).json({
                 success: false,
-                message: "Attendance record not found",
+                message: "Attendance record not found.",
             });
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Must have check-in
-        |--------------------------------------------------------------------------
-        */
 
         if (!attendance.check_in) {
             return res.status(400).json({
                 success: false,
-                message: "Check-in is required before checkout",
+                message:
+                    "You must check in before checking out.",
             });
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Prevent duplicate checkout
-        |--------------------------------------------------------------------------
-        */
 
         if (attendance.check_out) {
             return res.status(400).json({
                 success: false,
-                message: "You have already checked out",
+                message:
+                    "You have already checked out.",
                 attendance,
             });
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Calculate working hours
-        |--------------------------------------------------------------------------
-        */
+        // --------------------------------------------------------
+        // CALCULATE WORKING HOURS
+        // --------------------------------------------------------
 
-        const checkInTime =
-            new Date(attendance.check_in);
+        const checkOut = new Date();
 
-        const checkOutTime =
-            new Date();
-
-        const millisecondsWorked =
-            checkOutTime.getTime() -
-            checkInTime.getTime();
-
-        const workingHours =
-            millisecondsWorked /
+        const hours =
+            (
+                checkOut.getTime() -
+                new Date(attendance.check_in).getTime()
+            ) /
             (1000 * 60 * 60);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Prevent invalid negative time
-        |--------------------------------------------------------------------------
-        */
+        const workingHours =
+            Math.max(
+                0,
+                Number(hours.toFixed(2))
+            );
 
-        const safeWorkingHours =
-            Math.max(0, workingHours);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Determine status
-        |--------------------------------------------------------------------------
-        */
+        // --------------------------------------------------------
+        // DETERMINE STATUS
+        // --------------------------------------------------------
 
         let status;
 
-        if (safeWorkingHours >= 8) {
+        if (workingHours >= 8) {
             status = "Present";
-        } else if (safeWorkingHours >= 4) {
+        } else if (workingHours >= 4) {
             status = "Half Day";
         } else {
             status = "Absent";
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Overtime
-        |--------------------------------------------------------------------------
-        */
+        // --------------------------------------------------------
+        // CALCULATE OVERTIME
+        // --------------------------------------------------------
 
         const overtimeHours =
-            safeWorkingHours > 8
-                ? safeWorkingHours - 8
+            workingHours > 8
+                ? Number(
+                      (workingHours - 8).toFixed(2)
+                  )
                 : 0;
 
-        /*
-        |--------------------------------------------------------------------------
-        | Round values
-        |--------------------------------------------------------------------------
-        */
-
-        const roundedWorkingHours =
-            Math.round(
-                safeWorkingHours * 100
-            ) / 100;
-
-        const roundedOvertimeHours =
-            Math.round(
-                overtimeHours * 100
-            ) / 100;
-
-        /*
-        |--------------------------------------------------------------------------
-        | Update attendance
-        |--------------------------------------------------------------------------
-        */
+        // --------------------------------------------------------
+        // UPDATE ATTENDANCE
+        // --------------------------------------------------------
 
         const {
             data: updatedAttendance,
@@ -709,18 +474,12 @@ router.patch("/:id/check-out", async (req, res) => {
         } = await supabase
             .from("third_party_emp_daily_attendance")
             .update({
-                check_out: checkOutTime.toISOString(),
-
-                working_hours:
-                    roundedWorkingHours,
-
-                overtime_hours:
-                    roundedOvertimeHours,
-
+                check_out: checkOut.toISOString(),
+                working_hours: workingHours,
+                overtime_hours: overtimeHours,
                 status,
-
                 updated_at:
-                    checkOutTime.toISOString(),
+                    new Date().toISOString(),
             })
             .eq("id", attendanceId)
             .eq("candidates_id", employeeId)
@@ -728,90 +487,70 @@ router.patch("/:id/check-out", async (req, res) => {
             .single();
 
         if (updateError) {
-            console.error(
-                "Checkout update error:",
+            return sendError(
+                res,
+                500,
+                "Failed to check out.",
                 updateError
             );
-
-            return res.status(500).json({
-                success: false,
-                message: "Failed to check out",
-                error: updateError.message,
-            });
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Recalculate monthly summary
-        |--------------------------------------------------------------------------
-        */
+        // --------------------------------------------------------
+        // RECALCULATE MONTHLY SUMMARY
+        // --------------------------------------------------------
+
+        let summary = null;
 
         try {
-            const billingMonth =
-                String(
-                    attendance.attendance_date
-                ).substring(0, 7);
-
-            await recalculateMonthlySummary(
-                employeeId,
-                billingMonth
-            );
+            summary =
+                await recalculateMonthlySummary(
+                    employeeId,
+                    String(
+                        attendance.attendance_date
+                    ).substring(0, 7)
+                );
         } catch (summaryError) {
             console.error(
-                "Summary recalculation error:",
+                "Monthly summary database error:",
                 summaryError
             );
         }
 
         return res.json({
             success: true,
-            message: "Check-out successful",
+            message:
+                "Attendance checked out successfully.",
             attendance: updatedAttendance,
+            summary,
         });
     } catch (error) {
-        console.error(
-            "PATCH /:id/check-out error:",
+        return sendError(
+            res,
+            500,
+            "Check-out failed.",
             error
         );
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
     }
 });
 
-/*
-|--------------------------------------------------------------------------
-| GET /monthly
-|--------------------------------------------------------------------------
-|
-| Get monthly summary + daily attendance.
-|
-*/
+// ============================================================
+// GET /monthly
+// ============================================================
 
 router.get("/monthly", async (req, res) => {
     try {
-        const employeeId = req.profile?.employee_id;
-
-        if (!employeeId) {
-            return res.status(400).json({
-                success: false,
-                message: "Employee ID not found",
-            });
-        }
+        const employeeId = getEmployeeId(req);
 
         const billingMonth =
             req.query.billing_month ||
-            getTodayIST().substring(0, 7);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Recalculate summary
-        |--------------------------------------------------------------------------
-        */
+            req.query.month ||
+            getCurrentMonthIST();
 
         let summary;
+
+        // --------------------------------------------------------
+        // RECALCULATE SUMMARY
+        // --------------------------------------------------------
 
         try {
             summary =
@@ -819,21 +558,15 @@ router.get("/monthly", async (req, res) => {
                     employeeId,
                     billingMonth
                 );
-        } catch (recalculateError) {
+        } catch (summaryError) {
             console.error(
                 "Monthly summary recalculation failed:",
-                recalculateError
+                summaryError
             );
 
-            /*
-            |--------------------------------------------------------------------------
-            | Fallback to existing summary
-            |--------------------------------------------------------------------------
-            */
-
             const {
-                data: existingSummary,
-                error: existingError,
+                data,
+                error,
             } = await supabase
                 .from("third_party_attendance_summary")
                 .select(SUMMARY_COLUMNS)
@@ -841,21 +574,21 @@ router.get("/monthly", async (req, res) => {
                 .eq("billing_month", billingMonth)
                 .maybeSingle();
 
-            if (existingError) {
-                console.error(
-                    "Fallback summary error:",
-                    existingError
+            if (error) {
+                return sendError(
+                    res,
+                    500,
+                    "Failed to fetch monthly summary.",
+                    error
                 );
             }
 
-            summary = existingSummary || null;
+            summary = data;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Daily attendance
-        |--------------------------------------------------------------------------
-        */
+        // --------------------------------------------------------
+        // FETCH DAILY ATTENDANCE
+        // --------------------------------------------------------
 
         const {
             monthStart,
@@ -876,48 +609,235 @@ router.get("/monthly", async (req, res) => {
             });
 
         if (dailyError) {
-            console.error(
-                "Monthly daily attendance error:",
+            return sendError(
+                res,
+                500,
+                "Failed to fetch monthly attendance.",
                 dailyError
             );
-
-            return res.status(500).json({
-                success: false,
-                message: "Failed to load daily attendance",
-            });
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Response
-        |--------------------------------------------------------------------------
-        */
 
         return res.json({
             success: true,
-
-            billing_month:
-                billingMonth,
-
-            summary,
-
-            attendance:
-                dailyAttendance || [],
-
+            billing_month: billingMonth,
+            summary: summary || null,
+            attendance: dailyAttendance || [],
             daily_attendance:
                 dailyAttendance || [],
         });
     } catch (error) {
-        console.error(
-            "GET /monthly error:",
+        return sendError(
+            res,
+            500,
+            "Failed to fetch monthly attendance.",
             error
         );
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
     }
 });
+
+// ============================================================
+// GET /payroll/me
+// Employee's own payslips
+// ============================================================
+
+router.get("/payroll/me", async (req, res) => {
+    try {
+        const employeeId =
+            Number(req.profile?.employee_id);
+
+        if (!employeeId) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    "Employee profile is not linked to an employee.",
+            });
+        }
+
+        const {
+            data: payslips,
+            error,
+        } = await supabase
+            .from("third_party_payroll")
+            .select("*")
+            .eq("employee_ref_id", employeeId)
+            .order("salary_month", {
+                ascending: false,
+            });
+
+        if (error) {
+            return sendError(
+                res,
+                500,
+                "Unable to load payslips.",
+                error
+            );
+        }
+
+        return res.json({
+            success: true,
+            payslips: payslips || [],
+        });
+    } catch (error) {
+        return sendError(
+            res,
+            500,
+            "Unable to load payslips.",
+            error
+        );
+    }
+});
+
+// ============================================================
+// GET /payroll/:id/pdf
+// Employee's own payslip PDF
+// ============================================================
+
+router.get("/payroll/:id/pdf", async (req, res) => {
+    try {
+        const employeeId =
+            Number(req.profile?.employee_id);
+
+        const payrollId =
+            Number(req.params.id);
+
+        if (!employeeId) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    "Employee profile is not linked to an employee.",
+            });
+        }
+
+        if (!payrollId) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid payroll ID.",
+            });
+        }
+
+        // --------------------------------------------------------
+        // FETCH ONLY THIS EMPLOYEE'S PAYROLL
+        // --------------------------------------------------------
+
+        const {
+            data: payroll,
+            error,
+        } = await supabase
+            .from("third_party_payroll")
+            .select("*")
+            .eq("id", payrollId)
+            .eq("employee_ref_id", employeeId)
+            .maybeSingle();
+
+        if (error) {
+            return sendError(
+                res,
+                500,
+                "Unable to load payroll.",
+                error
+            );
+        }
+
+        if (!payroll) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    "Payroll record not found.",
+            });
+        }
+
+        // --------------------------------------------------------
+        // PAYSLIP STATUS CHECK
+        // --------------------------------------------------------
+
+        const status =
+            String(
+                payroll.status || ""
+            )
+                .toLowerCase()
+                .trim();
+
+        if (
+            ![
+                "approved",
+                "locked",
+                "paid",
+            ].includes(status)
+        ) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    "Payslip is available only after payroll is approved.",
+            });
+        }
+
+        // --------------------------------------------------------
+        // GENERATE PDF
+        // --------------------------------------------------------
+
+        const pdfBuffer =
+            await generatePayslipPDF(payroll);
+
+        // --------------------------------------------------------
+        // SAFE FILE NAME
+        // --------------------------------------------------------
+
+        const employeeName =
+            String(
+                payroll.employee_name ||
+                    "Employee"
+            )
+                .replace(
+                    /[^a-zA-Z0-9]/g,
+                    "_"
+                )
+                .replace(
+                    /_+/g,
+                    "_"
+                );
+
+        const salaryMonth =
+            String(
+                payroll.salary_month ||
+                    "payslip"
+            ).replace(
+                /[^a-zA-Z0-9-_]/g,
+                "-"
+            );
+
+        // --------------------------------------------------------
+        // SEND PDF
+        // --------------------------------------------------------
+
+        res.setHeader(
+            "Content-Type",
+            "application/pdf"
+        );
+
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${employeeName}_Payslip_${salaryMonth}.pdf"`
+        );
+
+        res.setHeader(
+            "Content-Length",
+            pdfBuffer.length
+        );
+
+        return res.send(pdfBuffer);
+
+    } catch (error) {
+        return sendError(
+            res,
+            500,
+            "Unable to generate payslip PDF.",
+            error
+        );
+    }
+});
+
+// ============================================================
+// EXPORT
+// ============================================================
 
 module.exports = router;
