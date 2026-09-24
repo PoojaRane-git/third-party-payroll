@@ -8,6 +8,10 @@ const express = require("express");
 const nodemailer = require("nodemailer");
 const router = express.Router();
 
+router.get("/__version", (req, res) => {
+    res.json({ version: "pdf-route-v2" });
+});
+
 const supabase = require("../config/supabase");
 
 const { generatePayslipPDF } = require("../utils/Payslippdf");
