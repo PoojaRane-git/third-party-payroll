@@ -7,7 +7,7 @@ const supabase = require("../../config/supabase");
 const {
     authenticate,
     authorize,
-} = require("../middleware/auth");
+} = require("../../middleware");
 
 const {
     recalculateMonthlySummary,
@@ -25,7 +25,6 @@ const {
 
 router.use(authenticate);
 router.use(authorize("employee"));
-
 /*
 |--------------------------------------------------------------------------
 | GET /me
