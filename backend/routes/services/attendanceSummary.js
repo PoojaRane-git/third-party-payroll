@@ -6,7 +6,7 @@
 // third_party_emp_daily_attendance.
 // ============================================================
 
-const supabase = require("../config/supabase");
+const supabase = require("../../config/supabase");
 
 // ------------------------------------------------------------
 // LEAVE TABLE CONFIG  (TODO: change to match your real table)
