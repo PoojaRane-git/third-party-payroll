@@ -8,7 +8,7 @@ const path = require("path");
 
 // Set to true to draw red boxes where the signature/stamp should appear.
 // Turn it back to false once you can see the images.
-const DEBUG_IMAGES = true;
+const DEBUG_IMAGES = false;
 
 // ============================================================
 // COMPANY DETAILS
@@ -727,8 +727,8 @@ const generatePayslipPDF = async (payroll) => {
     });
 
     // Positions: x, y, width, height (mm)
-      const SIGNATURE_BOX = { x: 140, y: 248, w: 32, h: 10.5 };
-    const STAMP_BOX = { x: 158, y: 240, w: 25, h: 25 };
+  const SIGNATURE_BOX = { x: 128, y: 257, w: 32, h: 10.5 };
+const STAMP_BOX = { x: 163, y: 250, w: 25, h: 25 };
 
         const signature = loadImage(SIGNATURE_FILE);
     const stamp = loadImage(STAMP_FILE);
