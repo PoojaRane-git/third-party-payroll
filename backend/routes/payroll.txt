@@ -24,8 +24,7 @@ const ATTENDANCE_COLUMNS = `
     lop_days, payable_days, overtime_hours, created_at, updated_at
 `;
 
-// NOTE: no `status` here because your code says the column was deleted.
-// The status routes below need it, see the SQL in the notes.
+// third_party_payroll has no `status` column, so it is not selected anywhere.
 const PAYROLL_COLUMNS = `
     id, employee_name, salary_month, basic_salary, allowances, overtime,
     bonus, gross_salary, pf, esic, tax, lop, net_salary, bank_name,
@@ -84,9 +83,6 @@ function getDaysInMonth(salaryMonth) {
         .map(Number);
     return new Date(year, monthNumber, 0).getDate();
 }
-
-const convertSalaryMonthToDate = (salaryMonth) =>
-    `${validateSalaryMonth(salaryMonth)}-01`;
 
 function calcProfessionalTax(gross, gender) {
     const g = String(gender || "").trim().toLowerCase();
@@ -569,143 +565,6 @@ router.post("/generate", async (req, res) => {
 });
 
 // ============================================================
-// UPDATE PAYROLL STATUS
-// Pending -> Approved -> Locked
-// (needs third_party_payroll.status to exist)
-// ============================================================
-
-router.patch("/:id/status", async (req, res) => {
-    try {
-        const id = getId(req.params.id);
-        const status = String(req.body.status || "").trim();
-
-        if (!id) return sendError(res, 400, "Invalid payroll ID");
-
-        if (!["Pending", "Approved", "Locked"].includes(status)) {
-            return sendError(res, 400, "Invalid payroll status");
-        }
-
-        const { data: payroll, error } = await supabase
-            .from("third_party_payroll")
-            .select(`
-                id, employee_ref_id, attendance_id, deployment_id,
-                salary_month, gross_salary, pf, esic, tax, professional_tax,
-                lop, employer_pf, employer_esic, gratuity, status
-            `)
-            .eq("id", id)
-            .maybeSingle();
-
-        if (error) throw error;
-        if (!payroll) return sendError(res, 404, "Payroll record not found");
-
-        const currentStatus = payroll.status || "Pending";
-
-        if (currentStatus === "Locked") {
-            return sendError(res, 400, "Cannot modify a Locked payroll record");
-        }
-
-        if (currentStatus === "Pending" && status !== "Approved") {
-            return sendError(res, 400, "Pending payroll can only be changed to Approved");
-        }
-
-        if (currentStatus === "Approved" && status !== "Locked") {
-            return sendError(res, 400, "Approved payroll can only be changed to Locked");
-        }
-
-        let updateData = { status };
-        const approving = currentStatus === "Pending" && status === "Approved";
-
-        if (approving) {
-            const grossSalary = num(payroll.gross_salary);
-            const totalDeductions =
-                num(payroll.pf) +
-                num(payroll.esic) +
-                num(payroll.tax) +
-                num(payroll.professional_tax) +
-                num(payroll.lop);
-
-            const employerContribution =
-                num(payroll.employer_pf) + num(payroll.employer_esic);
-
-            updateData = {
-                status: "Approved",
-                total_deductions: r2(totalDeductions),
-                net_salary: r2(Math.max(0, grossSalary - totalDeductions)),
-                total_employer_contribution: r2(employerContribution),
-                total_employer_cost: r2(
-                    grossSalary + employerContribution + num(payroll.gratuity)
-                ),
-            };
-        }
-
-        const { data: updatedPayroll, error: updateError } = await supabase
-            .from("third_party_payroll")
-            .update(updateData)
-            .eq("id", id)
-            .select()
-            .single();
-
-        if (updateError) throw updateError;
-
-        if (approving) {
-            const { data: existingDeduction, error: checkError } = await supabase
-                .from("deductions")
-                .select("id")
-                .eq("payroll_id", payroll.id)
-                .limit(1);
-
-            if (checkError) throw checkError;
-
-            if (!existingDeduction || existingDeduction.length === 0) {
-                const { data: attendance, error: attendanceError } = await supabase
-                    .from(ATTENDANCE_TABLE)
-                    .select("lop_days")
-                    .eq("employee_id", payroll.employee_ref_id)
-                    .eq("billing_month", payroll.salary_month)
-                    .maybeSingle();
-
-                if (attendanceError) throw attendanceError;
-
-                const { data: deduction, error: deductionError } = await supabase
-                    .from("deductions")
-                    .insert({
-                        payroll_id: payroll.id,
-                        candidate_id: payroll.employee_ref_id,
-                        deduction_month: convertSalaryMonthToDate(payroll.salary_month),
-                        lop_days: num(attendance?.lop_days),
-                        lop_deduction: num(payroll.lop),
-                        employee_pf: num(payroll.pf),
-                        employee_esic: num(payroll.esic),
-                        tax_tds: num(payroll.tax),
-                        professional_tax: num(payroll.professional_tax),
-                        other_deductions: 0,
-                    })
-                    .select()
-                    .single();
-
-                if (deductionError) throw deductionError;
-
-                return res.json({
-                    success: true,
-                    message: "Payroll approved successfully",
-                    data: updatedPayroll,
-                    deduction,
-                });
-            }
-        }
-
-        return res.json({
-            success: true,
-            message: `Payroll status changed from ${currentStatus} to ${status}`,
-            data: updatedPayroll,
-        });
-    } catch (error) {
-        console.error("PATCH /api/payroll/:id/status:", error);
-        return sendError(res, 500, "Failed to update payroll status", error.message);
-    }
-});
-
-// ============================================================
 // EMAIL PAYSLIP
 // POST /api/payroll/:id/email
 // ============================================================
@@ -1065,7 +924,7 @@ router.get("/lookup/prefill", async (req, res) => {
 
 // ============================================================
 // EDIT PAYROLL
-// PATCH /api/payroll/:id   (Pending / Approved only)
+// PATCH /api/payroll/:id
 // ============================================================
 
 router.patch("/:id", async (req, res) => {
@@ -1077,7 +936,7 @@ router.patch("/:id", async (req, res) => {
         const { data: payroll, error: payrollError } = await supabase
             .from("third_party_payroll")
             .select(`
-                id, status, basic_salary, allowances, overtime, bonus,
+                id, basic_salary, allowances, overtime, bonus,
                 pf, esic, tax, professional_tax, lop, employer_pf,
                 employer_esic, gratuity, bank_name, account_number, ifsc_code
             `)
@@ -1086,16 +945,6 @@ router.patch("/:id", async (req, res) => {
 
         if (payrollError) throw payrollError;
         if (!payroll) return sendError(res, 404, "Payroll record not found");
-
-        const currentStatus = String(payroll.status || "Pending").trim();
-
-        if (currentStatus === "Locked") {
-            return sendError(res, 400, "Locked payroll records cannot be edited");
-        }
-
-        if (currentStatus !== "Pending" && currentStatus !== "Approved") {
-            return sendError(res, 400, "Only Pending or Approved payroll records can be edited");
-        }
 
         const numberValue = (field, fallback) => {
             const raw = req.body[field];
