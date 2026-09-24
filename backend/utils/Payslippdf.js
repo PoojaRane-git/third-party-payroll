@@ -1402,13 +1402,13 @@ addStatutoryInfo(
         try {
 
             doc.addImage(
-                SIGNATURE_IMAGE,
-                "PNG",
-                145,
-                signatureImageY,
-                28,
-                12
-            );
+    SIGNATURE_IMAGE,
+    "JPEG",
+    145,
+    signatureImageY,
+    28,
+    12
+);
 
         } catch (error) {
 
@@ -1430,14 +1430,14 @@ addStatutoryInfo(
     ) {
         try {
 
-            doc.addImage(
-                STAMP_IMAGE,
-                "PNG",
-                171,
-                stampImageY,
-                25,
-                25
-            );
+           doc.addImage(
+    STAMP_IMAGE,
+    "JPEG",
+    171,
+    stampImageY,
+    25,
+    25
+);
 
         } catch (error) {
 
