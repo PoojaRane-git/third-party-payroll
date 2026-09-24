@@ -61,6 +61,8 @@ const textValue = (value) => {
 // Returns { data, format } or null. Logs the exact reason.
 // ============================================================
 
+const imageStatus = {};
+
 const loadImage = (fileName) => {
     for (const dir of ASSET_DIRS) {
         const fullPath = path.join(dir, fileName);
@@ -75,26 +77,16 @@ const loadImage = (fileName) => {
         const isPng = header === "89504e47";
         const isJpg = header.startsWith("ffd8");
 
-        console.log(
-            `Found ${fileName}:`,
-            fullPath,
-            "| bytes:",
-            buffer.length,
-            "| header:",
-            header
-        );
-
         if (!isPng && !isJpg) {
-            console.error("❌ Not a real PNG/JPG file:", fullPath);
+            imageStatus[fileName] =
+                `found but NOT a real PNG/JPG (header ${header}, ${buffer.length} bytes)`;
             return null;
         }
 
-                if (isPng) {
-            console.log(
-                `   PNG info -> width: ${buffer.readUInt32BE(16)}, height: ${buffer.readUInt32BE(20)}, ` +
-                `bitDepth: ${buffer[24]}, colorType: ${buffer[25]}, interlaced: ${buffer[28] === 1}`
-            );
-        }
+        imageStatus[fileName] = isPng
+            ? `found ${buffer.readUInt32BE(16)}x${buffer.readUInt32BE(20)}px, ` +
+              `bitDepth ${buffer[24]}, colorType ${buffer[25]}, interlaced ${buffer[28] === 1}`
+            : `found JPEG, ${buffer.length} bytes`;
 
         return {
             data: new Uint8Array(buffer),
@@ -102,20 +94,10 @@ const loadImage = (fileName) => {
         };
     }
 
-    console.error(`❌ ${fileName} NOT FOUND. Looked in:`);
-    ASSET_DIRS.forEach((dir) => {
-        let contents = "(folder does not exist)";
-
-        if (fs.existsSync(dir)) {
-            contents = fs.readdirSync(dir).join(", ") || "(empty folder)";
-        }
-
-        console.error("   -", dir, "=>", contents);
-    });
-
+    imageStatus[fileName] = "NOT FOUND in any assets folder";
+    console.error(`❌ ${fileName} NOT FOUND. Searched:`, ASSET_DIRS);
     return null;
 };
-
 // ============================================================
 // NUMBER TO WORDS
 // ============================================================
@@ -748,10 +730,9 @@ const generatePayslipPDF = async (payroll) => {
       const SIGNATURE_BOX = { x: 140, y: 248, w: 32, h: 10.5 };
     const STAMP_BOX = { x: 158, y: 240, w: 25, h: 25 };
 
-    const signature = loadImage(SIGNATURE_FILE);
+        const signature = loadImage(SIGNATURE_FILE);
     const stamp = loadImage(STAMP_FILE);
 
-    // Red boxes show where the images should appear (debug only)
     if (DEBUG_IMAGES) {
         doc.setDrawColor(255, 0, 0);
         doc.setLineWidth(0.3);
@@ -763,37 +744,36 @@ const generatePayslipPDF = async (payroll) => {
     if (signature) {
         try {
             doc.addImage(
-                signature.data,
-                signature.format,
-                SIGNATURE_BOX.x,
-                SIGNATURE_BOX.y,
-                SIGNATURE_BOX.w,
-                SIGNATURE_BOX.h
+                signature.data, signature.format,
+                SIGNATURE_BOX.x, SIGNATURE_BOX.y, SIGNATURE_BOX.w, SIGNATURE_BOX.h
             );
-
-            console.log("✅ Signature added successfully.");
+            imageStatus[SIGNATURE_FILE] += " | addImage OK";
         } catch (error) {
-            console.error("❌ Signature addImage failed:", error.message);
+            imageStatus[SIGNATURE_FILE] += ` | addImage FAILED: ${error.message}`;
         }
     }
 
     if (stamp) {
         try {
             doc.addImage(
-                stamp.data,
-                stamp.format,
-                STAMP_BOX.x,
-                STAMP_BOX.y,
-                STAMP_BOX.w,
-                STAMP_BOX.h
+                stamp.data, stamp.format,
+                STAMP_BOX.x, STAMP_BOX.y, STAMP_BOX.w, STAMP_BOX.h
             );
-
-            console.log("✅ Stamp added successfully.");
+            imageStatus[STAMP_FILE] += " | addImage OK";
         } catch (error) {
-            console.error("❌ Stamp addImage failed:", error.message);
+            imageStatus[STAMP_FILE] += ` | addImage FAILED: ${error.message}`;
         }
     }
 
+    // Diagnosis printed on the PDF itself (remove by setting DEBUG_IMAGES = false)
+    if (DEBUG_IMAGES) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6);
+        doc.setTextColor(255, 0, 0);
+        doc.text(`Signature: ${imageStatus[SIGNATURE_FILE]}`, 22, 270, { maxWidth: 165 });
+        doc.text(`Stamp: ${imageStatus[STAMP_FILE]}`, 22, 276, { maxWidth: 165 });
+        doc.setTextColor(0, 0, 0);
+    }
     // ========================================================
     // RETURN PDF
     // ========================================================
