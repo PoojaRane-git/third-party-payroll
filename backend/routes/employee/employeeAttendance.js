@@ -435,6 +435,7 @@ router.get("/payroll/me", async (req, res) => {
     }
 });
 
+
 // =====================================================
 // EMPLOYEE PAYSLIP PDF
 // GET /api/employee/payroll/:id/pdf
@@ -444,126 +445,131 @@ router.get(
     ["/payroll/:id/pdf", "/employee/payroll/:id/pdf"],
     async (req, res) => {
         try {
-            const payrollId =
-                Number(req.params.id);
+            const employeeId = Number(req.profile?.employee_id);
+            const payrollId = Number(req.params.id);
+
+            if (!employeeId) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Employee profile is not linked to an employee.",
+                });
+            }
 
             if (!payrollId) {
                 return res.status(400).json({
                     success: false,
-                    message:
-                        "Invalid payroll ID.",
+                    message: "Invalid payroll ID.",
                 });
             }
 
             // ---------------------------------------------
-            // GET PAYROLL
+            // GET PAYROLL (own payslip only)
             // ---------------------------------------------
 
-            const {
-                data: payroll,
-                error,
-            } = await supabase
-                .from(
-                    "third_party_payroll"
-                )
+            const { data: payroll, error } = await supabase
+                .from("third_party_payroll")
                 .select("*")
-                .eq(
-                    "id",
-                    payrollId
-                )
-                .single();
+                .eq("id", payrollId)
+                .eq("employee_ref_id", employeeId)
+                .maybeSingle();
 
             if (error) {
-                console.error(
-                    "PDF payroll fetch error:",
-                    error
-                );
+                console.error("PDF payroll fetch error:", error);
 
                 return res.status(500).json({
                     success: false,
-                    message:
-                        "Unable to load payroll.",
-                    error:
-                        error.message,
+                    message: "Unable to load payroll.",
+                    error: error.message,
                 });
             }
 
             if (!payroll) {
                 return res.status(404).json({
                     success: false,
-                    message:
-                        "Payroll record not found.",
+                    message: "Payroll record not found.",
                 });
             }
+
+            // ---------------------------------------------
+            // GET EMPLOYEE DETAILS FOR THE PAYSLIP
+            // ---------------------------------------------
+
+            const { data: candidate, error: candidateError } = await supabase
+                .from("candidates")
+                .select(`
+                    id, full_name, designation, employee_code,
+                    date_of_joining, city, pan_number, uan_number,
+                    esic_number, department
+                `)
+                .eq("id", employeeId)
+                .maybeSingle();
+
+            if (candidateError) {
+                console.error("PDF candidate fetch error:", candidateError);
+
+                return res.status(500).json({
+                    success: false,
+                    message: "Unable to load employee details.",
+                    error: candidateError.message,
+                });
+            }
+
+            const payslipData = {
+                ...payroll,
+
+                employee_name:
+                    candidate?.full_name || payroll.employee_name || "Employee",
+                employee_code: candidate?.employee_code || candidate?.id || "N/A",
+                designation: candidate?.designation || "N/A",
+                department: candidate?.department || "",
+                location: candidate?.city || "Head Office",
+
+                pan_number: candidate?.pan_number || "N/A",
+                uan_number: candidate?.uan_number || "N/A",
+                esic_number: candidate?.esic_number || "N/A",
+                joining_date:
+                    candidate?.date_of_joining || payroll.joining_date || null,
+
+                bank_name: payroll.bank_name || "N/A",
+                account_number: payroll.account_number || "N/A",
+                ifsc_code: payroll.ifsc_code || "N/A",
+                pran: payroll.pran || "N/A",
+            };
 
             // ---------------------------------------------
             // GENERATE PDF
             // ---------------------------------------------
 
-            const pdfBuffer =
-                await generatePayslipPDF(
-                    payroll
-                );
+            const pdfBuffer = await generatePayslipPDF(payslipData);
 
-            const employeeName =
-                String(
-                    payroll.employee_name ||
-                    "Employee"
-                )
-                    .replace(
-                        /[^a-zA-Z0-9]/g,
-                        "_"
-                    )
-                    .replace(
-                        /_+/g,
-                        "_"
-                    );
+            const employeeName = String(payslipData.employee_name)
+                .replace(/[^a-zA-Z0-9]/g, "_")
+                .replace(/_+/g, "_");
 
-            const salaryMonth =
-                String(
-                    payroll.salary_month ||
-                    "payslip"
-                ).replace(
-                    /[^a-zA-Z0-9-_]/g,
-                    "-"
-                );
+            const salaryMonth = String(payroll.salary_month || "payslip")
+                .replace(/[^a-zA-Z0-9-_]/g, "-");
 
             // ---------------------------------------------
             // RESPONSE
             // ---------------------------------------------
 
-            res.setHeader(
-                "Content-Type",
-                "application/pdf"
-            );
+            res.setHeader("Content-Type", "application/pdf");
 
             res.setHeader(
                 "Content-Disposition",
                 `attachment; filename="${employeeName}_Payslip_${salaryMonth}.pdf"`
             );
 
-            res.setHeader(
-                "Content-Length",
-                pdfBuffer.length
-            );
+            res.setHeader("Content-Length", pdfBuffer.length);
 
-            return res.send(
-                pdfBuffer
-            );
-
+            return res.send(pdfBuffer);
         } catch (error) {
-
-            console.error(
-                "Employee payslip PDF error:",
-                error
-            );
+            console.error("Employee payslip PDF error:", error);
 
             return res.status(500).json({
                 success: false,
-                message:
-                    "Unable to generate payslip PDF.",
-                error:
-                    error.message,
+                message: "Unable to generate payslip PDF.",
+                error: error.message,
             });
         }
     }
