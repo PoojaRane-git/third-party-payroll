@@ -15,9 +15,6 @@
 // MOUNTED (see server.js) at BOTH:
 //   /api/emp-attendance
 //   /api/employee
-// So every route below is reachable under either prefix,
-// e.g. GET /api/employee/me and GET /api/emp-attendance/me
-// both hit the handler defined here.
 // ============================================================
 
 const express = require("express");
@@ -26,6 +23,9 @@ const router = express.Router();
 const supabase = require("../../config/supabase");
 const authenticate = require("../../middleware/authenticate");
 const authorize = require("../../middleware/authorize");
+
+// TODO: make sure generatePayslipPDF is imported here, e.g.
+// const { generatePayslipPDF } = require("../../utils/generatePayslipPDF");
 
 const employeeAuth = [authenticate, authorize("employee")];
 
@@ -47,39 +47,56 @@ const sendError = (res, status, message, error = null) => {
 };
 
 const getTodayIST = () => {
-    const now = new Date();
-
     return new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Kolkata",
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
-    }).format(now);
+    }).format(new Date());
 };
 
-const getCurrentMonthIST = () => {
-    return getTodayIST().substring(0, 7);
-};
+const getCurrentMonthIST = () => getTodayIST().substring(0, 7);
 
 const getDaysInMonth = (billingMonth) => {
     const [year, month] = billingMonth.split("-").map(Number);
     return new Date(year, month, 0).getDate();
 };
 
+const getMonthRange = (billingMonth) => {
+    const [year, month] = billingMonth.split("-").map(Number);
+    const monthStart = `${billingMonth}-01`;
+    const nextMonth = new Date(Date.UTC(year, month, 1))
+        .toISOString()
+        .substring(0, 10);
+    return { monthStart, nextMonth };
+};
+
+const addDaysISO = (dateStr, n) =>
+    new Date(new Date(`${dateStr}T00:00:00Z`).getTime() + n * 86400000)
+        .toISOString()
+        .substring(0, 10);
+
+const DAILY_COLUMNS = `
+    id, candidates_id, deployment_id, client_id, attendance_date,
+    check_in, check_out, working_hours, overtime_hours, status,
+    work_mode, remarks, created_at, updated_at
+`;
+
+const SUMMARY_COLUMNS = `
+    id, employee_id, client_id, deployment_id, billing_month,
+    total_days, present_days, absent_days, leave_days, half_days,
+    lop_days, payable_days, overtime_hours, created_at, updated_at
+`;
+
 // ============================================================
 // GET EMPLOYEE ID
-//
-// authorize("employee") already ran and attached req.profile
-// (from employee_users), which has employee_id.
 // ============================================================
 
 const getEmployeeId = (req) => {
     const employeeId = Number(req.profile?.employee_id);
 
     if (!employeeId) {
-        throw new Error(
-            "Employee ID is not linked to this account."
-        );
+        throw new Error("Employee ID is not linked to this account.");
     }
 
     return employeeId;
@@ -88,9 +105,6 @@ const getEmployeeId = (req) => {
 // ============================================================
 // GET LOGGED-IN EMPLOYEE PROFILE
 // GET /me
-//
-// Reads the employee's own record from `candidates`,
-// keyed by req.profile.employee_id.
 // ============================================================
 
 router.get("/me", async (req, res) => {
@@ -121,26 +135,63 @@ router.get("/me", async (req, res) => {
 });
 
 // ============================================================
-// RECALCULATE MONTHLY SUMMARY
+// MISSING-DAY COUNTER
 //
-// Reads ONLY from third_party_emp_daily_attendance.
+// Weekdays (Mon-Fri) in the month that have NO attendance row:
+//  - outside deployment period -> ignored
+//  - holiday                   -> ignored
+//  - approved leave            -> counted as leave
+//  - past day                  -> counted as absent
+//  - today / future            -> never counted
+// ============================================================
+
+const countMissingDays = ({
+    billingMonth,
+    rows,
+    holidayDates,
+    leaveDates,
+    startDate,
+    endDate,
+}) => {
+    const [year, month] = billingMonth.split("-").map(Number);
+    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const todayIST = getTodayIST();
+
+    const recorded = new Set(rows.map((r) => r.attendance_date));
+    let absent = 0;
+    let leave = 0;
+
+    for (let d = 1; d <= lastDay; d++) {
+        const dateStr = `${billingMonth}-${String(d).padStart(2, "0")}`;
+
+        if (startDate && dateStr < startDate) continue; // not joined yet
+        if (endDate && dateStr > endDate) continue;     // deployment over
+
+        const dow = new Date(`${dateStr}T00:00:00Z`).getUTCDay(); // 0=Sun, 6=Sat
+        if (dow === 0 || dow === 6) continue;           // week-off (adjust to roster)
+        if (recorded.has(dateStr)) continue;            // already has a row
+        if (holidayDates.has(dateStr)) continue;        // paid holiday
+
+        if (leaveDates.has(dateStr)) {
+            leave++;
+        } else if (dateStr < todayIST) {
+            absent++;
+        }
+    }
+
+    return { absent, leave };
+};
+
+// ============================================================
+// RECALCULATE MONTHLY SUMMARY
 // ============================================================
 
 const recalculateMonthlySummary = async (employeeId, billingMonth) => {
-
-    const monthStart = `${billingMonth}-01`;
-    const [year, month] = billingMonth.split("-").map(Number);
-    const nextMonth = new Date(Date.UTC(year, month, 1))
-        .toISOString()
-        .substring(0, 10);
+    const { monthStart, nextMonth } = getMonthRange(billingMonth);
 
     const { data: dailyRows, error: dailyError } = await supabase
         .from("third_party_emp_daily_attendance")
-        .select(`
-            id, candidates_id, deployment_id, client_id, attendance_date,
-            check_in, check_out, working_hours, overtime_hours, status,
-            work_mode, remarks, created_at, updated_at
-        `)
+        .select(DAILY_COLUMNS)
         .eq("candidates_id", employeeId)
         .gte("attendance_date", monthStart)
         .lt("attendance_date", nextMonth)
@@ -163,14 +214,12 @@ const recalculateMonthlySummary = async (employeeId, billingMonth) => {
         else if (status === "absent") absentDays += 1;
         else if (status === "leave") leaveDays += 1;
         else if (status === "half day" || status === "halfday") halfDays += 1;
+        // "in progress" is intentionally not counted until check-out
 
         overtimeHours += Number(row.overtime_hours || 0);
     });
 
-    const lopDays = absentDays;
-    const payableDays = presentDays + leaveDays + halfDays * 0.5;
-    const totalDays = getDaysInMonth(billingMonth);
-
+    // ---- Resolve client / deployment ----
     let clientId = null;
     let deploymentId = null;
 
@@ -183,11 +232,7 @@ const recalculateMonthlySummary = async (employeeId, billingMonth) => {
     if (!clientId || !deploymentId) {
         const { data: existingSummary, error: existingError } = await supabase
             .from("third_party_attendance_summary")
-            .select(`
-                id, employee_id, client_id, deployment_id, billing_month,
-                total_days, present_days, absent_days, leave_days, half_days,
-                lop_days, payable_days, overtime_hours, created_at, updated_at
-            `)
+            .select("id, client_id, deployment_id")
             .eq("employee_id", employeeId)
             .eq("billing_month", billingMonth)
             .maybeSingle();
@@ -203,7 +248,7 @@ const recalculateMonthlySummary = async (employeeId, billingMonth) => {
     if (!clientId || !deploymentId) {
         const { data: deployment, error: deploymentError } = await supabase
             .from("deployments")
-            .select(`id, client_id, candidate_id`)
+            .select("id, client_id, candidate_id")
             .eq("candidate_id", employeeId)
             .eq("status", "Active")
             .limit(1)
@@ -218,10 +263,67 @@ const recalculateMonthlySummary = async (employeeId, billingMonth) => {
     }
 
     if (!clientId || !deploymentId) {
-        throw new Error(
-            "Client/deployment information not found for employee."
-        );
+        throw new Error("Client/deployment information not found for employee.");
     }
+
+    // ---- Deployment period ----
+    const { data: deploymentInfo, error: deploymentInfoError } = await supabase
+        .from("deployments")
+        .select("start_date, end_date")
+        .eq("id", deploymentId)
+        .maybeSingle();
+
+    if (deploymentInfoError) {
+        console.error("Deployment dates lookup failed:", deploymentInfoError);
+    }
+
+    // ---- Holidays (per client, full-day only) ----
+    const holidayDates = new Set();
+    const { data: holidays, error: holidayError } = await supabase
+        .from("holiday_calendar")
+        .select("holiday_date")
+        .eq("client_id", clientId)
+        .eq("holiday_type", "Full Day")
+        .gte("holiday_date", monthStart)
+        .lt("holiday_date", nextMonth);
+
+    if (holidayError) console.error("Holiday lookup failed:", holidayError);
+    (holidays || []).forEach((h) => holidayDates.add(h.holiday_date));
+
+    // ---- Approved leaves ----
+    // TODO: table/column names are guesses, change to match your leave table
+    const leaveDates = new Set();
+    const { data: leaves, error: leaveError } = await supabase
+        .from("leave_requests")
+        .select("from_date, to_date")
+        .eq("employee_id", employeeId)
+        .eq("status", "Approved")
+        .lt("from_date", nextMonth)
+        .gte("to_date", monthStart);
+
+    if (leaveError) console.error("Leave lookup failed:", leaveError);
+    (leaves || []).forEach((l) => {
+        for (let d = l.from_date; d <= l.to_date; d = addDaysISO(d, 1)) {
+            leaveDates.add(d);
+        }
+    });
+
+    // ---- Days with no attendance row ----
+    const missing = countMissingDays({
+        billingMonth,
+        rows,
+        holidayDates,
+        leaveDates,
+        startDate: deploymentInfo?.start_date || null,
+        endDate: deploymentInfo?.end_date || null,
+    });
+
+    absentDays += missing.absent;
+    leaveDays += missing.leave;
+
+    const lopDays = absentDays;
+    const payableDays = presentDays + leaveDays + halfDays * 0.5;
+    const totalDays = getDaysInMonth(billingMonth);
 
     const summaryPayload = {
         employee_id: employeeId,
@@ -242,11 +344,7 @@ const recalculateMonthlySummary = async (employeeId, billingMonth) => {
     const { data: summary, error: summaryError } = await supabase
         .from("third_party_attendance_summary")
         .upsert(summaryPayload, { onConflict: "employee_id,billing_month" })
-        .select(`
-            id, employee_id, client_id, deployment_id, billing_month,
-            total_days, present_days, absent_days, leave_days, half_days,
-            lop_days, payable_days, overtime_hours, created_at, updated_at
-        `)
+        .select(SUMMARY_COLUMNS)
         .single();
 
     if (summaryError) throw summaryError;
@@ -259,7 +357,7 @@ const recalculateMonthlySummary = async (employeeId, billingMonth) => {
 
 // ============================================================
 // GET DAILY ATTENDANCE
-// GET /emp-attendance  (?billing_month=YYYY-MM or ?month=YYYY-MM)
+// GET /  (?billing_month=YYYY-MM or ?month=YYYY-MM)
 // ============================================================
 
 router.get("/", async (req, res) => {
@@ -269,19 +367,11 @@ router.get("/", async (req, res) => {
         const billingMonth =
             req.query.billing_month || req.query.month || getCurrentMonthIST();
 
-        const monthStart = `${billingMonth}-01`;
-        const [year, month] = billingMonth.split("-").map(Number);
-        const nextMonth = new Date(Date.UTC(year, month, 1))
-            .toISOString()
-            .substring(0, 10);
+        const { monthStart, nextMonth } = getMonthRange(billingMonth);
 
         const { data, error } = await supabase
             .from("third_party_emp_daily_attendance")
-            .select(`
-                id, candidates_id, deployment_id, client_id, attendance_date,
-                check_in, check_out, working_hours, overtime_hours, status,
-                work_mode, remarks, created_at, updated_at
-            `)
+            .select(DAILY_COLUMNS)
             .eq("candidates_id", employeeId)
             .gte("attendance_date", monthStart)
             .lt("attendance_date", nextMonth)
@@ -299,7 +389,7 @@ router.get("/", async (req, res) => {
 
 // ============================================================
 // GET TODAY
-// GET /emp-attendance/today
+// GET /today
 // ============================================================
 
 router.get("/today", async (req, res) => {
@@ -309,11 +399,7 @@ router.get("/today", async (req, res) => {
 
         const { data, error } = await supabase
             .from("third_party_emp_daily_attendance")
-            .select(`
-                id, candidates_id, deployment_id, client_id, attendance_date,
-                check_in, check_out, working_hours, overtime_hours, status,
-                work_mode, remarks, created_at, updated_at
-            `)
+            .select(DAILY_COLUMNS)
             .eq("candidates_id", employeeId)
             .eq("attendance_date", today)
             .maybeSingle();
@@ -330,7 +416,7 @@ router.get("/today", async (req, res) => {
 
 // ============================================================
 // CHECK IN
-// POST /emp-attendance/check-in
+// POST /check-in
 // ============================================================
 
 router.post("/check-in", async (req, res) => {
@@ -362,7 +448,7 @@ router.post("/check-in", async (req, res) => {
 
         const { data: deployment, error: deploymentError } = await supabase
             .from("deployments")
-            .select(`id, client_id, candidate_id`)
+            .select("id, client_id, candidate_id")
             .eq("candidate_id", employeeId)
             .eq("status", "Active")
             .limit(1)
@@ -403,11 +489,7 @@ router.post("/check-in", async (req, res) => {
                     updated_at: now,
                 })
                 .eq("id", existing.id)
-                .select(`
-                    id, candidates_id, deployment_id, client_id, attendance_date,
-                    check_in, check_out, working_hours, overtime_hours, status,
-                    work_mode, remarks, created_at, updated_at
-                `)
+                .select(DAILY_COLUMNS)
                 .single();
 
             attendance = result.data;
@@ -428,11 +510,7 @@ router.post("/check-in", async (req, res) => {
                     work_mode: workMode,
                     remarks,
                 })
-                .select(`
-                    id, candidates_id, deployment_id, client_id, attendance_date,
-                    check_in, check_out, working_hours, overtime_hours, status,
-                    work_mode, remarks, created_at, updated_at
-                `)
+                .select(DAILY_COLUMNS)
                 .single();
 
             attendance = result.data;
@@ -465,7 +543,7 @@ router.post("/check-in", async (req, res) => {
 
 // ============================================================
 // CHECK OUT
-// PATCH /emp-attendance/:id/check-out
+// PATCH /:id/check-out
 // ============================================================
 
 router.patch("/:id/check-out", async (req, res) => {
@@ -479,11 +557,7 @@ router.patch("/:id/check-out", async (req, res) => {
 
         const { data: attendance, error: fetchError } = await supabase
             .from("third_party_emp_daily_attendance")
-            .select(`
-                id, candidates_id, deployment_id, client_id, attendance_date,
-                check_in, check_out, working_hours, overtime_hours, status,
-                work_mode, remarks, created_at, updated_at
-            `)
+            .select(DAILY_COLUMNS)
             .eq("id", attendanceId)
             .eq("candidates_id", employeeId)
             .maybeSingle();
@@ -510,20 +584,16 @@ router.patch("/:id/check-out", async (req, res) => {
 
         const checkIn = new Date(attendance.check_in);
         const checkOut = new Date();
-        const milliseconds = checkOut.getTime() - checkIn.getTime();
-        const hours = milliseconds / (1000 * 60 * 60);
+        const hours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
         const workingHours = Math.max(0, Number(hours.toFixed(2)));
 
         let status;
+        if (workingHours >= 8) status = "Present";
+        else if (workingHours >= 4) status = "Half Day";
+        else status = "Absent";
 
-        if (workingHours >= 8) {
-            status = "Present";
-        } else if (workingHours >= 4) {
-            status = "Half Day";
-        } else {
-            status = "Absent";
-        }
-        const overtimeHours = workingHours > 8 ? Number((workingHours - 8).toFixed(2)) : 0;
+        const overtimeHours =
+            workingHours > 8 ? Number((workingHours - 8).toFixed(2)) : 0;
 
         const { data: updatedAttendance, error: updateError } = await supabase
             .from("third_party_emp_daily_attendance")
@@ -536,11 +606,7 @@ router.patch("/:id/check-out", async (req, res) => {
             })
             .eq("id", attendanceId)
             .eq("candidates_id", employeeId)
-            .select(`
-                id, candidates_id, deployment_id, client_id, attendance_date,
-                check_in, check_out, working_hours, overtime_hours, status,
-                work_mode, remarks, created_at, updated_at
-            `)
+            .select(DAILY_COLUMNS)
             .single();
 
         if (updateError) {
@@ -569,49 +635,8 @@ router.patch("/:id/check-out", async (req, res) => {
 
 // ============================================================
 // GET MONTHLY SUMMARY
-// GET /emp-attendance/monthly
+// GET /monthly
 // ============================================================
-// ============================================================
-// GET MONTHLY SUMMARY
-// GET /emp-attendance/monthly
-// ============================================================
-
-// Counts weekdays (Mon-Fri) before today that have no attendance row
-// and are not a holiday / approved leave day.
-const countMissingWorkingDays = ({
-    billingMonth,
-    dailyAttendance,
-    excludedDates,
-}) => {
-    const [year, month] = billingMonth.split("-").map(Number);
-    const lastDayOfMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-
-    const todayIST = new Date().toLocaleDateString("en-CA", {
-        timeZone: "Asia/Kolkata",
-    });
-
-    const recordedDates = new Set(
-        (dailyAttendance || []).map((r) => r.attendance_date)
-    );
-
-    let missing = 0;
-
-    for (let d = 1; d <= lastDayOfMonth; d++) {
-        const dateStr = `${billingMonth}-${String(d).padStart(2, "0")}`;
-
-        if (dateStr >= todayIST) break; // only past days, not today
-
-        const dow = new Date(`${dateStr}T00:00:00Z`).getUTCDay(); // 0 = Sun, 6 = Sat
-        if (dow === 0 || dow === 6) continue; // adjust to your week-off rule
-
-        if (recordedDates.has(dateStr)) continue;
-        if (excludedDates.has(dateStr)) continue;
-
-        missing++;
-    }
-
-    return missing;
-};
 
 router.get("/monthly", async (req, res) => {
     try {
@@ -629,11 +654,7 @@ router.get("/monthly", async (req, res) => {
 
             const { data, error } = await supabase
                 .from("third_party_attendance_summary")
-                .select(`
-                    id, employee_id, client_id, deployment_id, billing_month,
-                    total_days, present_days, absent_days, leave_days, half_days,
-                    lop_days, payable_days, overtime_hours, created_at, updated_at
-                `)
+                .select(SUMMARY_COLUMNS)
                 .eq("employee_id", employeeId)
                 .eq("billing_month", billingMonth)
                 .maybeSingle();
@@ -641,23 +662,14 @@ router.get("/monthly", async (req, res) => {
             if (error) {
                 return sendError(res, 500, "Failed to fetch monthly summary.", error);
             }
-
             summary = data;
         }
 
-        const monthStart = `${billingMonth}-01`;
-        const [year, month] = billingMonth.split("-").map(Number);
-        const nextMonth = new Date(Date.UTC(year, month, 1))
-            .toISOString()
-            .substring(0, 10);
+        const { monthStart, nextMonth } = getMonthRange(billingMonth);
 
         const { data: dailyAttendance, error: dailyError } = await supabase
             .from("third_party_emp_daily_attendance")
-            .select(`
-                id, candidates_id, deployment_id, client_id, attendance_date,
-                check_in, check_out, working_hours, overtime_hours, status,
-                work_mode, remarks, created_at, updated_at
-            `)
+            .select(DAILY_COLUMNS)
             .eq("candidates_id", employeeId)
             .gte("attendance_date", monthStart)
             .lt("attendance_date", nextMonth)
@@ -667,76 +679,10 @@ router.get("/monthly", async (req, res) => {
             return sendError(res, 500, "Failed to fetch monthly attendance.", dailyError);
         }
 
-        // ------------------------------------------------------------
-        // Dates that must NOT be counted as absent (holidays, leave)
-        // ------------------------------------------------------------
-        const excludedDates = new Set();
-
-        // ---- Holidays (per client, full-day only) ----
-        const clientId =
-            summary?.client_id ||
-            (dailyAttendance || []).find((r) => r.client_id)?.client_id ||
-            null;
-
-        if (clientId) {
-            const { data: holidays, error: holidayError } = await supabase
-                .from("holiday_calendar")
-                .select("holiday_date, holiday_type")
-                .eq("client_id", clientId)
-                .eq("holiday_type", "Full Day") // half-day holidays are still working days
-                .gte("holiday_date", monthStart)
-                .lt("holiday_date", nextMonth);
-
-            if (holidayError) {
-                console.error("Holiday lookup failed:", holidayError);
-            }
-
-            (holidays || []).forEach((h) => excludedDates.add(h.holiday_date));
-        }
-
-        // ---- Approved leaves ----
-        // TODO: table and column names below are guesses. Change them to
-        // match your leave table (or delete this block if you have none).
-        const { data: leaves, error: leaveError } = await supabase
-            .from("leave_requests")
-            .select("from_date, to_date")
-            .eq("employee_id", employeeId)
-            .eq("status", "Approved")
-            .lt("from_date", nextMonth)
-            .gte("to_date", monthStart);
-
-        if (leaveError) {
-            console.error("Leave lookup failed:", leaveError);
-        }
-
-        (leaves || []).forEach((l) => {
-            let cur = new Date(`${l.from_date}T00:00:00Z`);
-            const end = new Date(`${l.to_date}T00:00:00Z`);
-            while (cur <= end) {
-                excludedDates.add(cur.toISOString().substring(0, 10));
-                cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
-            }
-        });
-
-        // ------------------------------------------------------------
-        // Absent = absent_days already in summary
-        //        + past weekdays with no record, holiday or leave
-        // ------------------------------------------------------------
-        const missingDays = countMissingWorkingDays({
-            billingMonth,
-            dailyAttendance,
-            excludedDates,
-        });
-
-        summary = {
-            ...(summary || {}),
-            absent_days: Number(summary?.absent_days || 0) + missingDays,
-        };
-
         return res.json({
             success: true,
             billing_month: billingMonth,
-            summary,
+            summary: summary || null,
             attendance: dailyAttendance || [],
             daily_attendance: dailyAttendance || [],
         });
@@ -745,248 +691,131 @@ router.get("/monthly", async (req, res) => {
     }
 });
 
+// =====================================================
+// EMPLOYEE PAYSLIPS
+// GET /api/employee/payroll/me
+// =====================================================
 
-/* =====================================================
-   EMPLOYEE PAYSLIPS
-=====================================================
+router.get("/payroll/me", async (req, res) => {
+    try {
+        const employeeId = Number(req.profile?.employee_id);
 
-GET /api/employee/payroll/me
-===================================================== */
-router.get(
-    "/payroll/me",
-    async (req, res) => {
-        try {
-            const employeeId =
-                Number(req.profile?.employee_id);
-
-            console.log(
-                "Logged-in employee ID:",
-                employeeId
-            );
-
-            if (!employeeId) {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        "Employee profile is not linked to an employee.",
-                });
-            }
-
-            const {
-                data: payslips,
-                error,
-            } = await supabase
-                .from(
-                    "third_party_payroll"
-                )
-                .select("*")
-                .eq(
-                    "employee_ref_id",
-                    employeeId
-                )
-                .order(
-                    "salary_month",
-                    {
-                        ascending: false,
-                    }
-                );
-
-            if (error) {
-                console.error(
-                    "Employee payslip database error:",
-                    error
-                );
-
-                return res.status(500).json({
-                    success: false,
-                    message:
-                        "Unable to load payslips.",
-                    error:
-                        error.message,
-                });
-            }
-
-            return res.json({
-                success: true,
-                payslips:
-                    payslips || [],
-            });
-
-        } catch (error) {
-            console.error(
-                "Employee payslip API error:",
-                error
-            );
-
-            return res.status(500).json({
+        if (!employeeId) {
+            return res.status(403).json({
                 success: false,
-                message:
-                    "Unable to load payslips.",
-                error:
-                    error.message,
+                message: "Employee profile is not linked to an employee.",
             });
         }
+
+        const { data: payslips, error } = await supabase
+            .from("third_party_payroll")
+            .select("*")
+            .eq("employee_ref_id", employeeId)
+            .order("salary_month", { ascending: false });
+
+        if (error) {
+            console.error("Employee payslip database error:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Unable to load payslips.",
+                error: error.message,
+            });
+        }
+
+        return res.json({ success: true, payslips: payslips || [] });
+    } catch (error) {
+        console.error("Employee payslip API error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load payslips.",
+            error: error.message,
+        });
     }
-);
+});
 
 // =====================================================
 // EMPLOYEE PAYSLIP PDF
 // GET /api/employee/payroll/:id/pdf
 // =====================================================
 
-router.get(
-    "/employee/payroll/:id/pdf",
-    async (req, res) => {
-        try {
-            const payrollId =
-                Number(req.params.id);
+router.get("/payroll/:id/pdf", async (req, res) => {
+    try {
+        const employeeId = Number(req.profile?.employee_id);
+        const payrollId = Number(req.params.id);
 
-            if (!payrollId) {
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Invalid payroll ID.",
-                });
-            }
-
-            // ---------------------------------------------
-            // GET PAYROLL
-            // ---------------------------------------------
-
-            const {
-                data: payroll,
-                error,
-            } = await supabase
-                .from(
-                    "third_party_payroll"
-                )
-                .select("*")
-                .eq(
-                    "id",
-                    payrollId
-                )
-                .single();
-
-            if (error) {
-                console.error(
-                    "PDF payroll fetch error:",
-                    error
-                );
-
-                return res.status(500).json({
-                    success: false,
-                    message:
-                        "Unable to load payroll.",
-                    error:
-                        error.message,
-                });
-            }
-
-            if (!payroll) {
-                return res.status(404).json({
-                    success: false,
-                    message:
-                        "Payroll record not found.",
-                });
-            }
-
-            // ---------------------------------------------
-            // ONLY APPROVED / LOCKED / PAID
-            // ---------------------------------------------
-
-            const status =
-                String(
-                    payroll.status || ""
-                )
-                    .toLowerCase()
-                    .trim();
-
-            if (
-                ![
-                    "approved",
-                    "locked",
-                    "paid",
-                ].includes(status)
-            ) {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        "Payslip is available only after payroll is approved.",
-                });
-            }
-
-            // ---------------------------------------------
-            // GENERATE PDF
-            // ---------------------------------------------
-
-            const pdfBuffer =
-                await generatePayslipPDF(
-                    payroll
-                );
-
-            const employeeName =
-                String(
-                    payroll.employee_name ||
-                    "Employee"
-                )
-                    .replace(
-                        /[^a-zA-Z0-9]/g,
-                        "_"
-                    )
-                    .replace(
-                        /_+/g,
-                        "_"
-                    );
-
-            const salaryMonth =
-                String(
-                    payroll.salary_month ||
-                    "payslip"
-                ).replace(
-                    /[^a-zA-Z0-9-_]/g,
-                    "-"
-                );
-
-            // ---------------------------------------------
-            // RESPONSE
-            // ---------------------------------------------
-
-            res.setHeader(
-                "Content-Type",
-                "application/pdf"
-            );
-
-            res.setHeader(
-                "Content-Disposition",
-                `attachment; filename="${employeeName}_Payslip_${salaryMonth}.pdf"`
-            );
-
-            res.setHeader(
-                "Content-Length",
-                pdfBuffer.length
-            );
-
-            return res.send(
-                pdfBuffer
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Employee payslip PDF error:",
-                error
-            );
-
-            return res.status(500).json({
+        if (!employeeId) {
+            return res.status(403).json({
                 success: false,
-                message:
-                    "Unable to generate payslip PDF.",
-                error:
-                    error.message,
+                message: "Employee profile is not linked to an employee.",
             });
         }
+
+        if (!payrollId) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid payroll ID.",
+            });
+        }
+
+        // Only the logged-in employee's own payslip
+        const { data: payroll, error } = await supabase
+            .from("third_party_payroll")
+            .select("*")
+            .eq("id", payrollId)
+            .eq("employee_ref_id", employeeId)
+            .maybeSingle();
+
+        if (error) {
+            console.error("PDF payroll fetch error:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Unable to load payroll.",
+                error: error.message,
+            });
+        }
+
+        if (!payroll) {
+            return res.status(404).json({
+                success: false,
+                message: "Payroll record not found.",
+            });
+        }
+
+        const status = String(payroll.status || "").toLowerCase().trim();
+
+        if (!["approved", "locked", "paid"].includes(status)) {
+            return res.status(403).json({
+                success: false,
+                message: "Payslip is available only after payroll is approved.",
+            });
+        }
+
+        const pdfBuffer = await generatePayslipPDF(payroll);
+
+        const employeeName = String(payroll.employee_name || "Employee")
+            .replace(/[^a-zA-Z0-9]/g, "_")
+            .replace(/_+/g, "_");
+
+        const salaryMonth = String(payroll.salary_month || "payslip")
+            .replace(/[^a-zA-Z0-9-_]/g, "-");
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${employeeName}_Payslip_${salaryMonth}.pdf"`
+        );
+        res.setHeader("Content-Length", pdfBuffer.length);
+
+        return res.send(pdfBuffer);
+    } catch (error) {
+        console.error("Employee payslip PDF error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to generate payslip PDF.",
+            error: error.message,
+        });
     }
-);
+});
 
 // ============================================================
 // EXPORT
