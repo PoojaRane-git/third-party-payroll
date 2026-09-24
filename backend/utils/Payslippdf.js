@@ -745,8 +745,8 @@ const generatePayslipPDF = async (payroll) => {
     });
 
     // Positions: x, y, width, height (mm)
-    const SIGNATURE_BOX = { x: 143, y: 247, w: 32, h: 10.5 };
-    const STAMP_BOX = { x: 171, y: 236, w: 25, h: 25 };
+      const SIGNATURE_BOX = { x: 140, y: 248, w: 32, h: 10.5 };
+    const STAMP_BOX = { x: 158, y: 240, w: 25, h: 25 };
 
     const signature = loadImage(SIGNATURE_FILE);
     const stamp = loadImage(STAMP_FILE);
