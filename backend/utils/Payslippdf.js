@@ -3,40 +3,39 @@ const fs = require("fs");
 const path = require("path");
 
 // ============================================================
+// SETTINGS
+// ============================================================
+
+// Set to true to draw red boxes where the signature/stamp should appear.
+// Turn it back to false once you can see the images.
+const DEBUG_IMAGES = true;
+
+// ============================================================
 // COMPANY DETAILS
 // ============================================================
 
-const COMPANY_NAME =
-    "Talent Corner HR Services Pvt Ltd.";
-
-const COMPANY_ADDRESS_LINE1 =
-    "708/709, Bhaveshwar Arcade NX";
-
-const COMPANY_ADDRESS_LINE2 =
-    "Opp Shreyas Cinema, LBS Marg, Ghatkopar(W),";
-
-const COMPANY_ADDRESS_LINE3 =
-    "Mumbai-400086";
-
-const COMPANY_UDYAM =
-    "UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)";
-
-const COMPANY_EMAIL =
-    "E-Mail : accounts@talentcorner.in";
+const COMPANY_NAME = "Talent Corner HR Services Pvt Ltd.";
+const COMPANY_ADDRESS_LINE1 = "708/709, Bhaveshwar Arcade NX";
+const COMPANY_ADDRESS_LINE2 = "Opp Shreyas Cinema, LBS Marg, Ghatkopar(W),";
+const COMPANY_ADDRESS_LINE3 = "Mumbai-400086";
+const COMPANY_UDYAM = "UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)";
+const COMPANY_EMAIL = "E-Mail : accounts@talentcorner.in";
 
 // ============================================================
-// SIGNATURE / STAMP IMAGES
+// SIGNATURE / STAMP FILES
 // ============================================================
 
-const STAMP_IMAGE = path.join(
-    __dirname,
-    "../assets/talent-corner-stamp.png"
-);
+const STAMP_FILE = "talent-corner-stamp.png";
+const SIGNATURE_FILE = "talent-corner-signature.png";
 
-const SIGNATURE_IMAGE = path.join(
-    __dirname,
-    "../assets/talent-corner-signature.png"
-);
+// The code looks for the images in all of these folders
+const ASSET_DIRS = [
+    path.join(__dirname, "../assets"),
+    path.join(__dirname, "assets"),
+    path.join(__dirname, "../../assets"),
+    path.join(process.cwd(), "assets"),
+    path.join(process.cwd(), "backend/assets"),
+];
 
 // ============================================================
 // HELPERS
@@ -50,11 +49,7 @@ const money = (value) => {
 };
 
 const textValue = (value) => {
-    if (
-        value === null ||
-        value === undefined ||
-        String(value).trim() === ""
-    ) {
+    if (value === null || value === undefined || String(value).trim() === "") {
         return "";
     }
 
@@ -62,33 +57,56 @@ const textValue = (value) => {
 };
 
 // ============================================================
-// IMAGE HELPER
+// IMAGE LOADER
+// Returns { data, format } or null. Logs the exact reason.
 // ============================================================
 
-const imageToDataURL = (filePath) => {
-    const absolutePath = path.resolve(filePath);
-    console.log("Looking for image at:", absolutePath);
+const loadImage = (fileName) => {
+    for (const dir of ASSET_DIRS) {
+        const fullPath = path.join(dir, fileName);
 
-    if (!fs.existsSync(absolutePath)) {
-        console.error("❌ Image file not found:", absolutePath);
-        return null;
+        if (!fs.existsSync(fullPath)) {
+            continue;
+        }
+
+        const buffer = fs.readFileSync(fullPath);
+        const header = buffer.slice(0, 4).toString("hex");
+
+        const isPng = header === "89504e47";
+        const isJpg = header.startsWith("ffd8");
+
+        console.log(
+            `Found ${fileName}:`,
+            fullPath,
+            "| bytes:",
+            buffer.length,
+            "| header:",
+            header
+        );
+
+        if (!isPng && !isJpg) {
+            console.error("❌ Not a real PNG/JPG file:", fullPath);
+            return null;
+        }
+
+        return {
+            data: new Uint8Array(buffer),
+            format: isPng ? "PNG" : "JPEG",
+        };
     }
 
-    const buffer = fs.readFileSync(absolutePath);
+    console.error(`❌ ${fileName} NOT FOUND. Looked in:`);
+    ASSET_DIRS.forEach((dir) => {
+        let contents = "(folder does not exist)";
 
-    // Detect real format from file header instead of trusting the extension
-    const isPng = buffer.slice(0, 4).toString("hex") === "89504e47";
-    const isJpg = buffer.slice(0, 2).toString("hex") === "ffd8";
+        if (fs.existsSync(dir)) {
+            contents = fs.readdirSync(dir).join(", ") || "(empty folder)";
+        }
 
-    if (!isPng && !isJpg) {
-        console.error("❌ Not a valid PNG/JPG:", absolutePath);
-        return null;
-    }
+        console.error("   -", dir, "=>", contents);
+    });
 
-    return {
-        data: `data:image/${isPng ? "png" : "jpeg"};base64,${buffer.toString("base64")}`,
-        format: isPng ? "PNG" : "JPEG",
-    };
+    return null;
 };
 
 // ============================================================
@@ -96,48 +114,21 @@ const imageToDataURL = (filePath) => {
 // ============================================================
 
 const numberToWordsIndian = (number) => {
-    number = Math.floor(
-        Number(number ?? 0)
-    );
+    number = Math.floor(Number(number ?? 0));
 
     if (number === 0) {
         return "Zero";
     }
 
     const ones = [
-        "",
-        "One",
-        "Two",
-        "Three",
-        "Four",
-        "Five",
-        "Six",
-        "Seven",
-        "Eight",
-        "Nine",
-        "Ten",
-        "Eleven",
-        "Twelve",
-        "Thirteen",
-        "Fourteen",
-        "Fifteen",
-        "Sixteen",
-        "Seventeen",
-        "Eighteen",
-        "Nineteen",
+        "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
+        "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen",
+        "Sixteen", "Seventeen", "Eighteen", "Nineteen",
     ];
 
     const tens = [
-        "",
-        "",
-        "Twenty",
-        "Thirty",
-        "Forty",
-        "Fifty",
-        "Sixty",
-        "Seventy",
-        "Eighty",
-        "Ninety",
+        "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy",
+        "Eighty", "Ninety",
     ];
 
     const twoDigits = (n) => {
@@ -145,56 +136,29 @@ const numberToWordsIndian = (number) => {
             return ones[n];
         }
 
-        return (
-            tens[Math.floor(n / 10)] +
-            (n % 10
-                ? ` ${ones[n % 10]}`
-                : "")
-        );
+        return tens[Math.floor(n / 10)] + (n % 10 ? ` ${ones[n % 10]}` : "");
     };
 
     const convert = (n) => {
         let result = "";
 
         if (n >= 10000000) {
-            result +=
-                `${convert(
-                    Math.floor(
-                        n / 10000000
-                    )
-                )} Crore `;
-
+            result += `${convert(Math.floor(n / 10000000))} Crore `;
             n %= 10000000;
         }
 
         if (n >= 100000) {
-            result +=
-                `${convert(
-                    Math.floor(
-                        n / 100000
-                    )
-                )} Lakh `;
-
+            result += `${convert(Math.floor(n / 100000))} Lakh `;
             n %= 100000;
         }
 
         if (n >= 1000) {
-            result +=
-                `${convert(
-                    Math.floor(
-                        n / 1000
-                    )
-                )} Thousand `;
-
+            result += `${convert(Math.floor(n / 1000))} Thousand `;
             n %= 1000;
         }
 
         if (n >= 100) {
-            result +=
-                `${ones[
-                    Math.floor(n / 100)
-                ]} Hundred `;
-
+            result += `${ones[Math.floor(n / 100)]} Hundred `;
             n %= 100;
         }
 
@@ -218,18 +182,13 @@ const numberToWordsIndian = (number) => {
 
 const getMonthRange = (salaryMonth) => {
     if (!salaryMonth) {
-        throw new Error(
-            "salary_month is required."
-        );
+        throw new Error("salary_month is required.");
     }
 
-    const parts =
-        String(salaryMonth).split("-");
+    const parts = String(salaryMonth).split("-");
 
     if (parts.length !== 2) {
-        throw new Error(
-            `Invalid salary_month: ${salaryMonth}`
-        );
+        throw new Error(`Invalid salary_month: ${salaryMonth}`);
     }
 
     const year = Number(parts[0]);
@@ -241,32 +200,18 @@ const getMonthRange = (salaryMonth) => {
         month < 1 ||
         month > 12
     ) {
-        throw new Error(
-            `Invalid salary_month: ${salaryMonth}`
-        );
+        throw new Error(`Invalid salary_month: ${salaryMonth}`);
     }
 
-    const startDate = new Date(
-        year,
-        month - 1,
-        1
-    );
-
-    const endDate = new Date(
-        year,
-        month,
-        0
-    );
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
 
     const formatDate = (date) =>
-        date.toLocaleDateString(
-            "en-GB",
-            {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-            }
-        );
+        date.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        });
 
     return {
         start: formatDate(startDate),
@@ -278,41 +223,17 @@ const getMonthRange = (salaryMonth) => {
 // GENERATE PAYSLIP PDF
 // ============================================================
 
-const generatePayslipPDF = async (
-    payroll
-) => {
+const generatePayslipPDF = async (payroll) => {
     if (!payroll) {
-        throw new Error(
-            "Payroll data is missing."
-        );
+        throw new Error("Payroll data is missing.");
     }
 
-    console.log(
-        "============================================"
-    );
-
-    console.log(
-        "Generating Payslip PDF"
-    );
-
-    console.log(
-        "Employee:",
-        payroll.employee_name
-    );
-
-    console.log(
-        "Employee Code:",
-        payroll.employee_code
-    );
-
-    console.log(
-        "Salary Month:",
-        payroll.salary_month
-    );
-
-    console.log(
-        "============================================"
-    );
+    console.log("============================================");
+    console.log("Generating Payslip PDF");
+    console.log("Employee:", payroll.employee_name);
+    console.log("Employee Code:", payroll.employee_code);
+    console.log("Salary Month:", payroll.salary_month);
+    console.log("============================================");
 
     // ========================================================
     // CREATE PDF
@@ -330,204 +251,80 @@ const generatePayslipPDF = async (
     // EMPLOYEE DETAILS
     // ========================================================
 
-    const employeeName =
-        textValue(
-            payroll.employee_name
-        );
-
-    const employeeNumber =
-        textValue(
-            payroll.employee_code
-        );
-
-    const designation =
-        textValue(
-            payroll.designation
-        );
-
-    const location =
-        textValue(
-            payroll.location
-        );
-
-    const salaryMonth =
-        textValue(
-            payroll.salary_month
-        );
+    const employeeName = textValue(payroll.employee_name);
+    const employeeNumber = textValue(payroll.employee_code);
+    const designation = textValue(payroll.designation);
+    const location = textValue(payroll.location);
+    const salaryMonth = textValue(payroll.salary_month);
 
     if (!employeeName) {
-        throw new Error(
-            "Employee name is missing."
-        );
+        throw new Error("Employee name is missing.");
     }
 
     if (!employeeNumber) {
-        throw new Error(
-            "Employee code is missing."
-        );
+        throw new Error("Employee code is missing.");
     }
 
     if (!salaryMonth) {
-        throw new Error(
-            "Salary month is missing."
-        );
+        throw new Error("Salary month is missing.");
     }
 
-    const {
-        start: monthStart,
-        end: monthEnd,
-    } = getMonthRange(
-        salaryMonth
-    );
+    const { start: monthStart, end: monthEnd } = getMonthRange(salaryMonth);
 
     // ========================================================
     // BANK DETAILS
     // ========================================================
 
-    const bankName =
-        textValue(
-            payroll.bank_name
-        );
-
-    const accountNumber =
-        textValue(
-            payroll.account_number
-        );
-
-    const ifsc =
-        textValue(
-            payroll.ifsc_code
-        );
-
-    const bankBranch =
-        textValue(
-            payroll.bank_branch
-        );
+    const bankName = textValue(payroll.bank_name);
+    const accountNumber = textValue(payroll.account_number);
+    const ifsc = textValue(payroll.ifsc_code);
+    const bankBranch = textValue(payroll.bank_branch);
 
     // ========================================================
     // STATUTORY DETAILS
     // ========================================================
 
-    const pan =
-        textValue(
-            payroll.pan_number
-        );
+    const pan = textValue(payroll.pan_number);
+    const uan = textValue(payroll.uan_number);
+    const pfAccountNumber = textValue(payroll.pf_account_number);
+    const esicNumber = textValue(payroll.esic_number);
+    const pran = textValue(payroll.pran);
+    const taxRegime = textValue(payroll.tax_regime);
 
-    const uan =
-        textValue(
-            payroll.uan_number
-        );
+    const functionName = textValue(
+        payroll.function_name || payroll.function || payroll.department
+    );
 
-    const pfAccountNumber =
-        textValue(
-            payroll.pf_account_number
-        );
-
-    const esicNumber =
-        textValue(
-            payroll.esic_number
-        );
-
-    const pran =
-        textValue(
-            payroll.pran
-        );
-
-    const taxRegime =
-        textValue(
-            payroll.tax_regime
-        );
-
-    const functionName =
-        textValue(
-            payroll.function_name ||
-            payroll.function ||
-            payroll.department
-        );
-
-    const joiningDate =
-        payroll.joining_date
-            ? new Date(
-                  payroll.joining_date
-              ).toLocaleDateString(
-                  "en-GB"
-              )
-            : "";
+    const joiningDate = payroll.joining_date
+        ? new Date(payroll.joining_date).toLocaleDateString("en-GB")
+        : "";
 
     // ========================================================
     // EARNINGS
     // ========================================================
 
-    const basicSalary =
-        Number(
-            payroll.basic_salary ?? 0
-        );
+    const basicSalary = Number(payroll.basic_salary ?? 0);
+    const hra = Number(payroll.hra ?? 0);
 
-    const hra =
-        Number(
-            payroll.hra ?? 0
-        );
+    const conveyance = Number(
+        payroll.conveyance ?? payroll.conveyance_allowance ?? 0
+    );
 
-    const conveyance =
-        Number(
-            payroll.conveyance ??
-            payroll.conveyance_allowance ??
-            0
-        );
-
-    const medicalAllowance =
-        Number(
-            payroll.medical_allowance ?? 0
-        );
-
-    const otherAllowance =
-        Number(
-            payroll.other_allowance ?? 0
-        );
-
-    const overtime =
-        Number(
-            payroll.overtime ?? 0
-        );
-
-    const bonus =
-        Number(
-            payroll.bonus ?? 0
-        );
-
-    const gratuity =
-        Number(
-            payroll.gratuity ?? 0
-        );
+    const medicalAllowance = Number(payroll.medical_allowance ?? 0);
+    const otherAllowance = Number(payroll.other_allowance ?? 0);
+    const overtime = Number(payroll.overtime ?? 0);
+    const bonus = Number(payroll.bonus ?? 0);
+    const gratuity = Number(payroll.gratuity ?? 0);
 
     // ========================================================
     // DEDUCTIONS
     // ========================================================
 
-    const pf =
-        Number(
-            payroll.pf ?? 0
-        );
-
-    const esic =
-        Number(
-            payroll.esic ?? 0
-        );
-
-    const professionalTax =
-        Number(
-            payroll.professional_tax ?? 0
-        );
-
-    const tax =
-        Number(
-            payroll.tax ?? 0
-        );
-
-    const lop =
-        Number(
-            payroll.lop ?? 0
-        );
+    const pf = Number(payroll.pf ?? 0);
+    const esic = Number(payroll.esic ?? 0);
+    const professionalTax = Number(payroll.professional_tax ?? 0);
+    const tax = Number(payroll.tax ?? 0);
+    const lop = Number(payroll.lop ?? 0);
 
     // ========================================================
     // TOTALS
@@ -543,176 +340,76 @@ const generatePayslipPDF = async (
         bonus;
 
     const grossSalary =
-        payroll.gross_salary !== null &&
-        payroll.gross_salary !== undefined
-            ? Number(
-                  payroll.gross_salary
-              )
+        payroll.gross_salary !== null && payroll.gross_salary !== undefined
+            ? Number(payroll.gross_salary)
             : calculatedGross;
 
-    const calculatedDeductions =
-        pf +
-        esic +
-        professionalTax +
-        tax +
-        lop;
+    const calculatedDeductions = pf + esic + professionalTax + tax + lop;
 
     const totalDeductions =
         payroll.total_deductions !== null &&
         payroll.total_deductions !== undefined
-            ? Number(
-                  payroll.total_deductions
-              )
+            ? Number(payroll.total_deductions)
             : calculatedDeductions;
 
     const netSalary =
-        payroll.net_salary !== null &&
-        payroll.net_salary !== undefined
-            ? Number(
-                  payroll.net_salary
-              )
-            : grossSalary -
-              totalDeductions;
+        payroll.net_salary !== null && payroll.net_salary !== undefined
+            ? Number(payroll.net_salary)
+            : grossSalary - totalDeductions;
 
     // ========================================================
     // OUTER BORDER
     // ========================================================
 
     doc.setLineWidth(0.6);
-
-    doc.rect(
-        17,
-        51,
-        176,
-        232
-    );
+    doc.rect(17, 51, 176, 232);
 
     // ========================================================
     // COMPANY HEADER
     // ========================================================
 
-    doc.setFont(
-        "helvetica",
-        "bold"
-    );
-
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
+    doc.text(COMPANY_NAME, 17, 18);
 
-    doc.text(
-        COMPANY_NAME,
-        17,
-        18
-    );
-
-    doc.setFont(
-        "helvetica",
-        "normal"
-    );
-
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-
-    doc.text(
-        COMPANY_ADDRESS_LINE1,
-        17,
-        25
-    );
-
-    doc.text(
-        COMPANY_ADDRESS_LINE2,
-        17,
-        29
-    );
-
-    doc.text(
-        COMPANY_ADDRESS_LINE3,
-        17,
-        33
-    );
-
-    doc.text(
-        COMPANY_UDYAM,
-        17,
-        37
-    );
-
-    doc.text(
-        COMPANY_EMAIL,
-        17,
-        41
-    );
+    doc.text(COMPANY_ADDRESS_LINE1, 17, 25);
+    doc.text(COMPANY_ADDRESS_LINE2, 17, 29);
+    doc.text(COMPANY_ADDRESS_LINE3, 17, 33);
+    doc.text(COMPANY_UDYAM, 17, 37);
+    doc.text(COMPANY_EMAIL, 17, 41);
 
     // ========================================================
     // PAYSLIP TITLE
     // ========================================================
 
-    doc.setFont(
-        "helvetica",
-        "bold"
-    );
-
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
+    doc.text("Pay Slip", 22, 61);
 
-    doc.text(
-        "Pay Slip",
-        22,
-        61
-    );
-
-    doc.setFont(
-        "helvetica",
-        "normal"
-    );
-
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
+    doc.text(`for ${monthStart} to ${monthEnd}`, 22, 67);
 
-    doc.text(
-        `for ${monthStart} to ${monthEnd}`,
-        22,
-        67
-    );
-
-    doc.line(
-        22,
-        72,
-        188,
-        72
-    );
+    doc.line(22, 72, 188, 72);
 
     // ========================================================
     // CENTER TITLE
     // ========================================================
 
-    doc.setFont(
-        "helvetica",
-        "bold"
-    );
-
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
 
-    doc.text(
-        `Pay Slip for ${monthStart} to ${monthEnd}`,
-        pageWidth / 2,
-        79,
-        {
-            align: "center",
-        }
-    );
+    doc.text(`Pay Slip for ${monthStart} to ${monthEnd}`, pageWidth / 2, 79, {
+        align: "center",
+    });
 
-    doc.text(
-        employeeName.toUpperCase(),
-        pageWidth / 2,
-        85,
-        {
-            align: "center",
-        }
-    );
+    doc.text(employeeName.toUpperCase(), pageWidth / 2, 85, {
+        align: "center",
+    });
 
-    doc.line(
-        22,
-        91,
-        188,
-        91
-    );
+    doc.line(22, 91, 188, 91);
 
     // ========================================================
     // EMPLOYEE DETAILS
@@ -724,233 +421,81 @@ const generatePayslipPDF = async (
     let leftY = 99;
     let rightY = 99;
 
-    const addInfo = (
-        x,
-        y,
-        label,
-        value
-    ) => {
-        doc.setFont(
-            "helvetica",
-            "normal"
-        );
-
+    const addInfo = (x, y, label, value) => {
+        doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
+        doc.text(label, x, y);
 
-        doc.text(
-            label,
-            x,
-            y
-        );
-
-        doc.setFont(
-            "helvetica",
-            "bold"
-        );
-
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
-
-        doc.text(
-            textValue(value),
-            x + 40,
-            y
-        );
+        doc.text(textValue(value), x + 40, y);
     };
 
-    // ========================================================
     // LEFT DETAILS
-    // ========================================================
 
-    addInfo(
-        leftX,
-        leftY,
-        "Employee Number:",
-        employeeNumber
-    );
-
+    addInfo(leftX, leftY, "Employee Number:", employeeNumber);
     leftY += 7;
 
-    addInfo(
-        leftX,
-        leftY,
-        "Function:",
-        functionName
-    );
-
+    addInfo(leftX, leftY, "Function:", functionName);
     leftY += 7;
 
-    addInfo(
-        leftX,
-        leftY,
-        "Designation:",
-        designation
-    );
-
+    addInfo(leftX, leftY, "Designation:", designation);
     leftY += 7;
 
-    addInfo(
-        leftX,
-        leftY,
-        "Location:",
-        location
-    );
-
+    addInfo(leftX, leftY, "Location:", location);
     leftY += 7;
 
-    // ========================================================
     // BANK DETAILS
-    // ========================================================
 
-    doc.setFont(
-        "helvetica",
-        "normal"
-    );
-
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
+    doc.text("Bank Details:", leftX, leftY);
 
-    doc.text(
-        "Bank Details:",
-        leftX,
-        leftY
-    );
-
-    doc.setFont(
-        "helvetica",
-        "bold"
-    );
-
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
 
-    doc.text(
-        `Name - ${bankName}`,
-        leftX + 40,
-        leftY
-    );
-
+    doc.text(`Name - ${bankName}`, leftX + 40, leftY);
     leftY += 4;
 
-    doc.text(
-        `BRANCH - ${bankBranch}`,
-        leftX + 40,
-        leftY
-    );
-
+    doc.text(`BRANCH - ${bankBranch}`, leftX + 40, leftY);
     leftY += 4;
 
-    doc.text(
-        `IFSC code - ${ifsc}`,
-        leftX + 40,
-        leftY
-    );
-
+    doc.text(`IFSC code - ${ifsc}`, leftX + 40, leftY);
     leftY += 4;
 
-    doc.text(
-        `ACC NO. ${accountNumber}`,
-        leftX + 40,
-        leftY
-    );
+    doc.text(`ACC NO. ${accountNumber}`, leftX + 40, leftY);
 
-    // ========================================================
     // RIGHT DETAILS
-    // ========================================================
 
-    const addStatutoryInfo = (
-        x,
-        y,
-        label,
-        value
-    ) => {
-        doc.setFont(
-            "helvetica",
-            "normal"
-        );
-
+    const addStatutoryInfo = (x, y, label, value) => {
+        doc.setFont("helvetica", "normal");
         doc.setFontSize(8.5);
+        doc.text(label, x, y);
 
-        doc.text(
-            label,
-            x,
-            y
-        );
-
-        doc.setFont(
-            "helvetica",
-            "bold"
-        );
-
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(8.5);
-
-        doc.text(
-            textValue(value),
-            188,
-            y,
-            {
-                align: "right",
-            }
-        );
+        doc.text(textValue(value), 188, y, { align: "right" });
     };
 
-    addStatutoryInfo(
-        rightX,
-        rightY,
-        "Tax Regime:",
-        taxRegime
-    );
-
+    addStatutoryInfo(rightX, rightY, "Tax Regime:", taxRegime);
     rightY += 7;
 
-    addStatutoryInfo(
-        rightX,
-        rightY,
-        "Income Tax Number (PAN):",
-        pan
-    );
-
+    addStatutoryInfo(rightX, rightY, "Income Tax Number (PAN):", pan);
     rightY += 7;
 
-    addStatutoryInfo(
-        rightX,
-        rightY,
-        "Universal Account Number (UAN):",
-        uan
-    );
-
+    addStatutoryInfo(rightX, rightY, "Universal Account Number (UAN):", uan);
     rightY += 7;
 
-    addStatutoryInfo(
-        rightX,
-        rightY,
-        "PF account number:",
-        pfAccountNumber
-    );
-
+    addStatutoryInfo(rightX, rightY, "PF account number:", pfAccountNumber);
     rightY += 7;
 
-    addStatutoryInfo(
-        rightX,
-        rightY,
-        "ESI Number:",
-        esicNumber
-    );
-
+    addStatutoryInfo(rightX, rightY, "ESI Number:", esicNumber);
     rightY += 7;
 
-    addStatutoryInfo(
-        rightX,
-        rightY,
-        "PR Account Number (PRAN):",
-        pran
-    );
-
+    addStatutoryInfo(rightX, rightY, "PR Account Number (PRAN):", pran);
     rightY += 7;
 
-    addStatutoryInfo(
-        rightX,
-        rightY,
-        "Date of joining:",
-        joiningDate
-    );
+    addStatutoryInfo(rightX, rightY, "Date of joining:", joiningDate);
 
     // ========================================================
     // SALARY TABLE
@@ -959,15 +504,7 @@ const generatePayslipPDF = async (
     const tableX = 22;
     const tableY = 143;
 
-    const widths = [
-        38,
-        23,
-        23,
-        38,
-        23,
-        23,
-    ];
-
+    const widths = [38, 23, 23, 38, 23, 23];
     const rowHeight = 7;
 
     const headers = [
@@ -981,42 +518,17 @@ const generatePayslipPDF = async (
 
     let x = tableX;
 
-    doc.setFont(
-        "helvetica",
-        "bold"
-    );
-
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
 
-    headers.forEach(
-        (header, index) => {
-            doc.setFillColor(
-                242,
-                242,
-                242
-            );
+    headers.forEach((header, index) => {
+        doc.setFillColor(242, 242, 242);
+        doc.rect(x, tableY, widths[index], rowHeight, "F");
+        doc.text(header, x + 2, tableY + 5);
+        x += widths[index];
+    });
 
-            doc.rect(
-                x,
-                tableY,
-                widths[index],
-                rowHeight,
-                "F"
-            );
-
-            doc.text(
-                header,
-                x + 2,
-                tableY + 5
-            );
-
-            x += widths[index];
-        }
-    );
-
-    // ========================================================
     // ROW HELPER
-    // ========================================================
 
     const drawSalaryRow = (
         y,
@@ -1031,75 +543,32 @@ const generatePayslipPDF = async (
 
         const values = [
             earningLabel,
-
-            money(
-                earningAmount
-            ),
-
-            money(
-                earningGross
-            ),
-
+            money(earningAmount),
+            money(earningGross),
             deductionLabel,
-
-            deductionAmount === ""
-                ? ""
-                : money(
-                    deductionAmount
-                ),
-
-            deductionGross === ""
-                ? ""
-                : String(
-                    deductionGross
-                ),
+            deductionAmount === "" ? "" : money(deductionAmount),
+            deductionGross === "" ? "" : String(deductionGross),
         ];
 
-        values.forEach(
-            (value, index) => {
-                doc.setFont(
-                    "helvetica",
-                    "normal"
-                );
+        values.forEach((value, index) => {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8.2);
 
-                doc.setFontSize(8.2);
-
-                if (
-                    index === 1 ||
-                    index === 2 ||
-                    index === 4 ||
-                    index === 5
-                ) {
-                    doc.text(
-                        String(value),
-                        currentX +
-                            widths[index] -
-                            2,
-                        y + 5,
-                        {
-                            align: "right",
-                        }
-                    );
-                } else {
-                    doc.text(
-                        String(value),
-                        currentX + 2,
-                        y + 5
-                    );
-                }
-
-                currentX +=
-                    widths[index];
+            if (index === 1 || index === 2 || index === 4 || index === 5) {
+                doc.text(String(value), currentX + widths[index] - 2, y + 5, {
+                    align: "right",
+                });
+            } else {
+                doc.text(String(value), currentX + 2, y + 5);
             }
-        );
+
+            currentX += widths[index];
+        });
     };
 
-    // ========================================================
     // SALARY ROWS
-    // ========================================================
 
-    let rowY =
-        tableY + rowHeight;
+    let rowY = tableY + rowHeight;
 
     drawSalaryRow(
         rowY,
@@ -1110,7 +579,6 @@ const generatePayslipPDF = async (
         pf,
         "-"
     );
-
     rowY += rowHeight;
 
     drawSalaryRow(
@@ -1118,17 +586,10 @@ const generatePayslipPDF = async (
         "HRA",
         hra,
         hra,
-        esic > 0
-            ? "ESIC"
-            : "",
-        esic > 0
-            ? esic
-            : "",
-        esic > 0
-            ? "-"
-            : ""
+        esic > 0 ? "ESIC" : "",
+        esic > 0 ? esic : "",
+        esic > 0 ? "-" : ""
     );
-
     rowY += rowHeight;
 
     drawSalaryRow(
@@ -1136,17 +597,10 @@ const generatePayslipPDF = async (
         "Conveyance Expenses",
         conveyance,
         conveyance,
-        professionalTax > 0
-            ? "Professional Tax"
-            : "",
-        professionalTax > 0
-            ? professionalTax
-            : "",
-        professionalTax > 0
-            ? "-"
-            : ""
+        professionalTax > 0 ? "Professional Tax" : "",
+        professionalTax > 0 ? professionalTax : "",
+        professionalTax > 0 ? "-" : ""
     );
-
     rowY += rowHeight;
 
     drawSalaryRow(
@@ -1154,17 +608,10 @@ const generatePayslipPDF = async (
         "Medical Allowance",
         medicalAllowance,
         medicalAllowance,
-        tax > 0
-            ? "Income Tax"
-            : "",
-        tax > 0
-            ? tax
-            : "",
-        tax > 0
-            ? "-"
-            : ""
+        tax > 0 ? "Income Tax" : "",
+        tax > 0 ? tax : "",
+        tax > 0 ? "-" : ""
     );
-
     rowY += rowHeight;
 
     drawSalaryRow(
@@ -1172,28 +619,13 @@ const generatePayslipPDF = async (
         "Other Expenses",
         otherAllowance,
         otherAllowance,
-        lop > 0
-            ? "Loss of Pay"
-            : "",
-        lop > 0
-            ? lop
-            : "",
-        lop > 0
-            ? "-"
-            : ""
+        lop > 0 ? "Loss of Pay" : "",
+        lop > 0 ? lop : "",
+        lop > 0 ? "-" : ""
     );
-
     rowY += rowHeight;
 
-    drawSalaryRow(
-        rowY,
-        "Gratuity",
-        gratuity,
-        gratuity,
-        "",
-        "",
-        ""
-    );
+    drawSalaryRow(rowY, "Gratuity", gratuity, gratuity, "", "", "");
 
     // ========================================================
     // TOTAL
@@ -1214,77 +646,30 @@ const generatePayslipPDF = async (
 
     const totalValues = [
         "Total Earnings",
-
-        money(
-            totalEarnings
-        ),
-
-        money(
-            grossSalary
-        ),
-
+        money(totalEarnings),
+        money(grossSalary),
         "Total Deductions",
-
-        money(
-            totalDeductions
-        ),
-
-        money(
-            totalDeductions
-        ),
+        money(totalDeductions),
+        money(totalDeductions),
     ];
 
-    doc.setFont(
-        "helvetica",
-        "bold"
-    );
-
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(8.2);
 
-    totalValues.forEach(
-        (value, index) => {
-            doc.setFillColor(
-                243,
-                243,
-                243
-            );
+    totalValues.forEach((value, index) => {
+        doc.setFillColor(243, 243, 243);
+        doc.rect(totalX, rowY, widths[index], rowHeight, "F");
 
-            doc.rect(
-                totalX,
-                rowY,
-                widths[index],
-                rowHeight,
-                "F"
-            );
-
-            if (
-                index === 1 ||
-                index === 2 ||
-                index === 4 ||
-                index === 5
-            ) {
-                doc.text(
-                    String(value),
-                    totalX +
-                        widths[index] -
-                        2,
-                    rowY + 5,
-                    {
-                        align: "right",
-                    }
-                );
-            } else {
-                doc.text(
-                    String(value),
-                    totalX + 2,
-                    rowY + 5
-                );
-            }
-
-            totalX +=
-                widths[index];
+        if (index === 1 || index === 2 || index === 4 || index === 5) {
+            doc.text(String(value), totalX + widths[index] - 2, rowY + 5, {
+                align: "right",
+            });
+        } else {
+            doc.text(String(value), totalX + 2, rowY + 5);
         }
-    );
+
+        totalX += widths[index];
+    });
 
     // ========================================================
     // NET AMOUNT
@@ -1303,83 +688,41 @@ const generatePayslipPDF = async (
         money(netSalary),
     ];
 
-    netValues.forEach(
-        (value, index) => {
-            doc.setFont(
-                "helvetica",
-                "bold"
-            );
+    netValues.forEach((value, index) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
 
-            doc.setFontSize(8.5);
-
-            if (
-                index === 4 ||
-                index === 5
-            ) {
-                doc.text(
-                    String(value),
-                    netX +
-                        widths[index] -
-                        2,
-                    rowY + 5,
-                    {
-                        align: "right",
-                    }
-                );
-            } else if (value) {
-                doc.text(
-                    String(value),
-                    netX + 2,
-                    rowY + 5
-                );
-            }
-
-            netX +=
-                widths[index];
+        if (index === 4 || index === 5) {
+            doc.text(String(value), netX + widths[index] - 2, rowY + 5, {
+                align: "right",
+            });
+        } else if (value) {
+            doc.text(String(value), netX + 2, rowY + 5);
         }
-    );
+
+        netX += widths[index];
+    });
 
     // ========================================================
     // AMOUNT IN WORDS
     // ========================================================
 
-    const wordsY =
-        rowY + 17;
+    const wordsY = rowY + 17;
 
-    doc.setFont(
-        "helvetica",
-        "bold"
-    );
-
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
+    doc.text("Amount (in words):", tableX, wordsY);
 
-    doc.text(
-        "Amount (in words):",
-        tableX,
-        wordsY
-    );
-
-    doc.setFont(
-        "helvetica",
-        "normal"
-    );
-
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
 
     doc.text(
-        `INR ${numberToWordsIndian(
-            Math.round(netSalary)
-        )} Rupees only`,
+        `INR ${numberToWordsIndian(Math.round(netSalary))} Rupees only`,
         tableX,
         wordsY + 6
     );
 
-    doc.line(
-        tableX,
-        wordsY + 10,
-        188,
-        wordsY + 10
-    );
+    doc.line(tableX, wordsY + 10, 188, wordsY + 10);
 
     // ========================================================
     // SIGNATURE / STAMP AREA
@@ -1387,87 +730,70 @@ const generatePayslipPDF = async (
 
     const signatureTextY = 245;
 
-    doc.setFont(
-        "helvetica",
-        "bold"
-    );
-
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
 
-    doc.text(
-        `for ${COMPANY_NAME}`,
-        188,
-        signatureTextY,
-        {
-            align: "right",
-        }
-    );
+    doc.text(`for ${COMPANY_NAME}`, 188, signatureTextY, {
+        align: "right",
+    });
 
+    // Positions: x, y, width, height (mm)
+    const SIGNATURE_BOX = { x: 143, y: 247, w: 32, h: 10.5 };
+    const STAMP_BOX = { x: 171, y: 236, w: 25, h: 25 };
 
-        // ========================================================
-    // LOAD IMAGES
-    // ========================================================
+    const signature = loadImage(SIGNATURE_FILE);
+    const stamp = loadImage(STAMP_FILE);
 
-    const signatureData = imageToDataURL(SIGNATURE_IMAGE);
-    const stampData = imageToDataURL(STAMP_IMAGE);
+    // Red boxes show where the images should appear (debug only)
+    if (DEBUG_IMAGES) {
+        doc.setDrawColor(255, 0, 0);
+        doc.setLineWidth(0.3);
+        doc.rect(SIGNATURE_BOX.x, SIGNATURE_BOX.y, SIGNATURE_BOX.w, SIGNATURE_BOX.h);
+        doc.rect(STAMP_BOX.x, STAMP_BOX.y, STAMP_BOX.w, STAMP_BOX.h);
+        doc.setDrawColor(0, 0, 0);
+    }
 
-    // ========================================================
-    // ADD SIGNATURE
-    // ========================================================
-
-    if (signatureData) {
+    if (signature) {
         try {
             doc.addImage(
-                signatureData.data,
-                signatureData.format,
-                143,
-                247,
-                32,
-                10.5
+                signature.data,
+                signature.format,
+                SIGNATURE_BOX.x,
+                SIGNATURE_BOX.y,
+                SIGNATURE_BOX.w,
+                SIGNATURE_BOX.h
             );
 
             console.log("✅ Signature added successfully.");
         } catch (error) {
-            console.error("❌ Unable to add signature:", error.message);
+            console.error("❌ Signature addImage failed:", error.message);
         }
-    } else {
-        console.error("❌ Signature image could not be loaded.");
     }
 
-    // ========================================================
-    // ADD STAMP
-    // ========================================================
-
-    if (stampData) {
+    if (stamp) {
         try {
             doc.addImage(
-                stampData.data,
-                stampData.format,
-                171,
-                236,
-                25,
-                25
+                stamp.data,
+                stamp.format,
+                STAMP_BOX.x,
+                STAMP_BOX.y,
+                STAMP_BOX.w,
+                STAMP_BOX.h
             );
 
             console.log("✅ Stamp added successfully.");
         } catch (error) {
-            console.error("❌ Unable to add stamp:", error.message);
+            console.error("❌ Stamp addImage failed:", error.message);
         }
-    } else {
-        console.error("❌ Stamp image could not be loaded.");
     }
 
     // ========================================================
     // RETURN PDF
     // ========================================================
 
-    console.log(
-        "Payslip PDF generated successfully."
-    );
+    console.log("Payslip PDF generated successfully.");
 
-    return Buffer.from(
-        doc.output("arraybuffer")
-    );
+    return Buffer.from(doc.output("arraybuffer"));
 };
 
 // ============================================================
