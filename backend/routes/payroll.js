@@ -253,6 +253,49 @@ async function getAttendanceForPayroll(payroll) {
     };
 }
 
+
+// ============================================================
+// BUILD PAYSLIP DATA (shared by PDF download)
+// ============================================================
+
+async function buildPayslipData(payrollId) {
+    const { data: payroll, error } = await supabase
+        .from("third_party_payroll")
+        .select("*")
+        .eq("id", payrollId)
+        .maybeSingle();
+
+    if (error) throw error;
+    if (!payroll) return null;
+
+    const { data: candidate, error: cErr } = await supabase
+        .from("candidates")
+        .select(
+            "id, full_name, designation, employee_code, date_of_joining, city, pan_number, uan_number, esic_number, department"
+        )
+        .eq("id", payroll.employee_ref_id)
+        .maybeSingle();
+
+    if (cErr) throw cErr;
+
+    return {
+        ...payroll,
+        employee_name: candidate?.full_name || payroll.employee_name,
+        employee_code: candidate?.employee_code || candidate?.id || "N/A",
+        designation: candidate?.designation || "N/A",
+        department: candidate?.department || "",
+        location: candidate?.city || "Head Office",
+        pan_number: candidate?.pan_number || "N/A",
+        uan_number: candidate?.uan_number || "N/A",
+        esic_number: candidate?.esic_number || "N/A",
+        joining_date: candidate?.date_of_joining || payroll.joining_date || null,
+        bank_name: payroll.bank_name || "N/A",
+        account_number: payroll.account_number || "N/A",
+        ifsc_code: payroll.ifsc_code || "N/A",
+        pran: payroll.pran || "N/A"
+    };
+}
+
 // ============================================================
 // FORMAT PAYROLL
 // ============================================================
@@ -932,49 +975,6 @@ router.get("/:id", async (req, res) => {
 
             candidate = data;
         }
-
-
-        // ============================================================
-// BUILD PAYSLIP DATA (shared by PDF download)
-// ============================================================
-
-async function buildPayslipData(payrollId) {
-    const { data: payroll, error } = await supabase
-        .from("third_party_payroll")
-        .select("*")
-        .eq("id", payrollId)
-        .maybeSingle();
-
-    if (error) throw error;
-    if (!payroll) return null;
-
-    const { data: candidate, error: cErr } = await supabase
-        .from("candidates")
-        .select(
-            "id, full_name, designation, employee_code, date_of_joining, city, pan_number, uan_number, esic_number, department"
-        )
-        .eq("id", payroll.employee_ref_id)
-        .maybeSingle();
-
-    if (cErr) throw cErr;
-
-    return {
-        ...payroll,
-        employee_name: candidate?.full_name || payroll.employee_name,
-        employee_code: candidate?.employee_code || candidate?.id || "N/A",
-        designation: candidate?.designation || "N/A",
-        department: candidate?.department || "",
-        location: candidate?.city || "Head Office",
-        pan_number: candidate?.pan_number || "N/A",
-        uan_number: candidate?.uan_number || "N/A",
-        esic_number: candidate?.esic_number || "N/A",
-        joining_date: candidate?.date_of_joining || payroll.joining_date || null,
-        bank_name: payroll.bank_name || "N/A",
-        account_number: payroll.account_number || "N/A",
-        ifsc_code: payroll.ifsc_code || "N/A",
-        pran: payroll.pran || "N/A"
-    };
-}
 
         // --------------------------------------------------------
         // FORMAT
