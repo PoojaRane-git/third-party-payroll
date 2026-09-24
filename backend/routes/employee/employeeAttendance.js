@@ -1,17 +1,6 @@
 // ============================================================
 // EMPLOYEE ATTENDANCE ROUTER
 //
-// SOURCE OF TRUTH:
-//   1. third_party_emp_daily_attendance
-//   2. third_party_attendance_summary
-//   3. candidates (for /me profile + payslip employee info)
-//
-// AUTH:
-//   authenticate -> sets req.user (Supabase auth user)
-//   authorize("employee") -> looks up employee_users by
-//   req.user.id and attaches the row as req.profile
-//   (req.profile.employee_id is the candidates.id to use)
-//
 // MOUNTED (see server.js) at BOTH:
 //   /api/emp-attendance
 //   /api/employee
@@ -23,14 +12,17 @@ const router = express.Router();
 const supabase = require("../../config/supabase");
 const authenticate = require("../../middleware/authenticate");
 const authorize = require("../../middleware/authorize");
+const { generatePayslipPDF } = require("../../utils/Payslippdf");
 
-// TODO: make sure generatePayslipPDF is imported here, e.g.
-// const { generatePayslipPDF } = require("../../utils/generatePayslipPDF");
+const {
+    recalculateMonthlySummary,
+    getTodayIST,
+    getMonthRange,
+    DAILY_COLUMNS,
+    SUMMARY_COLUMNS,
+} = require("../../services/attendanceSummary");
 
-const employeeAuth = [authenticate, authorize("employee")];
-
-// Apply to every route in this router.
-router.use(...employeeAuth);
+router.use(authenticate, authorize("employee"));
 
 // ============================================================
 // HELPERS
@@ -46,51 +38,7 @@ const sendError = (res, status, message, error = null) => {
     });
 };
 
-const getTodayIST = () => {
-    return new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Kolkata",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-    }).format(new Date());
-};
-
 const getCurrentMonthIST = () => getTodayIST().substring(0, 7);
-
-const getDaysInMonth = (billingMonth) => {
-    const [year, month] = billingMonth.split("-").map(Number);
-    return new Date(year, month, 0).getDate();
-};
-
-const getMonthRange = (billingMonth) => {
-    const [year, month] = billingMonth.split("-").map(Number);
-    const monthStart = `${billingMonth}-01`;
-    const nextMonth = new Date(Date.UTC(year, month, 1))
-        .toISOString()
-        .substring(0, 10);
-    return { monthStart, nextMonth };
-};
-
-const addDaysISO = (dateStr, n) =>
-    new Date(new Date(`${dateStr}T00:00:00Z`).getTime() + n * 86400000)
-        .toISOString()
-        .substring(0, 10);
-
-const DAILY_COLUMNS = `
-    id, candidates_id, deployment_id, client_id, attendance_date,
-    check_in, check_out, working_hours, overtime_hours, status,
-    work_mode, remarks, created_at, updated_at
-`;
-
-const SUMMARY_COLUMNS = `
-    id, employee_id, client_id, deployment_id, billing_month,
-    total_days, present_days, absent_days, leave_days, half_days,
-    lop_days, payable_days, overtime_hours, created_at, updated_at
-`;
-
-// ============================================================
-// GET EMPLOYEE ID
-// ============================================================
 
 const getEmployeeId = (req) => {
     const employeeId = Number(req.profile?.employee_id);
@@ -103,7 +51,6 @@ const getEmployeeId = (req) => {
 };
 
 // ============================================================
-// GET LOGGED-IN EMPLOYEE PROFILE
 // GET /me
 // ============================================================
 
@@ -135,227 +82,6 @@ router.get("/me", async (req, res) => {
 });
 
 // ============================================================
-// MISSING-DAY COUNTER
-//
-// Weekdays (Mon-Fri) in the month that have NO attendance row:
-//  - outside deployment period -> ignored
-//  - holiday                   -> ignored
-//  - approved leave            -> counted as leave
-//  - past day                  -> counted as absent
-//  - today / future            -> never counted
-// ============================================================
-
-const countMissingDays = ({
-    billingMonth,
-    rows,
-    holidayDates,
-    leaveDates,
-    startDate,
-    endDate,
-}) => {
-    const [year, month] = billingMonth.split("-").map(Number);
-    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-    const todayIST = getTodayIST();
-
-    const recorded = new Set(rows.map((r) => r.attendance_date));
-    let absent = 0;
-    let leave = 0;
-
-    for (let d = 1; d <= lastDay; d++) {
-        const dateStr = `${billingMonth}-${String(d).padStart(2, "0")}`;
-
-        if (startDate && dateStr < startDate) continue; // not joined yet
-        if (endDate && dateStr > endDate) continue;     // deployment over
-
-        const dow = new Date(`${dateStr}T00:00:00Z`).getUTCDay(); // 0=Sun, 6=Sat
-        if (dow === 0 || dow === 6) continue;           // week-off (adjust to roster)
-        if (recorded.has(dateStr)) continue;            // already has a row
-        if (holidayDates.has(dateStr)) continue;        // paid holiday
-
-        if (leaveDates.has(dateStr)) {
-            leave++;
-        } else if (dateStr < todayIST) {
-            absent++;
-        }
-    }
-
-    return { absent, leave };
-};
-
-// ============================================================
-// RECALCULATE MONTHLY SUMMARY
-// ============================================================
-
-const recalculateMonthlySummary = async (employeeId, billingMonth) => {
-    const { monthStart, nextMonth } = getMonthRange(billingMonth);
-
-    const { data: dailyRows, error: dailyError } = await supabase
-        .from("third_party_emp_daily_attendance")
-        .select(DAILY_COLUMNS)
-        .eq("candidates_id", employeeId)
-        .gte("attendance_date", monthStart)
-        .lt("attendance_date", nextMonth)
-        .order("attendance_date", { ascending: true });
-
-    if (dailyError) throw dailyError;
-
-    const rows = dailyRows || [];
-
-    let presentDays = 0;
-    let absentDays = 0;
-    let leaveDays = 0;
-    let halfDays = 0;
-    let overtimeHours = 0;
-
-    rows.forEach((row) => {
-        const status = String(row.status || "").toLowerCase().trim();
-
-        if (status === "present") presentDays += 1;
-        else if (status === "absent") absentDays += 1;
-        else if (status === "leave") leaveDays += 1;
-        else if (status === "half day" || status === "halfday") halfDays += 1;
-        // "in progress" is intentionally not counted until check-out
-
-        overtimeHours += Number(row.overtime_hours || 0);
-    });
-
-    // ---- Resolve client / deployment ----
-    let clientId = null;
-    let deploymentId = null;
-
-    if (rows.length > 0) {
-        const latestRow = rows[rows.length - 1];
-        clientId = latestRow.client_id;
-        deploymentId = latestRow.deployment_id;
-    }
-
-    if (!clientId || !deploymentId) {
-        const { data: existingSummary, error: existingError } = await supabase
-            .from("third_party_attendance_summary")
-            .select("id, client_id, deployment_id")
-            .eq("employee_id", employeeId)
-            .eq("billing_month", billingMonth)
-            .maybeSingle();
-
-        if (existingError) throw existingError;
-
-        if (existingSummary) {
-            clientId = existingSummary.client_id;
-            deploymentId = existingSummary.deployment_id;
-        }
-    }
-
-    if (!clientId || !deploymentId) {
-        const { data: deployment, error: deploymentError } = await supabase
-            .from("deployments")
-            .select("id, client_id, candidate_id")
-            .eq("candidate_id", employeeId)
-            .eq("status", "Active")
-            .limit(1)
-            .maybeSingle();
-
-        if (deploymentError) throw deploymentError;
-
-        if (deployment) {
-            deploymentId = deployment.id;
-            clientId = deployment.client_id;
-        }
-    }
-
-    if (!clientId || !deploymentId) {
-        throw new Error("Client/deployment information not found for employee.");
-    }
-
-    // ---- Deployment period ----
-    const { data: deploymentInfo, error: deploymentInfoError } = await supabase
-        .from("deployments")
-        .select("start_date, end_date")
-        .eq("id", deploymentId)
-        .maybeSingle();
-
-    if (deploymentInfoError) {
-        console.error("Deployment dates lookup failed:", deploymentInfoError);
-    }
-
-    // ---- Holidays (per client, full-day only) ----
-    const holidayDates = new Set();
-    const { data: holidays, error: holidayError } = await supabase
-        .from("holiday_calendar")
-        .select("holiday_date")
-        .eq("client_id", clientId)
-        .eq("holiday_type", "Full Day")
-        .gte("holiday_date", monthStart)
-        .lt("holiday_date", nextMonth);
-
-    if (holidayError) console.error("Holiday lookup failed:", holidayError);
-    (holidays || []).forEach((h) => holidayDates.add(h.holiday_date));
-
-    // ---- Approved leaves ----
-    // TODO: table/column names are guesses, change to match your leave table
-    const leaveDates = new Set();
-    const { data: leaves, error: leaveError } = await supabase
-        .from("leave_requests")
-        .select("from_date, to_date")
-        .eq("employee_id", employeeId)
-        .eq("status", "Approved")
-        .lt("from_date", nextMonth)
-        .gte("to_date", monthStart);
-
-    if (leaveError) console.error("Leave lookup failed:", leaveError);
-    (leaves || []).forEach((l) => {
-        for (let d = l.from_date; d <= l.to_date; d = addDaysISO(d, 1)) {
-            leaveDates.add(d);
-        }
-    });
-
-    // ---- Days with no attendance row ----
-    const missing = countMissingDays({
-        billingMonth,
-        rows,
-        holidayDates,
-        leaveDates,
-        startDate: deploymentInfo?.start_date || null,
-        endDate: deploymentInfo?.end_date || null,
-    });
-
-    absentDays += missing.absent;
-    leaveDays += missing.leave;
-
-    const lopDays = absentDays;
-    const payableDays = presentDays + leaveDays + halfDays * 0.5;
-    const totalDays = getDaysInMonth(billingMonth);
-
-    const summaryPayload = {
-        employee_id: employeeId,
-        client_id: clientId,
-        deployment_id: deploymentId,
-        billing_month: billingMonth,
-        total_days: totalDays,
-        present_days: presentDays,
-        absent_days: absentDays,
-        leave_days: leaveDays,
-        half_days: halfDays,
-        lop_days: lopDays,
-        payable_days: payableDays,
-        overtime_hours: Number(overtimeHours.toFixed(2)),
-        updated_at: new Date().toISOString(),
-    };
-
-    const { data: summary, error: summaryError } = await supabase
-        .from("third_party_attendance_summary")
-        .upsert(summaryPayload, { onConflict: "employee_id,billing_month" })
-        .select(SUMMARY_COLUMNS)
-        .single();
-
-    if (summaryError) throw summaryError;
-
-    return {
-        ...summary,
-        working_days: Number(presentDays) + Number(halfDays) * 0.5,
-    };
-};
-
-// ============================================================
 // GET DAILY ATTENDANCE
 // GET /  (?billing_month=YYYY-MM or ?month=YYYY-MM)
 // ============================================================
@@ -363,10 +89,8 @@ const recalculateMonthlySummary = async (employeeId, billingMonth) => {
 router.get("/", async (req, res) => {
     try {
         const employeeId = getEmployeeId(req);
-
         const billingMonth =
             req.query.billing_month || req.query.month || getCurrentMonthIST();
-
         const { monthStart, nextMonth } = getMonthRange(billingMonth);
 
         const { data, error } = await supabase
@@ -388,20 +112,18 @@ router.get("/", async (req, res) => {
 });
 
 // ============================================================
-// GET TODAY
 // GET /today
 // ============================================================
 
 router.get("/today", async (req, res) => {
     try {
         const employeeId = getEmployeeId(req);
-        const today = getTodayIST();
 
         const { data, error } = await supabase
             .from("third_party_emp_daily_attendance")
             .select(DAILY_COLUMNS)
             .eq("candidates_id", employeeId)
-            .eq("attendance_date", today)
+            .eq("attendance_date", getTodayIST())
             .maybeSingle();
 
         if (error) {
@@ -415,7 +137,6 @@ router.get("/today", async (req, res) => {
 });
 
 // ============================================================
-// CHECK IN
 // POST /check-in
 // ============================================================
 
@@ -469,11 +190,10 @@ router.post("/check-in", async (req, res) => {
         const remarks = req.body?.remarks || "";
         const now = new Date().toISOString();
 
-        let attendance;
-        let attendanceError;
+        let result;
 
         if (existing) {
-            const result = await supabase
+            result = await supabase
                 .from("third_party_emp_daily_attendance")
                 .update({
                     candidates_id: employeeId,
@@ -491,11 +211,8 @@ router.post("/check-in", async (req, res) => {
                 .eq("id", existing.id)
                 .select(DAILY_COLUMNS)
                 .single();
-
-            attendance = result.data;
-            attendanceError = result.error;
         } else {
-            const result = await supabase
+            result = await supabase
                 .from("third_party_emp_daily_attendance")
                 .insert({
                     candidates_id: employeeId,
@@ -512,20 +229,16 @@ router.post("/check-in", async (req, res) => {
                 })
                 .select(DAILY_COLUMNS)
                 .single();
-
-            attendance = result.data;
-            attendanceError = result.error;
         }
 
-        if (attendanceError) {
-            return sendError(res, 500, "Failed to check in.", attendanceError);
+        if (result.error) {
+            return sendError(res, 500, "Failed to check in.", result.error);
         }
 
-        const billingMonth = today.substring(0, 7);
         let summary = null;
 
         try {
-            summary = await recalculateMonthlySummary(employeeId, billingMonth);
+            summary = await recalculateMonthlySummary(employeeId, today.substring(0, 7));
         } catch (summaryError) {
             console.error("Monthly summary database error:", summaryError);
         }
@@ -533,7 +246,7 @@ router.post("/check-in", async (req, res) => {
         return res.status(201).json({
             success: true,
             message: "Attendance checked in successfully.",
-            attendance,
+            attendance: result.data,
             summary,
         });
     } catch (error) {
@@ -542,7 +255,6 @@ router.post("/check-in", async (req, res) => {
 });
 
 // ============================================================
-// CHECK OUT
 // PATCH /:id/check-out
 // ============================================================
 
@@ -582,9 +294,10 @@ router.patch("/:id/check-out", async (req, res) => {
             });
         }
 
-        const checkIn = new Date(attendance.check_in);
         const checkOut = new Date();
-        const hours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+        const hours =
+            (checkOut.getTime() - new Date(attendance.check_in).getTime()) /
+            (1000 * 60 * 60);
         const workingHours = Math.max(0, Number(hours.toFixed(2)));
 
         let status;
@@ -613,11 +326,13 @@ router.patch("/:id/check-out", async (req, res) => {
             return sendError(res, 500, "Failed to check out.", updateError);
         }
 
-        const billingMonth = String(attendance.attendance_date).substring(0, 7);
         let summary = null;
 
         try {
-            summary = await recalculateMonthlySummary(employeeId, billingMonth);
+            summary = await recalculateMonthlySummary(
+                employeeId,
+                String(attendance.attendance_date).substring(0, 7)
+            );
         } catch (summaryError) {
             console.error("Monthly summary database error:", summaryError);
         }
@@ -634,14 +349,12 @@ router.patch("/:id/check-out", async (req, res) => {
 });
 
 // ============================================================
-// GET MONTHLY SUMMARY
 // GET /monthly
 // ============================================================
 
 router.get("/monthly", async (req, res) => {
     try {
         const employeeId = getEmployeeId(req);
-
         const billingMonth =
             req.query.billing_month || req.query.month || getCurrentMonthIST();
 
@@ -691,10 +404,9 @@ router.get("/monthly", async (req, res) => {
     }
 });
 
-// =====================================================
-// EMPLOYEE PAYSLIPS
-// GET /api/employee/payroll/me
-// =====================================================
+// ============================================================
+// GET /payroll/me   (employee's own payslips)
+// ============================================================
 
 router.get("/payroll/me", async (req, res) => {
     try {
@@ -714,29 +426,18 @@ router.get("/payroll/me", async (req, res) => {
             .order("salary_month", { ascending: false });
 
         if (error) {
-            console.error("Employee payslip database error:", error);
-            return res.status(500).json({
-                success: false,
-                message: "Unable to load payslips.",
-                error: error.message,
-            });
+            return sendError(res, 500, "Unable to load payslips.", error);
         }
 
         return res.json({ success: true, payslips: payslips || [] });
     } catch (error) {
-        console.error("Employee payslip API error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Unable to load payslips.",
-            error: error.message,
-        });
+        return sendError(res, 500, "Unable to load payslips.", error);
     }
 });
 
-// =====================================================
-// EMPLOYEE PAYSLIP PDF
-// GET /api/employee/payroll/:id/pdf
-// =====================================================
+// ============================================================
+// GET /payroll/:id/pdf   (own payslip only)
+// ============================================================
 
 router.get("/payroll/:id/pdf", async (req, res) => {
     try {
@@ -751,13 +452,9 @@ router.get("/payroll/:id/pdf", async (req, res) => {
         }
 
         if (!payrollId) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid payroll ID.",
-            });
+            return res.status(400).json({ success: false, message: "Invalid payroll ID." });
         }
 
-        // Only the logged-in employee's own payslip
         const { data: payroll, error } = await supabase
             .from("third_party_payroll")
             .select("*")
@@ -766,21 +463,14 @@ router.get("/payroll/:id/pdf", async (req, res) => {
             .maybeSingle();
 
         if (error) {
-            console.error("PDF payroll fetch error:", error);
-            return res.status(500).json({
-                success: false,
-                message: "Unable to load payroll.",
-                error: error.message,
-            });
+            return sendError(res, 500, "Unable to load payroll.", error);
         }
 
         if (!payroll) {
-            return res.status(404).json({
-                success: false,
-                message: "Payroll record not found.",
-            });
+            return res.status(404).json({ success: false, message: "Payroll record not found." });
         }
 
+        // NOTE: needs third_party_payroll.status to exist
         const status = String(payroll.status || "").toLowerCase().trim();
 
         if (!["approved", "locked", "paid"].includes(status)) {
@@ -808,17 +498,8 @@ router.get("/payroll/:id/pdf", async (req, res) => {
 
         return res.send(pdfBuffer);
     } catch (error) {
-        console.error("Employee payslip PDF error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Unable to generate payslip PDF.",
-            error: error.message,
-        });
+        return sendError(res, 500, "Unable to generate payslip PDF.", error);
     }
 });
-
-// ============================================================
-// EXPORT
-// ============================================================
 
 module.exports = router;
