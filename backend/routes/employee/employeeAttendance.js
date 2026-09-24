@@ -4,11 +4,8 @@ const router = express.Router();
 
 const supabase = require("../../config/supabase");
 
-const {
-    authenticate,
-    authorize,
-} = require("../../middleware");
-
+const { authenticate } = require("../../middleware/authenticate");
+const { authorize } = require("../../middleware/authorize");
 const {
     recalculateMonthlySummary,
     getTodayIST,
