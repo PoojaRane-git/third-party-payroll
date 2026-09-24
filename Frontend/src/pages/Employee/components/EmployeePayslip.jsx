@@ -1,640 +1,579 @@
-const { jsPDF } = require("jspdf");
-const fs = require("fs");
-const path = require("path");
+import React, { useEffect, useState } from "react";
 
-// ============================================================
-// COMPANY DETAILS
-// ============================================================
+import api from "../../services/api";
+import EmployeeLayout from "./EmployeeLayout";
 
-const COMPANY_NAME = "Talent Corner HR Services Pvt Ltd.";
-const COMPANY_ADDRESS_LINE1 = "708/709, Bhaveshwar Arcade NX";
-const COMPANY_ADDRESS_LINE2 = "Opp Shreyas Cinema, LBS Marg, Ghatkopar(W),";
-const COMPANY_ADDRESS_LINE3 = "Mumbai-400086";
-const COMPANY_UDYAM = "UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)";
-const COMPANY_EMAIL = "E-Mail : accounts@talentcorner.in";
+// =====================================================
+// FORMAT HELPERS
+// =====================================================
 
-// ============================================================
-// SIGNATURE / STAMP IMAGES  (backend/assets/)
-// ============================================================
+const money = (value) => {
+  const amount = Number(value ?? 0);
 
-const STAMP_IMAGE = path.join(__dirname, "../assets/talent-corner-stamp.jpeg");
-const SIGNATURE_IMAGE = path.join(__dirname, "../assets/talent-corner-signature.jpeg");
+  if (!Number.isFinite(amount)) {
+    return "0.00";
+  }
 
-// ============================================================
-// HELPERS
-// ============================================================
+  return amount.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
 
-const money = (value) =>
-    Number(value ?? 0).toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    });
+const rupee = (value) => `₹${money(value)}`;
 
-const textValue = (value) => {
-    if (value === null || value === undefined || String(value).trim() === "") {
-        return "";
-    }
+const display = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "N/A";
+  }
+
+  return String(value);
+};
+
+const formatDate = (value) => {
+  if (!value) {
+    return "N/A";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
     return String(value);
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
-// Reads an image file and detects PNG / JPEG from its content,
-// so the file extension never has to match.
-const loadImage = (filePath) => {
-    if (!fs.existsSync(filePath)) {
-        console.error("Payslip image not found:", filePath);
-        return null;
-    }
+const formatSalaryMonth = (value) => {
+  if (!value) {
+    return "--";
+  }
 
-    const buffer = fs.readFileSync(filePath);
-    const isPng = buffer[0] === 0x89 && buffer[1] === 0x50;
+  const text = String(value);
 
-    return {
-        format: isPng ? "PNG" : "JPEG",
-        data: `data:image/${isPng ? "png" : "jpeg"};base64,${buffer.toString("base64")}`,
-    };
+  if (/^\d{4}-\d{2}$/.test(text)) {
+    const [year, month] = text.split("-");
+
+    return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString(
+      "en-IN",
+      { month: "long", year: "numeric" }
+    );
+  }
+
+  const date = new Date(text);
+
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleDateString("en-IN", {
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  return text;
 };
 
-// ============================================================
-// NUMBER TO WORDS
-// ============================================================
+// =====================================================
+// SMALL UI PIECES
+// =====================================================
 
-const numberToWordsIndian = (number) => {
-    number = Math.floor(Number(number ?? 0));
+const Section = ({ title, fields, first = false }) => (
+  <>
+    <h3 style={first ? undefined : { marginTop: "25px" }}>{title}</h3>
 
-    if (number === 0) return "Zero";
+    <div className="profile-grid">
+      {fields.map(([label, value]) => (
+        <div key={label}>
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </div>
+      ))}
+    </div>
+  </>
+);
 
-    const ones = [
-        "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
-        "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen",
-        "Sixteen", "Seventeen", "Eighteen", "Nineteen",
-    ];
+// Used for both the month card and the "View Payslip" popup
+const PayslipDetails = ({ payslip }) => (
+  <>
+    <Section
+      first
+      title="Earnings"
+      fields={[
+        ["Basic Salary", rupee(payslip.basic_salary)],
+        ["HRA", rupee(payslip.hra)],
+        ["Conveyance", rupee(payslip.conveyance)],
+        ["Medical Allowance", rupee(payslip.medical_allowance)],
+        ["Other Allowance", rupee(payslip.other_allowance)],
+        ["Overtime", rupee(payslip.overtime)],
+        ["Bonus", rupee(payslip.bonus)],
+        ["Gross Salary", rupee(payslip.gross_salary)],
+      ]}
+    />
 
-    const tens = [
-        "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy",
-        "Eighty", "Ninety",
-    ];
+    <Section
+      title="Deductions"
+      fields={[
+        ["Employee PF", rupee(payslip.pf)],
+        ["ESIC", rupee(payslip.esic)],
+        ["Tax / TDS", rupee(payslip.tax)],
+        ["Professional Tax", rupee(payslip.professional_tax)],
+        ["LOP Deduction", rupee(payslip.lop)],
+        ["Total Deductions", rupee(payslip.total_deductions)],
+      ]}
+    />
 
-    const twoDigits = (n) => {
-        if (n < 20) return ones[n];
-        return tens[Math.floor(n / 10)] + (n % 10 ? ` ${ones[n % 10]}` : "");
-    };
+    <div
+      style={{
+        marginTop: "25px",
+        padding: "20px",
+        borderRadius: "10px",
+        background: "#f8fafc",
+      }}
+    >
+      <span>Net Salary</span>
 
-    const convert = (n) => {
-        let result = "";
+      <h2 style={{ margin: "5px 0 0" }}>{rupee(payslip.net_salary)}</h2>
+    </div>
 
-        if (n >= 10000000) {
-            result += `${convert(Math.floor(n / 10000000))} Crore `;
-            n %= 10000000;
-        }
+    <Section
+      title="Statutory Details"
+      fields={[
+        ["PF Wages", rupee(payslip.pf_wages)],
+        ["Gratuity", rupee(payslip.gratuity)],
+        ["Joining Date", formatDate(payslip.joining_date)],
+        ["PRAN", display(payslip.pran)],
+      ]}
+    />
 
-        if (n >= 100000) {
-            result += `${convert(Math.floor(n / 100000))} Lakh `;
-            n %= 100000;
-        }
+    <Section
+      title="Employer Contribution"
+      fields={[
+        ["Employer PF", rupee(payslip.employer_pf)],
+        ["Employer ESIC", rupee(payslip.employer_esic)],
+        [
+          "Total Employer Contribution",
+          rupee(payslip.total_employer_contribution),
+        ],
+        ["Total Employer Cost", rupee(payslip.total_employer_cost)],
+      ]}
+    />
 
-        if (n >= 1000) {
-            result += `${convert(Math.floor(n / 1000))} Thousand `;
-            n %= 1000;
-        }
+    <Section
+      title="Bank Details"
+      fields={[
+        ["Bank Name", display(payslip.bank_name)],
+        ["Account Number", display(payslip.account_number)],
+        ["IFSC Code", display(payslip.ifsc_code)],
+      ]}
+    />
+  </>
+);
 
-        if (n >= 100) {
-            result += `${ones[Math.floor(n / 100)]} Hundred `;
-            n %= 100;
-        }
-
-        if (n > 0) {
-            if (result !== "") result += "and ";
-            result += twoDigits(n);
-        }
-
-        return result.trim();
-    };
-
-    return convert(number);
+const outlineButton = {
+  padding: "10px 16px",
+  border: "1px solid #d1d5db",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: "600",
+  background: "#ffffff",
 };
 
-// ============================================================
-// MONTH RANGE
-// ============================================================
+// =====================================================
+// COMPONENT
+// =====================================================
 
-const getMonthRange = (salaryMonth) => {
-    if (!salaryMonth) {
-        throw new Error("salary_month is required.");
-    }
+const EmployeePayslip = () => {
+  const [payslips, setPayslips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(null);
+  const [error, setError] = useState("");
 
-    const parts = String(salaryMonth).split("-");
+  // Selected monthly payslip for viewing
+  const [selectedPayslip, setSelectedPayslip] = useState(null);
 
-    if (parts.length !== 2) {
-        throw new Error(`Invalid salary_month: ${salaryMonth}`);
-    }
+  // Selected salary month from calendar
+  const [selectedMonth, setSelectedMonth] = useState("");
 
-    const year = Number(parts[0]);
-    const month = Number(parts[1]);
+  // =====================================================
+  // FETCH PAYSLIPS
+  // =====================================================
 
-    if (
-        !Number.isInteger(year) ||
-        !Number.isInteger(month) ||
-        month < 1 ||
-        month > 12
-    ) {
-        throw new Error(`Invalid salary_month: ${salaryMonth}`);
-    }
+  useEffect(() => {
+    const fetchPayslips = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
+        const response = await api.get("/employee/payroll/me");
 
-    const formatDate = (date) =>
-        date.toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        });
+        let data = [];
 
-    return {
-        start: formatDate(startDate),
-        end: formatDate(endDate),
+        if (Array.isArray(response.data?.payslips)) {
+          data = response.data.payslips;
+        } else if (Array.isArray(response.data?.data)) {
+          data = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          data = response.data;
+        }
+
+        setPayslips(data);
+      } catch (err) {
+        console.error("Employee payslip error:", err);
+        console.error("Server response:", err.response?.data);
+
+        setPayslips([]);
+
+        setError(
+          err.response?.data?.message ||
+            err.response?.data?.error ||
+            "Unable to load payslips."
+        );
+      } finally {
+        setLoading(false);
+      }
     };
+
+    fetchPayslips();
+  }, []);
+
+  // =====================================================
+  // FILTER PAYSLIPS BY SELECTED MONTH
+  // =====================================================
+
+  const filteredPayslips = selectedMonth
+    ? payslips.filter((payslip) =>
+        String(payslip.salary_month || "").startsWith(selectedMonth)
+      )
+    : payslips;
+
+  // =====================================================
+  // DOWNLOAD PAYSLIP (PDF is built by the backend)
+  // =====================================================
+
+  const downloadPayslip = async (payslip) => {
+    try {
+      setDownloading(payslip.id);
+
+      const response = await api.get(
+        `/employee/payroll/${payslip.id}/pdf`,
+        { responseType: "blob" }
+      );
+
+      const blob =
+        response.data instanceof Blob
+          ? response.data
+          : new Blob([response.data], { type: "application/pdf" });
+
+      const url = window.URL.createObjectURL(blob);
+
+      const employeeFileName = String(payslip.employee_name || "Employee")
+        .replace(/[^a-zA-Z0-9]/g, "_")
+        .replace(/_+/g, "_");
+
+      const month = String(payslip.salary_month || "payslip").replace(
+        /[^a-zA-Z0-9-_]/g,
+        "-"
+      );
+
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `${employeeFileName}_Payslip_${month}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Payslip download error:", err);
+      console.error("Server response:", err.response?.data);
+
+      alert(err.response?.data?.message || "Unable to download payslip.");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const downloadButton = (payslip) => (
+    <button
+      type="button"
+      onClick={() => downloadPayslip(payslip)}
+      disabled={downloading === payslip.id}
+      style={{
+        padding: "10px 16px",
+        border: "none",
+        borderRadius: "8px",
+        cursor: downloading === payslip.id ? "not-allowed" : "pointer",
+        fontWeight: "600",
+      }}
+    >
+      {downloading === payslip.id ? "Generating..." : "Download Payslip"}
+    </button>
+  );
+
+  // =====================================================
+  // LOADING
+  // =====================================================
+
+  if (loading) {
+    return (
+      <EmployeeLayout>
+        <div className="empty-state">
+          <h3>Loading payslips...</h3>
+
+          <p>Please wait while we load your salary records.</p>
+        </div>
+      </EmployeeLayout>
+    );
+  }
+
+  // =====================================================
+  // UI
+  // =====================================================
+
+  return (
+    <EmployeeLayout>
+      <div>
+        {/* PAGE HEADER */}
+
+        <div className="page-header">
+          <div>
+            <h1>Payslips</h1>
+
+            <p>View your complete salary and payslip records.</p>
+          </div>
+        </div>
+
+        {/* ERROR */}
+
+        {error && <div className="error-message">{error}</div>}
+
+        {/* SALARY MONTH CALENDAR */}
+
+        {payslips.length > 0 && (
+          <div
+            className="table-card"
+            style={{ marginBottom: "25px", padding: "20px" }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "15px",
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0 }}>Salary Month</h3>
+
+                <p style={{ margin: "5px 0 0", color: "#6b7280" }}>
+                  Select a month to view your payslip.
+                </p>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(event) => setSelectedMonth(event.target.value)}
+                  style={{
+                    padding: "10px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    cursor: "pointer",
+                  }}
+                />
+
+                {selectedMonth && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMonth("")}
+                    style={outlineButton}
+                  >
+                    Show All Months
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PAYSLIP LIST */}
+
+        {payslips.length === 0 ? (
+          <div className="empty-state">
+            <h3>No payslips available</h3>
+
+            <p>Your payroll records will appear here.</p>
+          </div>
+        ) : filteredPayslips.length === 0 ? (
+          <div className="empty-state">
+            <h3>No payslip for selected month</h3>
+
+            <p>
+              There is no salary record available for{" "}
+              <strong>{formatSalaryMonth(selectedMonth)}</strong>.
+            </p>
+          </div>
+        ) : (
+          <div>
+            {filteredPayslips.map((payslip) => (
+              <div
+                key={payslip.id}
+                className="table-card"
+                style={{ marginBottom: "25px", padding: "25px" }}
+              >
+                {/* PAYSLIP HEADER */}
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "15px",
+                    flexWrap: "wrap",
+                    marginBottom: "25px",
+                  }}
+                >
+                  <div>
+                    <h2 style={{ margin: 0 }}>
+                      {formatSalaryMonth(payslip.salary_month)}
+                    </h2>
+
+                    <p>Payslip ID: {display(payslip.id)}</p>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPayslip(payslip)}
+                      style={outlineButton}
+                    >
+                      View Payslip
+                    </button>
+
+                    {downloadButton(payslip)}
+                  </div>
+                </div>
+
+                <PayslipDetails payslip={payslip} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* VIEW MONTHLY PAYSLIP MODAL */}
+
+      {selectedPayslip && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            zIndex: 9999,
+          }}
+          onClick={() => setSelectedPayslip(null)}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              width: "100%",
+              maxWidth: "800px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              borderRadius: "12px",
+              padding: "30px",
+              position: "relative",
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {/* MODAL HEADER */}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "25px",
+              }}
+            >
+              <div>
+                <h2 style={{ margin: 0 }}>
+                  {formatSalaryMonth(selectedPayslip.salary_month)}
+                </h2>
+
+                <p>Payslip ID: {display(selectedPayslip.id)}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedPayslip(null)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* MODAL CONTENT */}
+
+            <PayslipDetails payslip={selectedPayslip} />
+
+            {/* MODAL FOOTER */}
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+                marginTop: "30px",
+                paddingTop: "20px",
+                borderTop: "1px solid #e5e7eb",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedPayslip(null)}
+                style={outlineButton}
+              >
+                Close
+              </button>
+
+              {downloadButton(selectedPayslip)}
+            </div>
+          </div>
+        </div>
+      )}
+    </EmployeeLayout>
+  );
 };
 
-// ============================================================
-// GENERATE PAYSLIP PDF
-// ============================================================
-
-const generatePayslipPDF = async (payroll) => {
-    if (!payroll) {
-        throw new Error("Payroll data is missing.");
-    }
-
-    const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-    });
-
-    const pageWidth = 210;
-
-    // ========================================================
-    // EMPLOYEE DETAILS
-    // ========================================================
-
-    const employeeName = textValue(payroll.employee_name);
-    const employeeNumber = textValue(payroll.employee_code);
-    const designation = textValue(payroll.designation);
-    const location = textValue(payroll.location);
-    const salaryMonth = textValue(payroll.salary_month);
-
-    if (!employeeName) throw new Error("Employee name is missing.");
-    if (!employeeNumber) throw new Error("Employee code is missing.");
-    if (!salaryMonth) throw new Error("Salary month is missing.");
-
-    const { start: monthStart, end: monthEnd } = getMonthRange(salaryMonth);
-
-    // ========================================================
-    // BANK DETAILS
-    // ========================================================
-
-    const bankName = textValue(payroll.bank_name);
-    const accountNumber = textValue(payroll.account_number);
-    const ifsc = textValue(payroll.ifsc_code);
-    const bankBranch = textValue(payroll.bank_branch);
-
-    // ========================================================
-    // STATUTORY DETAILS
-    // ========================================================
-
-    const pan = textValue(payroll.pan_number);
-    const uan = textValue(payroll.uan_number);
-    const pfAccountNumber = textValue(payroll.pf_account_number);
-    const esicNumber = textValue(payroll.esic_number);
-    const pran = textValue(payroll.pran);
-    const taxRegime = textValue(payroll.tax_regime);
-
-    const functionName = textValue(
-        payroll.function_name || payroll.function || payroll.department
-    );
-
-    const joiningDate = payroll.joining_date
-        ? new Date(payroll.joining_date).toLocaleDateString("en-GB")
-        : "";
-
-    // ========================================================
-    // EARNINGS
-    // ========================================================
-
-    const basicSalary = Number(payroll.basic_salary ?? 0);
-    const hra = Number(payroll.hra ?? 0);
-    const conveyance = Number(
-        payroll.conveyance ?? payroll.conveyance_allowance ?? 0
-    );
-    const medicalAllowance = Number(payroll.medical_allowance ?? 0);
-    const otherAllowance = Number(payroll.other_allowance ?? 0);
-    const overtime = Number(payroll.overtime ?? 0);
-    const bonus = Number(payroll.bonus ?? 0);
-    const gratuity = Number(payroll.gratuity ?? 0);
-
-    // ========================================================
-    // DEDUCTIONS
-    // ========================================================
-
-    const pf = Number(payroll.pf ?? 0);
-    const esic = Number(payroll.esic ?? 0);
-    const professionalTax = Number(payroll.professional_tax ?? 0);
-    const tax = Number(payroll.tax ?? 0);
-    const lop = Number(payroll.lop ?? 0);
-
-    // ========================================================
-    // TOTALS
-    // ========================================================
-
-    const calculatedGross =
-        basicSalary + hra + conveyance + medicalAllowance +
-        otherAllowance + overtime + bonus;
-
-    const grossSalary =
-        payroll.gross_salary !== null && payroll.gross_salary !== undefined
-            ? Number(payroll.gross_salary)
-            : calculatedGross;
-
-    const calculatedDeductions = pf + esic + professionalTax + tax + lop;
-
-    const totalDeductions =
-        payroll.total_deductions !== null && payroll.total_deductions !== undefined
-            ? Number(payroll.total_deductions)
-            : calculatedDeductions;
-
-    const netSalary =
-        payroll.net_salary !== null && payroll.net_salary !== undefined
-            ? Number(payroll.net_salary)
-            : grossSalary - totalDeductions;
-
-    // ========================================================
-    // OUTER BORDER
-    // ========================================================
-
-    doc.setLineWidth(0.6);
-    doc.rect(17, 51, 176, 232);
-
-    // ========================================================
-    // COMPANY HEADER
-    // ========================================================
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text(COMPANY_NAME, 17, 18);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-
-    doc.text(COMPANY_ADDRESS_LINE1, 17, 25);
-    doc.text(COMPANY_ADDRESS_LINE2, 17, 29);
-    doc.text(COMPANY_ADDRESS_LINE3, 17, 33);
-    doc.text(COMPANY_UDYAM, 17, 37);
-    doc.text(COMPANY_EMAIL, 17, 41);
-
-    // ========================================================
-    // PAYSLIP TITLE
-    // ========================================================
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
-    doc.text("Pay Slip", 22, 61);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(`for ${monthStart} to ${monthEnd}`, 22, 67);
-
-    doc.line(22, 72, 188, 72);
-
-    // ========================================================
-    // CENTER TITLE
-    // ========================================================
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-
-    doc.text(`Pay Slip for ${monthStart} to ${monthEnd}`, pageWidth / 2, 79, {
-        align: "center",
-    });
-
-    doc.text(employeeName.toUpperCase(), pageWidth / 2, 85, {
-        align: "center",
-    });
-
-    doc.line(22, 91, 188, 91);
-
-    // ========================================================
-    // EMPLOYEE DETAILS
-    // ========================================================
-
-    const leftX = 22;
-    const rightX = 111;
-
-    let leftY = 99;
-    let rightY = 99;
-
-    const addInfo = (x, y, label, value) => {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text(label, x, y);
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.text(textValue(value), x + 40, y);
-    };
-
-    // ---------------- LEFT DETAILS ----------------
-
-    addInfo(leftX, leftY, "Employee Number:", employeeNumber);
-    leftY += 7;
-
-    addInfo(leftX, leftY, "Function:", functionName);
-    leftY += 7;
-
-    addInfo(leftX, leftY, "Designation:", designation);
-    leftY += 7;
-
-    addInfo(leftX, leftY, "Location:", location);
-    leftY += 7;
-
-    // ---------------- BANK DETAILS ----------------
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text("Bank Details:", leftX, leftY);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-
-    doc.text(`Name - ${bankName}`, leftX + 40, leftY);
-    leftY += 4;
-
-    doc.text(`BRANCH - ${bankBranch}`, leftX + 40, leftY);
-    leftY += 4;
-
-    doc.text(`IFSC code - ${ifsc}`, leftX + 40, leftY);
-    leftY += 4;
-
-    doc.text(`ACC NO. ${accountNumber}`, leftX + 40, leftY);
-    leftY += 8;
-
-    addInfo(leftX, leftY, "Date of joining:", joiningDate);
-
-    // ---------------- RIGHT DETAILS ----------------
-    // Value is right-aligned so long labels never overlap it.
-
-    const addStatutoryInfo = (x, y, label, value) => {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text(label, x, y);
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.text(textValue(value), 188, y, { align: "right" });
-    };
-
-    addStatutoryInfo(rightX, rightY, "Tax Regime:", taxRegime);
-    rightY += 7;
-
-    addStatutoryInfo(rightX, rightY, "Income Tax Number (PAN):", pan);
-    rightY += 8;
-
-    addStatutoryInfo(rightX, rightY, "Universal Account Number (UAN):", uan);
-    rightY += 8;
-
-    addStatutoryInfo(rightX, rightY, "PF account number:", pfAccountNumber);
-    rightY += 7;
-
-    addStatutoryInfo(rightX, rightY, "ESI Number:", esicNumber);
-    rightY += 7;
-
-    addStatutoryInfo(rightX, rightY, "PR Account Number (PRAN):", pran);
-
-    // ========================================================
-    // SALARY TABLE
-    // ========================================================
-
-    const tableX = 22;
-    const tableY = 143;
-    const widths = [38, 23, 23, 38, 23, 23];
-    const rowHeight = 7;
-
-    const headers = [
-        "Earnings", "Amount", "Gross Salary",
-        "Deductions", "Amount", "Gross Salary",
-    ];
-
-    let x = tableX;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-
-    headers.forEach((header, index) => {
-        doc.setFillColor(242, 242, 242);
-        doc.rect(x, tableY, widths[index], rowHeight, "F");
-        doc.text(header, x + 2, tableY + 5);
-        x += widths[index];
-    });
-
-    // ---------------- ROW HELPER ----------------
-
-    const drawSalaryRow = (
-        y,
-        earningLabel,
-        earningAmount,
-        earningGross,
-        deductionLabel = "",
-        deductionAmount = "",
-        deductionGross = ""
-    ) => {
-        let currentX = tableX;
-
-        const values = [
-            earningLabel,
-            money(earningAmount),
-            money(earningGross),
-            deductionLabel,
-            deductionAmount === "" ? "" : money(deductionAmount),
-            deductionGross === "" ? "" : String(deductionGross),
-        ];
-
-        values.forEach((value, index) => {
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8.5);
-
-            if (index === 1 || index === 2 || index === 4 || index === 5) {
-                doc.text(String(value), currentX + widths[index] - 2, y + 5, {
-                    align: "right",
-                });
-            } else {
-                doc.text(String(value), currentX + 2, y + 5);
-            }
-
-            currentX += widths[index];
-        });
-    };
-
-    // ---------------- SALARY ROWS ----------------
-
-    let rowY = tableY + rowHeight;
-
-    drawSalaryRow(rowY, "Basic Salary", basicSalary, basicSalary, "Provident Fund", pf, "-");
-    rowY += rowHeight;
-
-    drawSalaryRow(
-        rowY, "HRA", hra, hra,
-        esic > 0 ? "ESIC" : "",
-        esic > 0 ? esic : "",
-        esic > 0 ? "-" : ""
-    );
-    rowY += rowHeight;
-
-    drawSalaryRow(
-        rowY, "Conveyance Expenses", conveyance, conveyance,
-        professionalTax > 0 ? "Professional Tax" : "",
-        professionalTax > 0 ? professionalTax : "",
-        professionalTax > 0 ? "-" : ""
-    );
-    rowY += rowHeight;
-
-    drawSalaryRow(
-        rowY, "Medical Allowance", medicalAllowance, medicalAllowance,
-        tax > 0 ? "Income Tax" : "",
-        tax > 0 ? tax : "",
-        tax > 0 ? "-" : ""
-    );
-    rowY += rowHeight;
-
-    drawSalaryRow(
-        rowY, "Other Expenses", otherAllowance, otherAllowance,
-        lop > 0 ? "Loss of Pay" : "",
-        lop > 0 ? lop : "",
-        lop > 0 ? "-" : ""
-    );
-    rowY += rowHeight;
-
-    drawSalaryRow(rowY, "Gratuity", gratuity, gratuity, "", "", "");
-
-    // ---------------- TOTAL ----------------
-
-    rowY += rowHeight;
-
-    const totalEarnings =
-        basicSalary + hra + conveyance + medicalAllowance +
-        otherAllowance + overtime + bonus;
-
-    let totalX = tableX;
-
-    const totalValues = [
-        "Total Earnings",
-        money(totalEarnings),
-        money(grossSalary),
-        "Total Deductions",
-        money(totalDeductions),
-        money(totalDeductions),
-    ];
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-
-    totalValues.forEach((value, index) => {
-        doc.setFillColor(243, 243, 243);
-        doc.rect(totalX, rowY, widths[index], rowHeight, "F");
-
-        if (index === 1 || index === 2 || index === 4 || index === 5) {
-            doc.text(String(value), totalX + widths[index] - 2, rowY + 5, {
-                align: "right",
-            });
-        } else {
-            doc.text(String(value), totalX + 2, rowY + 5);
-        }
-
-        totalX += widths[index];
-    });
-
-    // ---------------- NET AMOUNT ----------------
-
-    rowY += rowHeight;
-
-    let netX = tableX;
-
-    const netValues = ["", "", "", "Net Amount", money(netSalary), money(netSalary)];
-
-    netValues.forEach((value, index) => {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8.5);
-
-        if (index === 4 || index === 5) {
-            doc.text(String(value), netX + widths[index] - 2, rowY + 5, {
-                align: "right",
-            });
-        } else if (value) {
-            doc.text(String(value), netX + 2, rowY + 5);
-        }
-
-        netX += widths[index];
-    });
-
-    // ========================================================
-    // AMOUNT IN WORDS
-    // ========================================================
-
-    const wordsY = rowY + 17;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("Amount (in words):", tableX, wordsY);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-
-    doc.text(
-        `INR ${numberToWordsIndian(Math.round(netSalary))} Rupees only`,
-        tableX,
-        wordsY + 6
-    );
-
-    doc.line(tableX, wordsY + 10, 188, wordsY + 10);
-
-    // ========================================================
-    // SIGNATURE / STAMP
-    // Images are drawn first so the text stays on top of them.
-    // ========================================================
-
-    const stamp = loadImage(STAMP_IMAGE);
-    const signature = loadImage(SIGNATURE_IMAGE);
-
-    if (stamp) {
-        try {
-            doc.addImage(stamp.data, stamp.format, 166, 246, 25, 25);
-        } catch (error) {
-            console.error("Unable to add stamp image:", error.message);
-        }
-    }
-
-    if (signature) {
-        try {
-            doc.addImage(signature.data, signature.format, 138, 249, 28, 12);
-        } catch (error) {
-            console.error("Unable to add signature image:", error.message);
-        }
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-
-    doc.text(`for ${COMPANY_NAME}`, 188, 245, { align: "right" });
-
-    // ========================================================
-    // RETURN PDF
-    // ========================================================
-
-    return Buffer.from(doc.output("arraybuffer"));
-};
-
-// ============================================================
-// EXPORT
-// ============================================================
-
-module.exports = {
-    generatePayslipPDF,
-};
+export default EmployeePayslip;
