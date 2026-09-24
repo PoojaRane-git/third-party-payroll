@@ -135,7 +135,6 @@ router.get("/today", async (req, res) => {
         return sendError(res, 500, "Failed to fetch today's attendance.", error);
     }
 });
-
 // ============================================================
 // POST /check-in
 // ============================================================
@@ -145,6 +144,34 @@ router.post("/check-in", async (req, res) => {
         const employeeId = getEmployeeId(req);
         const today = getTodayIST();
 
+        // ------------------------------------------------------------
+        // FIX OLD UNFINISHED ATTENDANCE RECORDS
+        // Any previous attendance record with no checkout must
+        // remain "In Progress", never "Present".
+        // ------------------------------------------------------------
+        const { error: unfinishedError } = await supabase
+            .from("third_party_emp_daily_attendance")
+            .update({
+                status: "In Progress",
+                working_hours: 0,
+                overtime_hours: 0,
+                updated_at: new Date().toISOString(),
+            })
+            .eq("candidates_id", employeeId)
+            .is("check_out", null)
+            .eq("status", "Present")
+            .lt("attendance_date", today);
+
+        if (unfinishedError) {
+            console.error(
+                "Failed to fix unfinished attendance records:",
+                unfinishedError
+            );
+        }
+
+        // ------------------------------------------------------------
+        // CHECK TODAY'S EXISTING ATTENDANCE
+        // ------------------------------------------------------------
         const { data: existing, error: existingError } = await supabase
             .from("third_party_emp_daily_attendance")
             .select(`
@@ -156,7 +183,12 @@ router.post("/check-in", async (req, res) => {
             .maybeSingle();
 
         if (existingError) {
-            return sendError(res, 500, "Failed to check existing attendance.", existingError);
+            return sendError(
+                res,
+                500,
+                "Failed to check existing attendance.",
+                existingError
+            );
         }
 
         if (existing?.check_in) {
@@ -167,6 +199,9 @@ router.post("/check-in", async (req, res) => {
             });
         }
 
+        // ------------------------------------------------------------
+        // FIND ACTIVE DEPLOYMENT
+        // ------------------------------------------------------------
         const { data: deployment, error: deploymentError } = await supabase
             .from("deployments")
             .select("id, client_id, candidate_id")
@@ -176,7 +211,12 @@ router.post("/check-in", async (req, res) => {
             .maybeSingle();
 
         if (deploymentError) {
-            return sendError(res, 500, "Failed to find employee deployment.", deploymentError);
+            return sendError(
+                res,
+                500,
+                "Failed to find employee deployment.",
+                deploymentError
+            );
         }
 
         if (!deployment) {
@@ -192,6 +232,9 @@ router.post("/check-in", async (req, res) => {
 
         let result;
 
+        // ------------------------------------------------------------
+        // UPDATE EXISTING RECORD
+        // ------------------------------------------------------------
         if (existing) {
             result = await supabase
                 .from("third_party_emp_daily_attendance")
@@ -211,7 +254,12 @@ router.post("/check-in", async (req, res) => {
                 .eq("id", existing.id)
                 .select(DAILY_COLUMNS)
                 .single();
-        } else {
+        }
+
+        // ------------------------------------------------------------
+        // CREATE NEW RECORD
+        // ------------------------------------------------------------
+        else {
             result = await supabase
                 .from("third_party_emp_daily_attendance")
                 .insert({
@@ -223,7 +271,11 @@ router.post("/check-in", async (req, res) => {
                     check_out: null,
                     working_hours: 0,
                     overtime_hours: 0,
-                    status: "Present",
+
+                    // IMPORTANT:
+                    // Employee is not Present until checkout is completed.
+                    status: "In Progress",
+
                     work_mode: workMode,
                     remarks,
                 })
@@ -235,12 +287,21 @@ router.post("/check-in", async (req, res) => {
             return sendError(res, 500, "Failed to check in.", result.error);
         }
 
+        // ------------------------------------------------------------
+        // RECALCULATE MONTHLY SUMMARY
+        // ------------------------------------------------------------
         let summary = null;
 
         try {
-            summary = await recalculateMonthlySummary(employeeId, today.substring(0, 7));
+            summary = await recalculateMonthlySummary(
+                employeeId,
+                today.substring(0, 7)
+            );
         } catch (summaryError) {
-            console.error("Monthly summary database error:", summaryError);
+            console.error(
+                "Monthly summary database error:",
+                summaryError
+            );
         }
 
         return res.status(201).json({
@@ -249,11 +310,11 @@ router.post("/check-in", async (req, res) => {
             attendance: result.data,
             summary,
         });
+
     } catch (error) {
         return sendError(res, 500, "Check-in failed.", error);
     }
 });
-
 // ============================================================
 // PATCH /:id/check-out
 // ============================================================
