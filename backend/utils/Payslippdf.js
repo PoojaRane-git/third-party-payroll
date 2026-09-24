@@ -1403,19 +1403,13 @@ const generatePayslipPDF = async (
         }
     );
 
-    // ========================================================
-    // LOAD PNG IMAGES
+
+        // ========================================================
+    // LOAD IMAGES
     // ========================================================
 
-     const signature = imageToDataURL(SIGNATURE_IMAGE);
-if (signature) {
-    doc.addImage(signature.data, signature.format, 143, 247, 32, 10.5);
-}
-
-const stamp = imageToDataURL(STAMP_IMAGE);
-if (stamp) {
-    doc.addImage(stamp.data, stamp.format, 171, 236, 25, 25);
-}
+    const signatureData = imageToDataURL(SIGNATURE_IMAGE);
+    const stampData = imageToDataURL(STAMP_IMAGE);
 
     // ========================================================
     // ADD SIGNATURE
@@ -1424,27 +1418,20 @@ if (stamp) {
     if (signatureData) {
         try {
             doc.addImage(
-                signatureData,
-                "PNG",
+                signatureData.data,
+                signatureData.format,
                 143,
                 247,
                 32,
                 10.5
             );
 
-            console.log(
-                "✅ Signature added successfully."
-            );
+            console.log("✅ Signature added successfully.");
         } catch (error) {
-            console.error(
-                "❌ Unable to add signature:",
-                error.message
-            );
+            console.error("❌ Unable to add signature:", error.message);
         }
     } else {
-        console.error(
-            "❌ Signature image could not be loaded."
-        );
+        console.error("❌ Signature image could not be loaded.");
     }
 
     // ========================================================
@@ -1454,27 +1441,20 @@ if (stamp) {
     if (stampData) {
         try {
             doc.addImage(
-                stampData,
-                "PNG",
+                stampData.data,
+                stampData.format,
                 171,
                 236,
                 25,
                 25
             );
 
-            console.log(
-                "✅ Stamp added successfully."
-            );
+            console.log("✅ Stamp added successfully.");
         } catch (error) {
-            console.error(
-                "❌ Unable to add stamp:",
-                error.message
-            );
+            console.error("❌ Unable to add stamp:", error.message);
         }
     } else {
-        console.error(
-            "❌ Stamp image could not be loaded."
-        );
+        console.error("❌ Stamp image could not be loaded.");
     }
 
     // ========================================================
