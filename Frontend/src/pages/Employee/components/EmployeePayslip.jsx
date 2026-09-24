@@ -1,1726 +1,640 @@
-import React, { useEffect, useState } from "react";
+const { jsPDF } = require("jspdf");
+const fs = require("fs");
+const path = require("path");
 
-import api from "../../services/api";
-import EmployeeLayout from "./EmployeeLayout";
+// ============================================================
+// COMPANY DETAILS
+// ============================================================
 
-// =====================================================
-// COMPONENT
-// =====================================================
+const COMPANY_NAME = "Talent Corner HR Services Pvt Ltd.";
+const COMPANY_ADDRESS_LINE1 = "708/709, Bhaveshwar Arcade NX";
+const COMPANY_ADDRESS_LINE2 = "Opp Shreyas Cinema, LBS Marg, Ghatkopar(W),";
+const COMPANY_ADDRESS_LINE3 = "Mumbai-400086";
+const COMPANY_UDYAM = "UDYAM Reg No. : UDYAM-MH-19-0067990 (Micro)";
+const COMPANY_EMAIL = "E-Mail : accounts@talentcorner.in";
 
-const EmployeePayslip = () => {
-  // =====================================================
-  // STATE
-  // =====================================================
+// ============================================================
+// SIGNATURE / STAMP IMAGES  (backend/assets/)
+// ============================================================
 
-  const [payslips, setPayslips] = useState([]);
+const STAMP_IMAGE = path.join(__dirname, "../assets/talent-corner-stamp.jpeg");
+const SIGNATURE_IMAGE = path.join(__dirname, "../assets/talent-corner-signature.jpeg");
 
-  const [loading, setLoading] =
-    useState(true);
+// ============================================================
+// HELPERS
+// ============================================================
 
-  const [downloading, setDownloading] =
-    useState(null);
-
-  const [error, setError] =
-    useState("");
-
-  // Selected monthly payslip for viewing
-  const [selectedPayslip, setSelectedPayslip] =
-    useState(null);
-
-  // Selected salary month from calendar
-  const [selectedMonth, setSelectedMonth] =
-    useState("");
-
-  // =====================================================
-  // FETCH PAYSLIPS
-  // =====================================================
-
-  useEffect(() => {
-    const fetchPayslips = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        console.log(
-          "Fetching payslips for logged-in employee..."
-        );
-
-        const response = await api.get(
-          "/employee/payroll/me"
-        );
-
-        console.log(
-          "Employee payslip response:",
-          response.data
-        );
-
-        let data = [];
-
-        if (
-          Array.isArray(
-            response.data?.payslips
-          )
-        ) {
-          data =
-            response.data.payslips;
-        } else if (
-          Array.isArray(
-            response.data?.data
-          )
-        ) {
-          data =
-            response.data.data;
-        } else if (
-          Array.isArray(
-            response.data
-          )
-        ) {
-          data =
-            response.data;
-        }
-
-        console.log(
-          "Processed payslips:",
-          data
-        );
-
-        setPayslips(data);
-      } catch (err) {
-        console.error(
-          "Employee payslip error:",
-          err
-        );
-
-        console.error(
-          "Server response:",
-          err.response?.data
-        );
-
-        setPayslips([]);
-
-        setError(
-          err.response?.data?.message ||
-            err.response?.data?.error ||
-            "Unable to load payslips."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPayslips();
-  }, []);
-
-  // =====================================================
-  // MONEY FORMATTER
-  // =====================================================
-
-  const money = (value) => {
-    const amount = Number(
-      value ?? 0
-    );
-
-    if (!Number.isFinite(amount)) {
-      return "0.00";
-    }
-
-    return amount.toLocaleString(
-      "en-IN",
-      {
+const money = (value) =>
+    Number(value ?? 0).toLocaleString("en-IN", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-      }
-    );
-  };
+    });
 
-  // =====================================================
-  // DISPLAY
-  // =====================================================
-
-  const display = (value) => {
-    if (
-      value === null ||
-      value === undefined ||
-      value === ""
-    ) {
-      return "N/A";
+const textValue = (value) => {
+    if (value === null || value === undefined || String(value).trim() === "") {
+        return "";
     }
-
     return String(value);
-  };
-
-  // =====================================================
-  // DATE FORMAT
-  // =====================================================
-
-  const formatDate = (value) => {
-    if (!value) {
-      return "N/A";
-    }
-
-    const date = new Date(value);
-
-    if (
-      Number.isNaN(
-        date.getTime()
-      )
-    ) {
-      return String(value);
-    }
-
-    return date.toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }
-    );
-  };
-
-  // =====================================================
-  // SALARY MONTH FORMAT
-  // =====================================================
-
-  const formatSalaryMonth = (
-    value
-  ) => {
-    if (!value) {
-      return "--";
-    }
-
-    const text = String(value);
-
-    if (
-      /^\d{4}-\d{2}$/.test(
-        text
-      )
-    ) {
-      const [year, month] =
-        text.split("-");
-
-      const date = new Date(
-        Number(year),
-        Number(month) - 1,
-        1
-      );
-
-      return date.toLocaleDateString(
-        "en-IN",
-        {
-          month: "long",
-          year: "numeric",
-        }
-      );
-    }
-
-    const date =
-      new Date(text);
-
-    if (
-      !Number.isNaN(
-        date.getTime()
-      )
-    ) {
-      return date.toLocaleDateString(
-        "en-IN",
-        {
-          month: "long",
-          year: "numeric",
-        }
-      );
-    }
-
-    return text;
-  };
-
-  // =====================================================
-  // FILTER PAYSLIPS BY SELECTED MONTH
-  // =====================================================
-
-  const filteredPayslips =
-    selectedMonth
-      ? payslips.filter(
-          (payslip) =>
-            String(
-              payslip.salary_month ||
-                ""
-            ).startsWith(
-              selectedMonth
-            )
-        )
-      : payslips;
-
-  // =====================================================
-  // DOWNLOAD PAYSLIP
-  // USE BACKEND PAYSLIP PDF TEMPLATE
-  // =====================================================
-
-  const downloadPayslip =
-    async (payslip) => {
-      try {
-        setDownloading(
-          payslip.id
-        );
-
-        console.log(
-          "Generating employee payslip PDF:",
-          payslip.id
-        );
-
-        const response =
-          await api.get(
-            `/employee/payroll/${payslip.id}/pdf`,
-            {
-              responseType: "blob",
-            }
-          );
-
-        const blob =
-          response.data instanceof Blob
-            ? response.data
-            : new Blob(
-                [response.data],
-                {
-                  type:
-                    "application/pdf",
-                }
-              );
-
-        const url =
-          window.URL.createObjectURL(
-            blob
-          );
-
-        const employeeFileName =
-          String(
-            payslip.employee_name ||
-              "Employee"
-          )
-            .replace(
-              /[^a-zA-Z0-9]/g,
-              "_"
-            )
-            .replace(
-              /_+/g,
-              "_"
-            );
-
-        const month =
-          String(
-            payslip.salary_month ||
-              "payslip"
-          ).replace(
-            /[^a-zA-Z0-9-_]/g,
-            "-"
-          );
-
-        const link =
-          document.createElement(
-            "a"
-          );
-
-        link.href = url;
-
-        link.download =
-          `${employeeFileName}_Payslip_${month}.pdf`;
-
-        document.body.appendChild(
-          link
-        );
-
-        link.click();
-
-        link.remove();
-
-        window.URL.revokeObjectURL(
-          url
-        );
-
-      } catch (error) {
-        console.error(
-          "Payslip download error:",
-          error
-        );
-
-        console.error(
-          "Server response:",
-          error.response?.data
-        );
-
-        alert(
-          error.response?.data?.message ||
-            "Unable to download payslip."
-        );
-      } finally {
-        setDownloading(
-          null
-        );
-      }
-    };
-
-  // =====================================================
-  // LOADING
-  // =====================================================
-
-  if (loading) {
-    return (
-      <EmployeeLayout>
-        <div className="empty-state">
-          <h3>
-            Loading payslips...
-          </h3>
-
-          <p>
-            Please wait while we load
-            your salary records.
-          </p>
-        </div>
-      </EmployeeLayout>
-    );
-  }
-
-  // =====================================================
-  // UI
-  // =====================================================
-
-  return (
-    <EmployeeLayout>
-      <div>
-
-        {/* =================================================
-            PAGE HEADER
-        ================================================= */}
-
-        <div className="page-header">
-          <div>
-            <h1>
-              Payslips
-            </h1>
-
-            <p>
-              View your complete salary
-              and payslip records.
-            </p>
-          </div>
-        </div>
-
-        {/* =================================================
-            ERROR
-        ================================================= */}
-
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
-
-        {/* =================================================
-            SALARY MONTH CALENDAR
-        ================================================= */}
-
-        {payslips.length > 0 && (
-          <div
-            className="table-card"
-            style={{
-              marginBottom: "25px",
-              padding: "20px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems: "center",
-                gap: "15px",
-                flexWrap: "wrap",
-              }}
-            >
-
-              <div>
-                <h3
-                  style={{
-                    margin: 0,
-                  }}
-                >
-                  Salary Month
-                </h3>
-
-                <p
-                  style={{
-                    margin:
-                      "5px 0 0",
-                    color:
-                      "#6b7280",
-                  }}
-                >
-                  Select a month to
-                  view your payslip.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems:
-                    "center",
-                  gap: "10px",
-                  flexWrap:
-                    "wrap",
-                }}
-              >
-
-                <input
-                  type="month"
-                  value={
-                    selectedMonth
-                  }
-                  onChange={(event) =>
-                    setSelectedMonth(
-                      event.target.value
-                    )
-                  }
-                  style={{
-                    padding:
-                      "10px 12px",
-                    border:
-                      "1px solid #d1d5db",
-                    borderRadius:
-                      "8px",
-                    fontSize:
-                      "14px",
-                    cursor:
-                      "pointer",
-                  }}
-                />
-
-                {selectedMonth && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedMonth(
-                        ""
-                      )
-                    }
-                    style={{
-                      padding:
-                        "10px 16px",
-                      border:
-                        "1px solid #d1d5db",
-                      borderRadius:
-                        "8px",
-                      background:
-                        "#ffffff",
-                      cursor:
-                        "pointer",
-                      fontWeight:
-                        "600",
-                    }}
-                  >
-                    Show All Months
-                  </button>
-                )}
-
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =================================================
-            NO PAYSLIPS
-        ================================================= */}
-
-        {payslips.length === 0 ? (
-          <div className="empty-state">
-            <h3>
-              No payslips available
-            </h3>
-
-            <p>
-              Your payroll records
-              will appear here.
-            </p>
-          </div>
-        ) : filteredPayslips.length === 0 ? (
-
-          /* =================================================
-              NO PAYSLIP FOR SELECTED MONTH
-          ================================================= */
-
-          <div className="empty-state">
-            <h3>
-              No payslip for selected month
-            </h3>
-
-            <p>
-              There is no salary record
-              available for{" "}
-              <strong>
-                {formatSalaryMonth(
-                  selectedMonth
-                )}
-              </strong>.
-            </p>
-          </div>
-
-        ) : (
-          <div>
-
-            {filteredPayslips.map(
-              (payslip) => (
-                <div
-                  key={payslip.id}
-                  className="table-card"
-                  style={{
-                    marginBottom:
-                      "25px",
-                    padding:
-                      "25px",
-                  }}
-                >
-
-                  {/* =================================================
-                      PAYSLIP HEADER
-                  ================================================= */}
-
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems:
-                        "center",
-                      gap:
-                        "15px",
-                      flexWrap:
-                        "wrap",
-                      marginBottom:
-                        "25px",
-                    }}
-                  >
-
-                    <div>
-                      <h2
-                        style={{
-                          margin: 0,
-                        }}
-                      >
-                        {formatSalaryMonth(
-                          payslip.salary_month
-                        )}
-                      </h2>
-
-                      <p>
-                        Payslip ID:{" "}
-                        {display(
-                          payslip.id
-                        )}
-                      </p>
-                    </div>
-
-                    <div
-                      style={{
-                        display:
-                          "flex",
-                        alignItems:
-                          "center",
-                        gap:
-                          "12px",
-                      }}
-                    >
-
-                      {/* VIEW MONTHLY PAYSLIP */}
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectedPayslip(
-                            payslip
-                          )
-                        }
-                        style={{
-                          padding:
-                            "10px 16px",
-                          border:
-                            "1px solid #d1d5db",
-                          borderRadius:
-                            "8px",
-                          cursor:
-                            "pointer",
-                          fontWeight:
-                            "600",
-                          background:
-                            "#ffffff",
-                        }}
-                      >
-                        View Payslip
-                      </button>
-
-                      {/* DOWNLOAD */}
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          downloadPayslip(
-                            payslip
-                          )
-                        }
-                        disabled={
-                          downloading ===
-                          payslip.id
-                        }
-                        style={{
-                          padding:
-                            "10px 16px",
-                          border:
-                            "none",
-                          borderRadius:
-                            "8px",
-                          cursor:
-                            downloading ===
-                            payslip.id
-                              ? "not-allowed"
-                              : "pointer",
-                          fontWeight:
-                            "600",
-                        }}
-                      >
-                        {downloading ===
-                        payslip.id
-                          ? "Generating..."
-                          : "Download Payslip"}
-                      </button>
-
-                    </div>
-                  </div>
-
-                  {/* =================================================
-                      EARNINGS
-                  ================================================= */}
-
-                  <h3>
-                    Earnings
-                  </h3>
-
-                  <div className="profile-grid">
-
-                    <div>
-                      <span>
-                        Basic Salary
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.basic_salary
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        HRA
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.hra
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Conveyance
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.conveyance
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Medical Allowance
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.medical_allowance
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Other Allowance
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.other_allowance
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Overtime
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.overtime
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Bonus
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.bonus
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Gross Salary
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.gross_salary
-                        )}
-                      </strong>
-                    </div>
-
-                  </div>
-
-                  {/* =================================================
-                      DEDUCTIONS
-                  ================================================= */}
-
-                  <h3
-                    style={{
-                      marginTop:
-                        "25px",
-                    }}
-                  >
-                    Deductions
-                  </h3>
-
-                  <div className="profile-grid">
-
-                    <div>
-                      <span>
-                        Employee PF
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.pf
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        ESIC
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.esic
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Tax / TDS
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.tax
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Professional Tax
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.professional_tax
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        LOP Deduction
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.lop
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Total Deductions
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.total_deductions
-                        )}
-                      </strong>
-                    </div>
-
-                  </div>
-
-                  {/* =================================================
-                      NET SALARY
-                  ================================================= */}
-
-                  <div
-                    style={{
-                      marginTop:
-                        "25px",
-                      padding:
-                        "20px",
-                      borderRadius:
-                        "10px",
-                      background:
-                        "#f8fafc",
-                    }}
-                  >
-
-                    <span>
-                      Net Salary
-                    </span>
-
-                    <h2
-                      style={{
-                        margin:
-                          "5px 0 0",
-                      }}
-                    >
-                      ₹
-                      {money(
-                        payslip.net_salary
-                      )}
-                    </h2>
-
-                  </div>
-
-                  {/* =================================================
-                      STATUTORY DETAILS
-                  ================================================= */}
-
-                  <h3
-                    style={{
-                      marginTop:
-                        "25px",
-                    }}
-                  >
-                    Statutory Details
-                  </h3>
-
-                  <div className="profile-grid">
-
-                    <div>
-                      <span>
-                        PF Wages
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.pf_wages
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Gratuity
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.gratuity
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Joining Date
-                      </span>
-
-                      <strong>
-                        {formatDate(
-                          payslip.joining_date
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        PRAN
-                      </span>
-
-                      <strong>
-                        {display(
-                          payslip.pran
-                        )}
-                      </strong>
-                    </div>
-
-                  </div>
-
-                  {/* =================================================
-                      EMPLOYER CONTRIBUTION
-                  ================================================= */}
-
-                  <h3
-                    style={{
-                      marginTop:
-                        "25px",
-                    }}
-                  >
-                    Employer Contribution
-                  </h3>
-
-                  <div className="profile-grid">
-
-                    <div>
-                      <span>
-                        Employer PF
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.employer_pf
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Employer ESIC
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.employer_esic
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Total Employer Contribution
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.total_employer_contribution
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Total Employer Cost
-                      </span>
-
-                      <strong>
-                        ₹
-                        {money(
-                          payslip.total_employer_cost
-                        )}
-                      </strong>
-                    </div>
-
-                  </div>
-
-                  {/* =================================================
-                      BANK DETAILS
-                  ================================================= */}
-
-                  <h3
-                    style={{
-                      marginTop:
-                        "25px",
-                    }}
-                  >
-                    Bank Details
-                  </h3>
-
-                  <div className="profile-grid">
-
-                    <div>
-                      <span>
-                        Bank Name
-                      </span>
-
-                      <strong>
-                        {display(
-                          payslip.bank_name
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        Account Number
-                      </span>
-
-                      <strong>
-                        {display(
-                          payslip.account_number
-                        )}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        IFSC Code
-                      </span>
-
-                      <strong>
-                        {display(
-                          payslip.ifsc_code
-                        )}
-                      </strong>
-                    </div>
-
-                  </div>
-
-                </div>
-              )
-            )}
-
-          </div>
-        )}
-
-      </div>
-
-      {/* =====================================================
-          VIEW MONTHLY PAYSLIP MODAL
-      ===================================================== */}
-
-      {selectedPayslip && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-            zIndex: 9999,
-          }}
-          onClick={() =>
-            setSelectedPayslip(null)
-          }
-        >
-
-          <div
-            style={{
-              background: "#ffffff",
-              width: "100%",
-              maxWidth: "800px",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              borderRadius: "12px",
-              padding: "30px",
-              position: "relative",
-            }}
-            onClick={(event) =>
-              event.stopPropagation()
-            }
-          >
-
-            {/* MODAL HEADER */}
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems: "center",
-                marginBottom: "25px",
-              }}
-            >
-
-              <div>
-                <h2
-                  style={{
-                    margin: 0,
-                  }}
-                >
-                  {formatSalaryMonth(
-                    selectedPayslip.salary_month
-                  )}
-                </h2>
-
-                <p>
-                  Payslip ID:{" "}
-                  {display(
-                    selectedPayslip.id
-                  )}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedPayslip(null)
-                }
-                style={{
-                  border: "none",
-                  background:
-                    "transparent",
-                  fontSize: "24px",
-                  cursor: "pointer",
-                }}
-              >
-                ×
-              </button>
-
-            </div>
-
-            {/* MODAL CONTENT */}
-
-            <h3>
-              Earnings
-            </h3>
-
-            <div className="profile-grid">
-
-              <div>
-                <span>
-                  Basic Salary
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.basic_salary
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  HRA
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.hra
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Conveyance
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.conveyance
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Medical Allowance
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.medical_allowance
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Other Allowance
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.other_allowance
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Overtime
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.overtime
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Bonus
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.bonus
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Gross Salary
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.gross_salary
-                  )}
-                </strong>
-              </div>
-
-            </div>
-
-            {/* DEDUCTIONS */}
-
-            <h3
-              style={{
-                marginTop: "25px",
-              }}
-            >
-              Deductions
-            </h3>
-
-            <div className="profile-grid">
-
-              <div>
-                <span>
-                  Employee PF
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.pf
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  ESIC
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.esic
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Tax / TDS
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.tax
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Professional Tax
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.professional_tax
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  LOP Deduction
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.lop
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Total Deductions
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.total_deductions
-                  )}
-                </strong>
-              </div>
-
-            </div>
-
-            {/* NET SALARY */}
-
-            <div
-              style={{
-                marginTop: "25px",
-                padding: "20px",
-                borderRadius: "10px",
-                background: "#f8fafc",
-              }}
-            >
-
-              <span>
-                Net Salary
-              </span>
-
-              <h2
-                style={{
-                  margin:
-                    "5px 0 0",
-                }}
-              >
-                ₹
-                {money(
-                  selectedPayslip.net_salary
-                )}
-              </h2>
-
-            </div>
-
-            {/* STATUTORY */}
-
-            <h3
-              style={{
-                marginTop: "25px",
-              }}
-            >
-              Statutory Details
-            </h3>
-
-            <div className="profile-grid">
-
-              <div>
-                <span>
-                  PF Wages
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.pf_wages
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Gratuity
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.gratuity
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Joining Date
-                </span>
-
-                <strong>
-                  {formatDate(
-                    selectedPayslip.joining_date
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  PRAN
-                </span>
-
-                <strong>
-                  {display(
-                    selectedPayslip.pran
-                  )}
-                </strong>
-              </div>
-
-            </div>
-
-            {/* EMPLOYER CONTRIBUTION */}
-
-            <h3
-              style={{
-                marginTop: "25px",
-              }}
-            >
-              Employer Contribution
-            </h3>
-
-            <div className="profile-grid">
-
-              <div>
-                <span>
-                  Employer PF
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.employer_pf
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Employer ESIC
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.employer_esic
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Total Employer Contribution
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.total_employer_contribution
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Total Employer Cost
-                </span>
-
-                <strong>
-                  ₹
-                  {money(
-                    selectedPayslip.total_employer_cost
-                  )}
-                </strong>
-              </div>
-
-            </div>
-
-            {/* BANK DETAILS */}
-
-            <h3
-              style={{
-                marginTop: "25px",
-              }}
-            >
-              Bank Details
-            </h3>
-
-            <div className="profile-grid">
-
-              <div>
-                <span>
-                  Bank Name
-                </span>
-
-                <strong>
-                  {display(
-                    selectedPayslip.bank_name
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Account Number
-                </span>
-
-                <strong>
-                  {display(
-                    selectedPayslip.account_number
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  IFSC Code
-                </span>
-
-                <strong>
-                  {display(
-                    selectedPayslip.ifsc_code
-                  )}
-                </strong>
-              </div>
-
-            </div>
-
-            {/* MODAL FOOTER */}
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent:
-                  "flex-end",
-                gap: "12px",
-                marginTop: "30px",
-                paddingTop: "20px",
-                borderTop:
-                  "1px solid #e5e7eb",
-              }}
-            >
-
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedPayslip(null)
-                }
-                style={{
-                  padding:
-                    "10px 18px",
-                  border:
-                    "1px solid #d1d5db",
-                  borderRadius:
-                    "8px",
-                  background:
-                    "#ffffff",
-                  cursor:
-                    "pointer",
-                  fontWeight:
-                    "600",
-                }}
-              >
-                Close
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  downloadPayslip(
-                    selectedPayslip
-                  );
-                }}
-                disabled={
-                  downloading ===
-                  selectedPayslip.id
-                }
-                style={{
-                  padding:
-                    "10px 18px",
-                  border:
-                    "none",
-                  borderRadius:
-                    "8px",
-                  cursor:
-                    downloading ===
-                    selectedPayslip.id
-                      ? "not-allowed"
-                      : "pointer",
-                  fontWeight:
-                    "600",
-                }}
-              >
-                {downloading ===
-                selectedPayslip.id
-                  ? "Generating..."
-                  : "Download Payslip"}
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-      )}
-
-    </EmployeeLayout>
-  );
 };
 
-export default EmployeePayslip;
+// Reads an image file and detects PNG / JPEG from its content,
+// so the file extension never has to match.
+const loadImage = (filePath) => {
+    if (!fs.existsSync(filePath)) {
+        console.error("Payslip image not found:", filePath);
+        return null;
+    }
+
+    const buffer = fs.readFileSync(filePath);
+    const isPng = buffer[0] === 0x89 && buffer[1] === 0x50;
+
+    return {
+        format: isPng ? "PNG" : "JPEG",
+        data: `data:image/${isPng ? "png" : "jpeg"};base64,${buffer.toString("base64")}`,
+    };
+};
+
+// ============================================================
+// NUMBER TO WORDS
+// ============================================================
+
+const numberToWordsIndian = (number) => {
+    number = Math.floor(Number(number ?? 0));
+
+    if (number === 0) return "Zero";
+
+    const ones = [
+        "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",
+        "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen",
+        "Sixteen", "Seventeen", "Eighteen", "Nineteen",
+    ];
+
+    const tens = [
+        "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy",
+        "Eighty", "Ninety",
+    ];
+
+    const twoDigits = (n) => {
+        if (n < 20) return ones[n];
+        return tens[Math.floor(n / 10)] + (n % 10 ? ` ${ones[n % 10]}` : "");
+    };
+
+    const convert = (n) => {
+        let result = "";
+
+        if (n >= 10000000) {
+            result += `${convert(Math.floor(n / 10000000))} Crore `;
+            n %= 10000000;
+        }
+
+        if (n >= 100000) {
+            result += `${convert(Math.floor(n / 100000))} Lakh `;
+            n %= 100000;
+        }
+
+        if (n >= 1000) {
+            result += `${convert(Math.floor(n / 1000))} Thousand `;
+            n %= 1000;
+        }
+
+        if (n >= 100) {
+            result += `${ones[Math.floor(n / 100)]} Hundred `;
+            n %= 100;
+        }
+
+        if (n > 0) {
+            if (result !== "") result += "and ";
+            result += twoDigits(n);
+        }
+
+        return result.trim();
+    };
+
+    return convert(number);
+};
+
+// ============================================================
+// MONTH RANGE
+// ============================================================
+
+const getMonthRange = (salaryMonth) => {
+    if (!salaryMonth) {
+        throw new Error("salary_month is required.");
+    }
+
+    const parts = String(salaryMonth).split("-");
+
+    if (parts.length !== 2) {
+        throw new Error(`Invalid salary_month: ${salaryMonth}`);
+    }
+
+    const year = Number(parts[0]);
+    const month = Number(parts[1]);
+
+    if (
+        !Number.isInteger(year) ||
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12
+    ) {
+        throw new Error(`Invalid salary_month: ${salaryMonth}`);
+    }
+
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+
+    const formatDate = (date) =>
+        date.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        });
+
+    return {
+        start: formatDate(startDate),
+        end: formatDate(endDate),
+    };
+};
+
+// ============================================================
+// GENERATE PAYSLIP PDF
+// ============================================================
+
+const generatePayslipPDF = async (payroll) => {
+    if (!payroll) {
+        throw new Error("Payroll data is missing.");
+    }
+
+    const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+    });
+
+    const pageWidth = 210;
+
+    // ========================================================
+    // EMPLOYEE DETAILS
+    // ========================================================
+
+    const employeeName = textValue(payroll.employee_name);
+    const employeeNumber = textValue(payroll.employee_code);
+    const designation = textValue(payroll.designation);
+    const location = textValue(payroll.location);
+    const salaryMonth = textValue(payroll.salary_month);
+
+    if (!employeeName) throw new Error("Employee name is missing.");
+    if (!employeeNumber) throw new Error("Employee code is missing.");
+    if (!salaryMonth) throw new Error("Salary month is missing.");
+
+    const { start: monthStart, end: monthEnd } = getMonthRange(salaryMonth);
+
+    // ========================================================
+    // BANK DETAILS
+    // ========================================================
+
+    const bankName = textValue(payroll.bank_name);
+    const accountNumber = textValue(payroll.account_number);
+    const ifsc = textValue(payroll.ifsc_code);
+    const bankBranch = textValue(payroll.bank_branch);
+
+    // ========================================================
+    // STATUTORY DETAILS
+    // ========================================================
+
+    const pan = textValue(payroll.pan_number);
+    const uan = textValue(payroll.uan_number);
+    const pfAccountNumber = textValue(payroll.pf_account_number);
+    const esicNumber = textValue(payroll.esic_number);
+    const pran = textValue(payroll.pran);
+    const taxRegime = textValue(payroll.tax_regime);
+
+    const functionName = textValue(
+        payroll.function_name || payroll.function || payroll.department
+    );
+
+    const joiningDate = payroll.joining_date
+        ? new Date(payroll.joining_date).toLocaleDateString("en-GB")
+        : "";
+
+    // ========================================================
+    // EARNINGS
+    // ========================================================
+
+    const basicSalary = Number(payroll.basic_salary ?? 0);
+    const hra = Number(payroll.hra ?? 0);
+    const conveyance = Number(
+        payroll.conveyance ?? payroll.conveyance_allowance ?? 0
+    );
+    const medicalAllowance = Number(payroll.medical_allowance ?? 0);
+    const otherAllowance = Number(payroll.other_allowance ?? 0);
+    const overtime = Number(payroll.overtime ?? 0);
+    const bonus = Number(payroll.bonus ?? 0);
+    const gratuity = Number(payroll.gratuity ?? 0);
+
+    // ========================================================
+    // DEDUCTIONS
+    // ========================================================
+
+    const pf = Number(payroll.pf ?? 0);
+    const esic = Number(payroll.esic ?? 0);
+    const professionalTax = Number(payroll.professional_tax ?? 0);
+    const tax = Number(payroll.tax ?? 0);
+    const lop = Number(payroll.lop ?? 0);
+
+    // ========================================================
+    // TOTALS
+    // ========================================================
+
+    const calculatedGross =
+        basicSalary + hra + conveyance + medicalAllowance +
+        otherAllowance + overtime + bonus;
+
+    const grossSalary =
+        payroll.gross_salary !== null && payroll.gross_salary !== undefined
+            ? Number(payroll.gross_salary)
+            : calculatedGross;
+
+    const calculatedDeductions = pf + esic + professionalTax + tax + lop;
+
+    const totalDeductions =
+        payroll.total_deductions !== null && payroll.total_deductions !== undefined
+            ? Number(payroll.total_deductions)
+            : calculatedDeductions;
+
+    const netSalary =
+        payroll.net_salary !== null && payroll.net_salary !== undefined
+            ? Number(payroll.net_salary)
+            : grossSalary - totalDeductions;
+
+    // ========================================================
+    // OUTER BORDER
+    // ========================================================
+
+    doc.setLineWidth(0.6);
+    doc.rect(17, 51, 176, 232);
+
+    // ========================================================
+    // COMPANY HEADER
+    // ========================================================
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text(COMPANY_NAME, 17, 18);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+
+    doc.text(COMPANY_ADDRESS_LINE1, 17, 25);
+    doc.text(COMPANY_ADDRESS_LINE2, 17, 29);
+    doc.text(COMPANY_ADDRESS_LINE3, 17, 33);
+    doc.text(COMPANY_UDYAM, 17, 37);
+    doc.text(COMPANY_EMAIL, 17, 41);
+
+    // ========================================================
+    // PAYSLIP TITLE
+    // ========================================================
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text("Pay Slip", 22, 61);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`for ${monthStart} to ${monthEnd}`, 22, 67);
+
+    doc.line(22, 72, 188, 72);
+
+    // ========================================================
+    // CENTER TITLE
+    // ========================================================
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+
+    doc.text(`Pay Slip for ${monthStart} to ${monthEnd}`, pageWidth / 2, 79, {
+        align: "center",
+    });
+
+    doc.text(employeeName.toUpperCase(), pageWidth / 2, 85, {
+        align: "center",
+    });
+
+    doc.line(22, 91, 188, 91);
+
+    // ========================================================
+    // EMPLOYEE DETAILS
+    // ========================================================
+
+    const leftX = 22;
+    const rightX = 111;
+
+    let leftY = 99;
+    let rightY = 99;
+
+    const addInfo = (x, y, label, value) => {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(label, x, y);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text(textValue(value), x + 40, y);
+    };
+
+    // ---------------- LEFT DETAILS ----------------
+
+    addInfo(leftX, leftY, "Employee Number:", employeeNumber);
+    leftY += 7;
+
+    addInfo(leftX, leftY, "Function:", functionName);
+    leftY += 7;
+
+    addInfo(leftX, leftY, "Designation:", designation);
+    leftY += 7;
+
+    addInfo(leftX, leftY, "Location:", location);
+    leftY += 7;
+
+    // ---------------- BANK DETAILS ----------------
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("Bank Details:", leftX, leftY);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+
+    doc.text(`Name - ${bankName}`, leftX + 40, leftY);
+    leftY += 4;
+
+    doc.text(`BRANCH - ${bankBranch}`, leftX + 40, leftY);
+    leftY += 4;
+
+    doc.text(`IFSC code - ${ifsc}`, leftX + 40, leftY);
+    leftY += 4;
+
+    doc.text(`ACC NO. ${accountNumber}`, leftX + 40, leftY);
+    leftY += 8;
+
+    addInfo(leftX, leftY, "Date of joining:", joiningDate);
+
+    // ---------------- RIGHT DETAILS ----------------
+    // Value is right-aligned so long labels never overlap it.
+
+    const addStatutoryInfo = (x, y, label, value) => {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(label, x, y);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text(textValue(value), 188, y, { align: "right" });
+    };
+
+    addStatutoryInfo(rightX, rightY, "Tax Regime:", taxRegime);
+    rightY += 7;
+
+    addStatutoryInfo(rightX, rightY, "Income Tax Number (PAN):", pan);
+    rightY += 8;
+
+    addStatutoryInfo(rightX, rightY, "Universal Account Number (UAN):", uan);
+    rightY += 8;
+
+    addStatutoryInfo(rightX, rightY, "PF account number:", pfAccountNumber);
+    rightY += 7;
+
+    addStatutoryInfo(rightX, rightY, "ESI Number:", esicNumber);
+    rightY += 7;
+
+    addStatutoryInfo(rightX, rightY, "PR Account Number (PRAN):", pran);
+
+    // ========================================================
+    // SALARY TABLE
+    // ========================================================
+
+    const tableX = 22;
+    const tableY = 143;
+    const widths = [38, 23, 23, 38, 23, 23];
+    const rowHeight = 7;
+
+    const headers = [
+        "Earnings", "Amount", "Gross Salary",
+        "Deductions", "Amount", "Gross Salary",
+    ];
+
+    let x = tableX;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+
+    headers.forEach((header, index) => {
+        doc.setFillColor(242, 242, 242);
+        doc.rect(x, tableY, widths[index], rowHeight, "F");
+        doc.text(header, x + 2, tableY + 5);
+        x += widths[index];
+    });
+
+    // ---------------- ROW HELPER ----------------
+
+    const drawSalaryRow = (
+        y,
+        earningLabel,
+        earningAmount,
+        earningGross,
+        deductionLabel = "",
+        deductionAmount = "",
+        deductionGross = ""
+    ) => {
+        let currentX = tableX;
+
+        const values = [
+            earningLabel,
+            money(earningAmount),
+            money(earningGross),
+            deductionLabel,
+            deductionAmount === "" ? "" : money(deductionAmount),
+            deductionGross === "" ? "" : String(deductionGross),
+        ];
+
+        values.forEach((value, index) => {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8.5);
+
+            if (index === 1 || index === 2 || index === 4 || index === 5) {
+                doc.text(String(value), currentX + widths[index] - 2, y + 5, {
+                    align: "right",
+                });
+            } else {
+                doc.text(String(value), currentX + 2, y + 5);
+            }
+
+            currentX += widths[index];
+        });
+    };
+
+    // ---------------- SALARY ROWS ----------------
+
+    let rowY = tableY + rowHeight;
+
+    drawSalaryRow(rowY, "Basic Salary", basicSalary, basicSalary, "Provident Fund", pf, "-");
+    rowY += rowHeight;
+
+    drawSalaryRow(
+        rowY, "HRA", hra, hra,
+        esic > 0 ? "ESIC" : "",
+        esic > 0 ? esic : "",
+        esic > 0 ? "-" : ""
+    );
+    rowY += rowHeight;
+
+    drawSalaryRow(
+        rowY, "Conveyance Expenses", conveyance, conveyance,
+        professionalTax > 0 ? "Professional Tax" : "",
+        professionalTax > 0 ? professionalTax : "",
+        professionalTax > 0 ? "-" : ""
+    );
+    rowY += rowHeight;
+
+    drawSalaryRow(
+        rowY, "Medical Allowance", medicalAllowance, medicalAllowance,
+        tax > 0 ? "Income Tax" : "",
+        tax > 0 ? tax : "",
+        tax > 0 ? "-" : ""
+    );
+    rowY += rowHeight;
+
+    drawSalaryRow(
+        rowY, "Other Expenses", otherAllowance, otherAllowance,
+        lop > 0 ? "Loss of Pay" : "",
+        lop > 0 ? lop : "",
+        lop > 0 ? "-" : ""
+    );
+    rowY += rowHeight;
+
+    drawSalaryRow(rowY, "Gratuity", gratuity, gratuity, "", "", "");
+
+    // ---------------- TOTAL ----------------
+
+    rowY += rowHeight;
+
+    const totalEarnings =
+        basicSalary + hra + conveyance + medicalAllowance +
+        otherAllowance + overtime + bonus;
+
+    let totalX = tableX;
+
+    const totalValues = [
+        "Total Earnings",
+        money(totalEarnings),
+        money(grossSalary),
+        "Total Deductions",
+        money(totalDeductions),
+        money(totalDeductions),
+    ];
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+
+    totalValues.forEach((value, index) => {
+        doc.setFillColor(243, 243, 243);
+        doc.rect(totalX, rowY, widths[index], rowHeight, "F");
+
+        if (index === 1 || index === 2 || index === 4 || index === 5) {
+            doc.text(String(value), totalX + widths[index] - 2, rowY + 5, {
+                align: "right",
+            });
+        } else {
+            doc.text(String(value), totalX + 2, rowY + 5);
+        }
+
+        totalX += widths[index];
+    });
+
+    // ---------------- NET AMOUNT ----------------
+
+    rowY += rowHeight;
+
+    let netX = tableX;
+
+    const netValues = ["", "", "", "Net Amount", money(netSalary), money(netSalary)];
+
+    netValues.forEach((value, index) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+
+        if (index === 4 || index === 5) {
+            doc.text(String(value), netX + widths[index] - 2, rowY + 5, {
+                align: "right",
+            });
+        } else if (value) {
+            doc.text(String(value), netX + 2, rowY + 5);
+        }
+
+        netX += widths[index];
+    });
+
+    // ========================================================
+    // AMOUNT IN WORDS
+    // ========================================================
+
+    const wordsY = rowY + 17;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("Amount (in words):", tableX, wordsY);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+
+    doc.text(
+        `INR ${numberToWordsIndian(Math.round(netSalary))} Rupees only`,
+        tableX,
+        wordsY + 6
+    );
+
+    doc.line(tableX, wordsY + 10, 188, wordsY + 10);
+
+    // ========================================================
+    // SIGNATURE / STAMP
+    // Images are drawn first so the text stays on top of them.
+    // ========================================================
+
+    const stamp = loadImage(STAMP_IMAGE);
+    const signature = loadImage(SIGNATURE_IMAGE);
+
+    if (stamp) {
+        try {
+            doc.addImage(stamp.data, stamp.format, 166, 246, 25, 25);
+        } catch (error) {
+            console.error("Unable to add stamp image:", error.message);
+        }
+    }
+
+    if (signature) {
+        try {
+            doc.addImage(signature.data, signature.format, 138, 249, 28, 12);
+        } catch (error) {
+            console.error("Unable to add signature image:", error.message);
+        }
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+
+    doc.text(`for ${COMPANY_NAME}`, 188, 245, { align: "right" });
+
+    // ========================================================
+    // RETURN PDF
+    // ========================================================
+
+    return Buffer.from(doc.output("arraybuffer"));
+};
+
+// ============================================================
+// EXPORT
+// ============================================================
+
+module.exports = {
+    generatePayslipPDF,
+};
