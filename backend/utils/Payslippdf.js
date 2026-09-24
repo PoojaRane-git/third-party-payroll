@@ -30,12 +30,12 @@ const COMPANY_EMAIL =
 
 const STAMP_IMAGE = path.join(
     __dirname,
-    "../assets/talent-corner-stamp.jpeg"
+    "../assets/talent-corner-stamp.png"
 );
 
 const SIGNATURE_IMAGE = path.join(
     __dirname,
-    "../assets/talent-corner-signature.jpeg"
+    "../assets/talent-corner-signature.png"
 );
 
 // ============================================================
@@ -66,32 +66,44 @@ const textValue = (value) => {
 // ============================================================
 
 const imageToDataURL = (filePath) => {
-    if (!fs.existsSync(filePath)) {
-        console.error(
-            "Image file not found:",
-            filePath
-        );
-
-        return null;
-    }
-
     try {
+        if (!fs.existsSync(filePath)) {
+            console.error(
+                "❌ Image file not found:",
+                filePath
+            );
+
+            return null;
+        }
+
         const imageBuffer =
             fs.readFileSync(filePath);
 
+        if (!imageBuffer || imageBuffer.length === 0) {
+            console.error(
+                "❌ Image file is empty:",
+                filePath
+            );
+
+            return null;
+        }
+
         console.log(
-            "Image loaded:",
+            "✅ Image loaded:",
             filePath
         );
 
-        return `data:image/jpeg;base64,${imageBuffer.toString(
-            "base64"
-        )}`;
-
+        return (
+            "data:image/png;base64," +
+            imageBuffer.toString("base64")
+        );
     } catch (error) {
         console.error(
-            "Unable to read image:",
-            filePath,
+            "❌ Unable to read image:",
+            filePath
+        );
+
+        console.error(
             error.message
         );
 
@@ -321,6 +333,10 @@ const generatePayslipPDF = async (
     console.log(
         "============================================"
     );
+
+    // ========================================================
+    // CREATE PDF
+    // ========================================================
 
     const doc = new jsPDF({
         orientation: "portrait",
@@ -823,7 +839,7 @@ const generatePayslipPDF = async (
         "bold"
     );
 
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
 
     doc.text(
         `Name - ${bankName}`,
@@ -855,15 +871,6 @@ const generatePayslipPDF = async (
         leftY
     );
 
-    leftY += 8;
-
-    addInfo(
-        leftX,
-        leftY,
-        "Date of joining:",
-        joiningDate
-    );
-
     // ========================================================
     // RIGHT DETAILS
     // ========================================================
@@ -879,7 +886,7 @@ const generatePayslipPDF = async (
             "normal"
         );
 
-        doc.setFontSize(9);
+        doc.setFontSize(8.5);
 
         doc.text(
             label,
@@ -892,7 +899,7 @@ const generatePayslipPDF = async (
             "bold"
         );
 
-        doc.setFontSize(9);
+        doc.setFontSize(8.5);
 
         doc.text(
             textValue(value),
@@ -920,7 +927,7 @@ const generatePayslipPDF = async (
         pan
     );
 
-    rightY += 8;
+    rightY += 7;
 
     addStatutoryInfo(
         rightX,
@@ -929,7 +936,7 @@ const generatePayslipPDF = async (
         uan
     );
 
-    rightY += 8;
+    rightY += 7;
 
     addStatutoryInfo(
         rightX,
@@ -954,6 +961,15 @@ const generatePayslipPDF = async (
         rightY,
         "PR Account Number (PRAN):",
         pran
+    );
+
+    rightY += 7;
+
+    addStatutoryInfo(
+        rightX,
+        rightY,
+        "Date of joining:",
+        joiningDate
     );
 
     // ========================================================
@@ -990,7 +1006,7 @@ const generatePayslipPDF = async (
         "bold"
     );
 
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
 
     headers.forEach(
         (header, index) => {
@@ -1066,7 +1082,7 @@ const generatePayslipPDF = async (
                     "normal"
                 );
 
-                doc.setFontSize(8.5);
+                doc.setFontSize(8.2);
 
                 if (
                     index === 1 ||
@@ -1243,7 +1259,7 @@ const generatePayslipPDF = async (
         "bold"
     );
 
-    doc.setFontSize(8.5);
+    doc.setFontSize(8.2);
 
     totalValues.forEach(
         (value, index) => {
@@ -1386,12 +1402,10 @@ const generatePayslipPDF = async (
     );
 
     // ========================================================
-    // SIGNATURE / STAMP
+    // SIGNATURE / STAMP AREA
     // ========================================================
 
     const signatureTextY = 245;
-    const signatureImageY = 247;
-    const stampImageY = 239;
 
     doc.setFont(
         "helvetica",
@@ -1410,7 +1424,7 @@ const generatePayslipPDF = async (
     );
 
     // ========================================================
-    // LOAD IMAGES
+    // LOAD PNG IMAGES
     // ========================================================
 
     const signatureData =
@@ -1424,57 +1438,63 @@ const generatePayslipPDF = async (
         );
 
     // ========================================================
-    // SIGNATURE IMAGE
+    // ADD SIGNATURE
     // ========================================================
 
     if (signatureData) {
         try {
             doc.addImage(
                 signatureData,
-                "JPEG",
-                145,
-                signatureImageY,
-                28,
-                12
+                "PNG",
+                143,
+                247,
+                32,
+                10.5
             );
 
             console.log(
-                "Signature image added successfully."
+                "✅ Signature added successfully."
             );
-
         } catch (error) {
             console.error(
-                "Unable to add signature image:",
-                error
+                "❌ Unable to add signature:",
+                error.message
             );
         }
+    } else {
+        console.error(
+            "❌ Signature image could not be loaded."
+        );
     }
 
     // ========================================================
-    // STAMP IMAGE
+    // ADD STAMP
     // ========================================================
 
     if (stampData) {
         try {
             doc.addImage(
                 stampData,
-                "JPEG",
+                "PNG",
                 171,
-                stampImageY,
+                236,
                 25,
                 25
             );
 
             console.log(
-                "Stamp image added successfully."
+                "✅ Stamp added successfully."
             );
-
         } catch (error) {
             console.error(
-                "Unable to add stamp image:",
-                error
+                "❌ Unable to add stamp:",
+                error.message
             );
         }
+    } else {
+        console.error(
+            "❌ Stamp image could not be loaded."
+        );
     }
 
     // ========================================================
