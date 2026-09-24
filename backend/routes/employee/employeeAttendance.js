@@ -723,9 +723,9 @@ router.get("/payroll/:id/pdf", async (req, res) => {
             });
         }
 
-        // --------------------------------------------------------
-        // FETCH PAYROLL
-        // --------------------------------------------------------
+        // ========================================================
+        // GET PAYROLL
+        // ========================================================
 
         const {
             data: payroll,
@@ -746,10 +746,7 @@ router.get("/payroll/:id/pdf", async (req, res) => {
             return res.status(500).json({
                 success: false,
                 message: "Unable to load payroll.",
-                error:
-                    payrollError.message ||
-                    payrollError.details ||
-                    "Unknown payroll database error.",
+                error: payrollError.message,
             });
         }
 
@@ -762,47 +759,109 @@ router.get("/payroll/:id/pdf", async (req, res) => {
         }
 
         console.log(
-            "Payroll record found:",
+            "Payroll found:",
             payroll.id
         );
 
-        // --------------------------------------------------------
-        // VALIDATE REQUIRED PDF DATA
-        // --------------------------------------------------------
+        // ========================================================
+        // GET EMPLOYEE FROM CANDIDATES
+        // ========================================================
 
-        if (!payroll.employee_name) {
+        const {
+            data: employee,
+            error: employeeError,
+        } = await supabase
+            .from("candidates")
+            .select(
+                "id, full_name, employee_code, designation, city, date_of_joining"
+            )
+            .eq("id", employeeId)
+            .single();
+
+        if (employeeError) {
+            console.error(
+                "EMPLOYEE FETCH ERROR:",
+                employeeError
+            );
+
             return res.status(500).json({
                 success: false,
                 message:
-                    "Employee name is missing from payroll record.",
+                    "Unable to load employee details.",
+                error: employeeError.message,
             });
         }
 
-        if (!payroll.employee_code) {
+        if (!employee) {
+            return res.status(404).json({
+                success: false,
+                message:
+                    "Employee record not found.",
+            });
+        }
+
+        // ========================================================
+        // EMPLOYEE CODE REQUIRED
+        // ========================================================
+
+        if (!employee.employee_code) {
             return res.status(500).json({
                 success: false,
                 message:
-                    "Employee code is missing from payroll record.",
+                    "Employee code is missing from candidate record.",
             });
         }
 
-        if (!payroll.salary_month) {
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Salary month is missing from payroll record.",
-            });
-        }
+        // ========================================================
+        // MERGE EMPLOYEE DETAILS INTO PAYROLL
+        // ========================================================
 
-        // --------------------------------------------------------
+        const payrollForPDF = {
+            ...payroll,
+
+            // Actual employee code
+            employee_code:
+                employee.employee_code,
+
+            // Use candidate data if payroll doesn't contain it
+            employee_name:
+                payroll.employee_name ||
+                employee.full_name,
+
+            designation:
+                payroll.designation ||
+                employee.designation,
+
+            location:
+                payroll.location ||
+                employee.city,
+
+            joining_date:
+                payroll.joining_date ||
+                employee.date_of_joining,
+        };
+
+        console.log(
+            "Employee Code:",
+            payrollForPDF.employee_code
+        );
+
+        console.log(
+            "Employee Name:",
+            payrollForPDF.employee_name
+        );
+
+        // ========================================================
         // GENERATE PDF
-        // --------------------------------------------------------
+        // ========================================================
 
         let pdfBuffer;
 
         try {
             pdfBuffer =
-                await generatePayslipPDF(payroll);
+                await generatePayslipPDF(
+                    payrollForPDF
+                );
         } catch (pdfError) {
             console.error(
                 "PDF GENERATION ERROR:",
@@ -819,13 +878,13 @@ router.get("/payroll/:id/pdf", async (req, res) => {
             });
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // FILE NAME
-        // --------------------------------------------------------
+        // ========================================================
 
         const employeeName =
             String(
-                payroll.employee_name ||
+                payrollForPDF.employee_name ||
                 "Employee"
             )
                 .replace(
@@ -839,16 +898,16 @@ router.get("/payroll/:id/pdf", async (req, res) => {
 
         const salaryMonth =
             String(
-                payroll.salary_month ||
+                payrollForPDF.salary_month ||
                 "payslip"
             ).replace(
                 /[^a-zA-Z0-9-_]/g,
                 "-"
             );
 
-        // --------------------------------------------------------
+        // ========================================================
         // SEND PDF
-        // --------------------------------------------------------
+        // ========================================================
 
         res.setHeader(
             "Content-Type",
