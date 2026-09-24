@@ -66,49 +66,29 @@ const textValue = (value) => {
 // ============================================================
 
 const imageToDataURL = (filePath) => {
-    try {
-        if (!fs.existsSync(filePath)) {
-            console.error(
-                "❌ Image file not found:",
-                filePath
-            );
+    const absolutePath = path.resolve(filePath);
+    console.log("Looking for image at:", absolutePath);
 
-            return null;
-        }
-
-        const imageBuffer =
-            fs.readFileSync(filePath);
-
-        if (!imageBuffer || imageBuffer.length === 0) {
-            console.error(
-                "❌ Image file is empty:",
-                filePath
-            );
-
-            return null;
-        }
-
-        console.log(
-            "✅ Image loaded:",
-            filePath
-        );
-
-        return (
-            "data:image/png;base64," +
-            imageBuffer.toString("base64")
-        );
-    } catch (error) {
-        console.error(
-            "❌ Unable to read image:",
-            filePath
-        );
-
-        console.error(
-            error.message
-        );
-
+    if (!fs.existsSync(absolutePath)) {
+        console.error("❌ Image file not found:", absolutePath);
         return null;
     }
+
+    const buffer = fs.readFileSync(absolutePath);
+
+    // Detect real format from file header instead of trusting the extension
+    const isPng = buffer.slice(0, 4).toString("hex") === "89504e47";
+    const isJpg = buffer.slice(0, 2).toString("hex") === "ffd8";
+
+    if (!isPng && !isJpg) {
+        console.error("❌ Not a valid PNG/JPG:", absolutePath);
+        return null;
+    }
+
+    return {
+        data: `data:image/${isPng ? "png" : "jpeg"};base64,${buffer.toString("base64")}`,
+        format: isPng ? "PNG" : "JPEG",
+    };
 };
 
 // ============================================================
@@ -1427,15 +1407,15 @@ const generatePayslipPDF = async (
     // LOAD PNG IMAGES
     // ========================================================
 
-    const signatureData =
-        imageToDataURL(
-            SIGNATURE_IMAGE
-        );
+     const signature = imageToDataURL(SIGNATURE_IMAGE);
+if (signature) {
+    doc.addImage(signature.data, signature.format, 143, 247, 32, 10.5);
+}
 
-    const stampData =
-        imageToDataURL(
-            STAMP_IMAGE
-        );
+const stamp = imageToDataURL(STAMP_IMAGE);
+if (stamp) {
+    doc.addImage(stamp.data, stamp.format, 171, 236, 25, 25);
+}
 
     // ========================================================
     // ADD SIGNATURE
