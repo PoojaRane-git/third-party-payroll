@@ -571,6 +571,47 @@ router.patch("/:id/check-out", async (req, res) => {
 // GET MONTHLY SUMMARY
 // GET /emp-attendance/monthly
 // ============================================================
+// ============================================================
+// GET MONTHLY SUMMARY
+// GET /emp-attendance/monthly
+// ============================================================
+
+// Counts weekdays (Mon-Fri) before today that have no attendance row
+// and are not a holiday / approved leave day.
+const countMissingWorkingDays = ({
+    billingMonth,
+    dailyAttendance,
+    excludedDates,
+}) => {
+    const [year, month] = billingMonth.split("-").map(Number);
+    const lastDayOfMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+    const todayIST = new Date().toLocaleDateString("en-CA", {
+        timeZone: "Asia/Kolkata",
+    });
+
+    const recordedDates = new Set(
+        (dailyAttendance || []).map((r) => r.attendance_date)
+    );
+
+    let missing = 0;
+
+    for (let d = 1; d <= lastDayOfMonth; d++) {
+        const dateStr = `${billingMonth}-${String(d).padStart(2, "0")}`;
+
+        if (dateStr >= todayIST) break; // only past days, not today
+
+        const dow = new Date(`${dateStr}T00:00:00Z`).getUTCDay(); // 0 = Sun, 6 = Sat
+        if (dow === 0 || dow === 6) continue; // adjust to your week-off rule
+
+        if (recordedDates.has(dateStr)) continue;
+        if (excludedDates.has(dateStr)) continue;
+
+        missing++;
+    }
+
+    return missing;
+};
 
 router.get("/monthly", async (req, res) => {
     try {
@@ -626,10 +667,76 @@ router.get("/monthly", async (req, res) => {
             return sendError(res, 500, "Failed to fetch monthly attendance.", dailyError);
         }
 
+        // ------------------------------------------------------------
+        // Dates that must NOT be counted as absent (holidays, leave)
+        // ------------------------------------------------------------
+        const excludedDates = new Set();
+
+        // ---- Holidays (per client, full-day only) ----
+        const clientId =
+            summary?.client_id ||
+            (dailyAttendance || []).find((r) => r.client_id)?.client_id ||
+            null;
+
+        if (clientId) {
+            const { data: holidays, error: holidayError } = await supabase
+                .from("holiday_calendar")
+                .select("holiday_date, holiday_type")
+                .eq("client_id", clientId)
+                .eq("holiday_type", "Full Day") // half-day holidays are still working days
+                .gte("holiday_date", monthStart)
+                .lt("holiday_date", nextMonth);
+
+            if (holidayError) {
+                console.error("Holiday lookup failed:", holidayError);
+            }
+
+            (holidays || []).forEach((h) => excludedDates.add(h.holiday_date));
+        }
+
+        // ---- Approved leaves ----
+        // TODO: table and column names below are guesses. Change them to
+        // match your leave table (or delete this block if you have none).
+        const { data: leaves, error: leaveError } = await supabase
+            .from("leave_requests")
+            .select("from_date, to_date")
+            .eq("employee_id", employeeId)
+            .eq("status", "Approved")
+            .lt("from_date", nextMonth)
+            .gte("to_date", monthStart);
+
+        if (leaveError) {
+            console.error("Leave lookup failed:", leaveError);
+        }
+
+        (leaves || []).forEach((l) => {
+            let cur = new Date(`${l.from_date}T00:00:00Z`);
+            const end = new Date(`${l.to_date}T00:00:00Z`);
+            while (cur <= end) {
+                excludedDates.add(cur.toISOString().substring(0, 10));
+                cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
+            }
+        });
+
+        // ------------------------------------------------------------
+        // Absent = absent_days already in summary
+        //        + past weekdays with no record, holiday or leave
+        // ------------------------------------------------------------
+        const missingDays = countMissingWorkingDays({
+            billingMonth,
+            dailyAttendance,
+            excludedDates,
+        });
+
+        summary = {
+            ...(summary || {}),
+            absent_days: Number(summary?.absent_days || 0) + missingDays,
+        };
+
         return res.json({
             success: true,
             billing_month: billingMonth,
-            summary: summary || null,
+            summary,
             attendance: dailyAttendance || [],
             daily_attendance: dailyAttendance || [],
         });
