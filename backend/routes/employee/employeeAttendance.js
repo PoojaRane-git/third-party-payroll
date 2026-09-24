@@ -20,7 +20,7 @@ const {
     getMonthRange,
     DAILY_COLUMNS,
     SUMMARY_COLUMNS,
-} = require("../../services/attendanceSummary");
+} = require("../../backend/services/attendanceSummary");
 
 router.use(authenticate, authorize("employee"));
 
