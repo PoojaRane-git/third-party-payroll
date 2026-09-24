@@ -62,11 +62,51 @@ const textValue = (value) => {
 };
 
 // ============================================================
+// IMAGE HELPER
+// ============================================================
+
+const imageToDataURL = (filePath) => {
+    if (!fs.existsSync(filePath)) {
+        console.error(
+            "Image file not found:",
+            filePath
+        );
+
+        return null;
+    }
+
+    try {
+        const imageBuffer =
+            fs.readFileSync(filePath);
+
+        console.log(
+            "Image loaded:",
+            filePath
+        );
+
+        return `data:image/jpeg;base64,${imageBuffer.toString(
+            "base64"
+        )}`;
+
+    } catch (error) {
+        console.error(
+            "Unable to read image:",
+            filePath,
+            error.message
+        );
+
+        return null;
+    }
+};
+
+// ============================================================
 // NUMBER TO WORDS
 // ============================================================
 
 const numberToWordsIndian = (number) => {
-    number = Math.floor(Number(number ?? 0));
+    number = Math.floor(
+        Number(number ?? 0)
+    );
 
     if (number === 0) {
         return "Zero";
@@ -115,7 +155,9 @@ const numberToWordsIndian = (number) => {
 
         return (
             tens[Math.floor(n / 10)] +
-            (n % 10 ? ` ${ones[n % 10]}` : "")
+            (n % 10
+                ? ` ${ones[n % 10]}`
+                : "")
         );
     };
 
@@ -125,7 +167,9 @@ const numberToWordsIndian = (number) => {
         if (n >= 10000000) {
             result +=
                 `${convert(
-                    Math.floor(n / 10000000)
+                    Math.floor(
+                        n / 10000000
+                    )
                 )} Crore `;
 
             n %= 10000000;
@@ -134,7 +178,9 @@ const numberToWordsIndian = (number) => {
         if (n >= 100000) {
             result +=
                 `${convert(
-                    Math.floor(n / 100000)
+                    Math.floor(
+                        n / 100000
+                    )
                 )} Lakh `;
 
             n %= 100000;
@@ -143,7 +189,9 @@ const numberToWordsIndian = (number) => {
         if (n >= 1000) {
             result +=
                 `${convert(
-                    Math.floor(n / 1000)
+                    Math.floor(
+                        n / 1000
+                    )
                 )} Thousand `;
 
             n %= 1000;
@@ -183,9 +231,8 @@ const getMonthRange = (salaryMonth) => {
         );
     }
 
-    const parts = String(
-        salaryMonth
-    ).split("-");
+    const parts =
+        String(salaryMonth).split("-");
 
     if (parts.length !== 2) {
         throw new Error(
@@ -247,6 +294,33 @@ const generatePayslipPDF = async (
             "Payroll data is missing."
         );
     }
+
+    console.log(
+        "============================================"
+    );
+
+    console.log(
+        "Generating Payslip PDF"
+    );
+
+    console.log(
+        "Employee:",
+        payroll.employee_name
+    );
+
+    console.log(
+        "Employee Code:",
+        payroll.employee_code
+    );
+
+    console.log(
+        "Salary Month:",
+        payroll.salary_month
+    );
+
+    console.log(
+        "============================================"
+    );
 
     const doc = new jsPDF({
         orientation: "portrait",
@@ -539,7 +613,6 @@ const generatePayslipPDF = async (
         "normal"
     );
 
-    // INCREASED COMPANY DETAILS
     doc.setFontSize(10);
 
     doc.text(
@@ -666,7 +739,6 @@ const generatePayslipPDF = async (
             "normal"
         );
 
-        // INCREASED EMPLOYEE DETAIL FONT
         doc.setFontSize(9);
 
         doc.text(
@@ -738,7 +810,6 @@ const generatePayslipPDF = async (
         "normal"
     );
 
-    // INCREASED BANK LABEL FONT
     doc.setFontSize(9);
 
     doc.text(
@@ -794,127 +865,96 @@ const generatePayslipPDF = async (
     );
 
     // ========================================================
-// RIGHT DETAILS
-// ========================================================
+    // RIGHT DETAILS
+    // ========================================================
 
-// Separate layout for statutory details.
-// The value is aligned to the right so long labels
-// never overlap with their corresponding values.
-
-const addStatutoryInfo = (
-    x,
-    y,
-    label,
-    value
-) => {
-
-    // Label
-    doc.setFont(
-        "helvetica",
-        "normal"
-    );
-
-    doc.setFontSize(9);
-
-    doc.text(
-        label,
+    const addStatutoryInfo = (
         x,
-        y
-    );
-
-    // Value
-    doc.setFont(
-        "helvetica",
-        "bold"
-    );
-
-    doc.setFontSize(9);
-
-    doc.text(
-        textValue(value),
-        188,
         y,
-        {
-            align: "right",
-        }
+        label,
+        value
+    ) => {
+        doc.setFont(
+            "helvetica",
+            "normal"
+        );
+
+        doc.setFontSize(9);
+
+        doc.text(
+            label,
+            x,
+            y
+        );
+
+        doc.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        doc.setFontSize(9);
+
+        doc.text(
+            textValue(value),
+            188,
+            y,
+            {
+                align: "right",
+            }
+        );
+    };
+
+    addStatutoryInfo(
+        rightX,
+        rightY,
+        "Tax Regime:",
+        taxRegime
     );
-};
 
-// ========================================================
-// TAX REGIME
-// ========================================================
+    rightY += 7;
 
-addStatutoryInfo(
-    rightX,
-    rightY,
-    "Tax Regime:",
-    taxRegime
-);
+    addStatutoryInfo(
+        rightX,
+        rightY,
+        "Income Tax Number (PAN):",
+        pan
+    );
 
-rightY += 7;
+    rightY += 8;
 
-// ========================================================
-// PAN
-// ========================================================
+    addStatutoryInfo(
+        rightX,
+        rightY,
+        "Universal Account Number (UAN):",
+        uan
+    );
 
-addStatutoryInfo(
-    rightX,
-    rightY,
-    "Income Tax Number (PAN):",
-    pan
-);
+    rightY += 8;
 
-rightY += 8;
+    addStatutoryInfo(
+        rightX,
+        rightY,
+        "PF account number:",
+        pfAccountNumber
+    );
 
-// ========================================================
-// UAN
-// ========================================================
+    rightY += 7;
 
-addStatutoryInfo(
-    rightX,
-    rightY,
-    "Universal Account Number (UAN):",
-    uan
-);
+    addStatutoryInfo(
+        rightX,
+        rightY,
+        "ESI Number:",
+        esicNumber
+    );
 
-rightY += 8;
+    rightY += 7;
 
-// ========================================================
-// PF ACCOUNT NUMBER
-// ========================================================
-
-addStatutoryInfo(
-    rightX,
-    rightY,
-    "PF account number:",
-    pfAccountNumber
-);
-
-rightY += 7;
-
-// ========================================================
-// ESI NUMBER
-// ========================================================
-
-addStatutoryInfo(
-    rightX,
-    rightY,
-    "ESI Number:",
-    esicNumber
-);
-
-rightY += 7;
-
-// ========================================================
-// PRAN
-// ========================================================
-
-addStatutoryInfo(
-    rightX,
-    rightY,
-    "PR Account Number (PRAN):",
-    pran
-);
+    addStatutoryInfo(
+        rightX,
+        rightY,
+        "PR Account Number (PRAN):",
+        pran
+    );
 
     // ========================================================
     // SALARY TABLE
@@ -950,12 +990,10 @@ addStatutoryInfo(
         "bold"
     );
 
-    // INCREASED TABLE HEADER
     doc.setFontSize(9);
 
     headers.forEach(
         (header, index) => {
-
             doc.setFillColor(
                 242,
                 242,
@@ -993,7 +1031,6 @@ addStatutoryInfo(
         deductionAmount = "",
         deductionGross = ""
     ) => {
-
         let currentX = tableX;
 
         const values = [
@@ -1024,13 +1061,11 @@ addStatutoryInfo(
 
         values.forEach(
             (value, index) => {
-
                 doc.setFont(
                     "helvetica",
                     "normal"
                 );
 
-                // INCREASED TABLE CONTENT
                 doc.setFontSize(8.5);
 
                 if (
@@ -1039,7 +1074,6 @@ addStatutoryInfo(
                     index === 4 ||
                     index === 5
                 ) {
-
                     doc.text(
                         String(value),
                         currentX +
@@ -1050,9 +1084,7 @@ addStatutoryInfo(
                             align: "right",
                         }
                     );
-
                 } else {
-
                     doc.text(
                         String(value),
                         currentX + 2,
@@ -1211,12 +1243,10 @@ addStatutoryInfo(
         "bold"
     );
 
-    // INCREASED TOTAL FONT
     doc.setFontSize(8.5);
 
     totalValues.forEach(
         (value, index) => {
-
             doc.setFillColor(
                 243,
                 243,
@@ -1237,7 +1267,6 @@ addStatutoryInfo(
                 index === 4 ||
                 index === 5
             ) {
-
                 doc.text(
                     String(value),
                     totalX +
@@ -1248,9 +1277,7 @@ addStatutoryInfo(
                         align: "right",
                     }
                 );
-
             } else {
-
                 doc.text(
                     String(value),
                     totalX + 2,
@@ -1282,20 +1309,17 @@ addStatutoryInfo(
 
     netValues.forEach(
         (value, index) => {
-
             doc.setFont(
                 "helvetica",
                 "bold"
             );
 
-            // INCREASED NET AMOUNT FONT
             doc.setFontSize(8.5);
 
             if (
                 index === 4 ||
                 index === 5
             ) {
-
                 doc.text(
                     String(value),
                     netX +
@@ -1306,9 +1330,7 @@ addStatutoryInfo(
                         align: "right",
                     }
                 );
-
             } else if (value) {
-
                 doc.text(
                     String(value),
                     netX + 2,
@@ -1328,7 +1350,6 @@ addStatutoryInfo(
     const wordsY =
         rowY + 17;
 
-    // INCREASED AMOUNT IN WORDS LABEL
     doc.setFont(
         "helvetica",
         "bold"
@@ -1342,7 +1363,6 @@ addStatutoryInfo(
         wordsY
     );
 
-    // INCREASED AMOUNT IN WORDS CONTENT
     doc.setFont(
         "helvetica",
         "normal"
@@ -1378,7 +1398,6 @@ addStatutoryInfo(
         "bold"
     );
 
-    // INCREASED SIGNATURE TEXT
     doc.setFontSize(9);
 
     doc.text(
@@ -1391,30 +1410,42 @@ addStatutoryInfo(
     );
 
     // ========================================================
+    // LOAD IMAGES
+    // ========================================================
+
+    const signatureData =
+        imageToDataURL(
+            SIGNATURE_IMAGE
+        );
+
+    const stampData =
+        imageToDataURL(
+            STAMP_IMAGE
+        );
+
+    // ========================================================
     // SIGNATURE IMAGE
     // ========================================================
 
-    if (
-        fs.existsSync(
-            SIGNATURE_IMAGE
-        )
-    ) {
+    if (signatureData) {
         try {
-
             doc.addImage(
-    SIGNATURE_IMAGE,
-    "JPEG",
-    145,
-    signatureImageY,
-    28,
-    12
-);
+                signatureData,
+                "JPEG",
+                145,
+                signatureImageY,
+                28,
+                12
+            );
+
+            console.log(
+                "Signature image added successfully."
+            );
 
         } catch (error) {
-
             console.error(
                 "Unable to add signature image:",
-                error.message
+                error
             );
         }
     }
@@ -1423,27 +1454,25 @@ addStatutoryInfo(
     // STAMP IMAGE
     // ========================================================
 
-    if (
-        fs.existsSync(
-            STAMP_IMAGE
-        )
-    ) {
+    if (stampData) {
         try {
+            doc.addImage(
+                stampData,
+                "JPEG",
+                171,
+                stampImageY,
+                25,
+                25
+            );
 
-           doc.addImage(
-    STAMP_IMAGE,
-    "JPEG",
-    171,
-    stampImageY,
-    25,
-    25
-);
+            console.log(
+                "Stamp image added successfully."
+            );
 
         } catch (error) {
-
             console.error(
                 "Unable to add stamp image:",
-                error.message
+                error
             );
         }
     }
@@ -1451,6 +1480,10 @@ addStatutoryInfo(
     // ========================================================
     // RETURN PDF
     // ========================================================
+
+    console.log(
+        "Payslip PDF generated successfully."
+    );
 
     return Buffer.from(
         doc.output("arraybuffer")
