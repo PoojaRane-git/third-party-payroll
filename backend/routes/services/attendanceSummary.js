@@ -1,16 +1,16 @@
 // ============================================================
 // services/attendanceSummary.js
 //
-// Shared by the employee router and payroll.
 // Builds third_party_attendance_summary from
 // third_party_emp_daily_attendance.
 // ============================================================
 
 const supabase = require("../../config/supabase");
 
-// ------------------------------------------------------------
-// LEAVE TABLE CONFIG  (TODO: change to match your real table)
-// ------------------------------------------------------------
+// ============================================================
+// LEAVE TABLE CONFIG
+// ============================================================
+
 const LEAVE = {
     table: "leave_requests",
     employeeColumn: "employee_id",
@@ -19,6 +19,10 @@ const LEAVE = {
     statusColumn: "status",
     approvedValue: "Approved",
 };
+
+// ============================================================
+// COLUMNS
+// ============================================================
 
 const DAILY_COLUMNS = `
     id, candidates_id, deployment_id, client_id, attendance_date,
@@ -32,9 +36,10 @@ const SUMMARY_COLUMNS = `
     lop_days, payable_days, overtime_hours, created_at, updated_at
 `;
 
-// ------------------------------------------------------------
-// Date helpers
-// ------------------------------------------------------------
+// ============================================================
+// DATE HELPERS
+// ============================================================
+
 const getTodayIST = () =>
     new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Kolkata",
@@ -50,26 +55,84 @@ const getDaysInMonth = (billingMonth) => {
 
 const getMonthRange = (billingMonth) => {
     const [year, month] = billingMonth.split("-").map(Number);
+
     const monthStart = `${billingMonth}-01`;
+
     const nextMonth = new Date(Date.UTC(year, month, 1))
         .toISOString()
         .substring(0, 10);
-    return { monthStart, nextMonth };
+
+    return {
+        monthStart,
+        nextMonth,
+    };
 };
 
 const addDaysISO = (dateStr, n) =>
-    new Date(Date.parse(`${dateStr}T00:00:00Z`) + n * 86400000)
+    new Date(
+        Date.parse(`${dateStr}T00:00:00Z`) + n * 86400000
+    )
         .toISOString()
         .substring(0, 10);
 
-// ------------------------------------------------------------
-// Weekdays (Mon-Fri) with NO attendance row:
-//  - outside deployment period -> ignored
-//  - holiday                   -> ignored
-//  - approved leave            -> counted as leave
-//  - past day                  -> counted as absent
-//  - today / future            -> never counted
-// ------------------------------------------------------------
+// ============================================================
+// COUNT WORKING DAYS
+//
+// Monday-Friday only.
+// Excludes:
+// - weekends
+// - holidays
+// - approved leave
+// - dates outside deployment
+// - future dates
+// ============================================================
+
+const countWorkingDays = ({
+    billingMonth,
+    holidayDates,
+    leaveDates,
+    startDate,
+    endDate,
+}) => {
+    const lastDay = getDaysInMonth(billingMonth);
+    const todayIST = getTodayIST();
+
+    let workingDays = 0;
+
+    for (let d = 1; d <= lastDay; d++) {
+
+        const dateStr =
+            `${billingMonth}-${String(d).padStart(2, "0")}`;
+
+        // Outside deployment
+        if (startDate && dateStr < startDate) continue;
+        if (endDate && dateStr > endDate) continue;
+
+        // Future / today not yet completed
+        if (dateStr >= todayIST) continue;
+
+        // Weekend
+        const dow =
+            new Date(`${dateStr}T00:00:00Z`).getUTCDay();
+
+        if (dow === 0 || dow === 6) continue;
+
+        // Holiday
+        if (holidayDates.has(dateStr)) continue;
+
+        // Approved leave
+        if (leaveDates.has(dateStr)) continue;
+
+        workingDays++;
+    }
+
+    return workingDays;
+};
+
+// ============================================================
+// COUNT MISSING ATTENDANCE
+// ============================================================
+
 const countMissingDays = ({
     billingMonth,
     rows,
@@ -78,48 +141,95 @@ const countMissingDays = ({
     startDate,
     endDate,
 }) => {
+
     const lastDay = getDaysInMonth(billingMonth);
     const todayIST = getTodayIST();
-    const recorded = new Set(rows.map((r) => r.attendance_date));
+
+    const recorded = new Set(
+        rows.map((row) => row.attendance_date)
+    );
 
     let absent = 0;
     let leave = 0;
 
     for (let d = 1; d <= lastDay; d++) {
-        const dateStr = `${billingMonth}-${String(d).padStart(2, "0")}`;
 
+        const dateStr =
+            `${billingMonth}-${String(d).padStart(2, "0")}`;
+
+        // Outside deployment
         if (startDate && dateStr < startDate) continue;
         if (endDate && dateStr > endDate) continue;
 
-        const dow = new Date(`${dateStr}T00:00:00Z`).getUTCDay(); // 0=Sun, 6=Sat
-        if (dow === 0 || dow === 6) continue; // week-off (adjust to roster)
+        // Weekend
+        const dow =
+            new Date(`${dateStr}T00:00:00Z`).getUTCDay();
+
+        if (dow === 0 || dow === 6) continue;
+
+        // Already has attendance
         if (recorded.has(dateStr)) continue;
+
+        // Holiday
         if (holidayDates.has(dateStr)) continue;
 
-        if (leaveDates.has(dateStr)) leave++;
-        else if (dateStr < todayIST) absent++;
+        // Today and future are not absent
+        if (dateStr >= todayIST) continue;
+
+        // Approved leave
+        if (leaveDates.has(dateStr)) {
+            leave++;
+        } else {
+            absent++;
+        }
     }
 
-    return { absent, leave };
+    return {
+        absent,
+        leave,
+    };
 };
 
-// ------------------------------------------------------------
-// Recalculate + store monthly summary
-// ------------------------------------------------------------
-const recalculateMonthlySummary = async (employeeId, billingMonth) => {
-    const { monthStart, nextMonth } = getMonthRange(billingMonth);
+// ============================================================
+// RECALCULATE MONTHLY SUMMARY
+// ============================================================
 
-    const { data: dailyRows, error: dailyError } = await supabase
+const recalculateMonthlySummary = async (
+    employeeId,
+    billingMonth
+) => {
+
+    const {
+        monthStart,
+        nextMonth,
+    } = getMonthRange(billingMonth);
+
+    // ========================================================
+    // GET DAILY ATTENDANCE
+    // ========================================================
+
+    const {
+        data: dailyRows,
+        error: dailyError,
+    } = await supabase
         .from("third_party_emp_daily_attendance")
         .select(DAILY_COLUMNS)
         .eq("candidates_id", employeeId)
         .gte("attendance_date", monthStart)
         .lt("attendance_date", nextMonth)
-        .order("attendance_date", { ascending: true });
+        .order("attendance_date", {
+            ascending: true,
+        });
 
-    if (dailyError) throw dailyError;
+    if (dailyError) {
+        throw dailyError;
+    }
 
     const rows = dailyRows || [];
+
+    // ========================================================
+    // COUNT RECORDED ATTENDANCE
+    // ========================================================
 
     let presentDays = 0;
     let absentDays = 0;
@@ -128,82 +238,149 @@ const recalculateMonthlySummary = async (employeeId, billingMonth) => {
     let overtimeHours = 0;
 
     rows.forEach((row) => {
-        const status = String(row.status || "").toLowerCase().trim();
 
-        if (status === "present") presentDays += 1;
-        else if (status === "absent") absentDays += 1;
-        else if (status === "leave") leaveDays += 1;
-        else if (status === "half day" || status === "halfday") halfDays += 1;
-        // "in progress" is not counted until check-out
+        const status =
+            String(row.status || "")
+                .toLowerCase()
+                .trim();
 
-        overtimeHours += Number(row.overtime_hours || 0);
+        if (status === "present") {
+            presentDays++;
+        }
+
+        else if (status === "absent") {
+            absentDays++;
+        }
+
+        else if (status === "leave") {
+            leaveDays++;
+        }
+
+        else if (
+            status === "half day" ||
+            status === "halfday"
+        ) {
+            halfDays++;
+        }
+
+        // In Progress is intentionally ignored
+
+        overtimeHours +=
+            Number(row.overtime_hours || 0);
     });
 
-    // ---- Resolve client / deployment ----
+    // ========================================================
+    // RESOLVE CLIENT / DEPLOYMENT
+    // ========================================================
+
     let clientId = null;
     let deploymentId = null;
 
     if (rows.length > 0) {
+
         const latest = rows[rows.length - 1];
+
         clientId = latest.client_id;
         deploymentId = latest.deployment_id;
     }
 
+    // Existing summary fallback
     if (!clientId || !deploymentId) {
-        const { data: existing, error } = await supabase
+
+        const {
+            data: existing,
+            error,
+        } = await supabase
             .from("third_party_attendance_summary")
-            .select("id, client_id, deployment_id")
+            .select(`
+                id,
+                client_id,
+                deployment_id
+            `)
             .eq("employee_id", employeeId)
             .eq("billing_month", billingMonth)
             .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+            throw error;
+        }
 
         if (existing) {
+
             clientId = existing.client_id;
             deploymentId = existing.deployment_id;
         }
     }
 
+    // Deployment fallback
     if (!clientId || !deploymentId) {
-        // Latest deployment (any status, so ex-employees still resolve)
-        const { data: deployment, error } = await supabase
+
+        const {
+            data: deployment,
+            error,
+        } = await supabase
             .from("deployments")
             .select("id, client_id")
             .eq("candidate_id", employeeId)
-            .order("start_date", { ascending: false })
+            .order("start_date", {
+                ascending: false,
+            })
             .limit(1)
             .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+            throw error;
+        }
 
         if (deployment) {
+
             deploymentId = deployment.id;
             clientId = deployment.client_id;
         }
     }
 
     if (!clientId || !deploymentId) {
-        throw new Error("Client/deployment information not found for employee.");
+        throw new Error(
+            "Client/deployment information not found for employee."
+        );
     }
 
-    // ---- Deployment period ----
-    const { data: deploymentInfo, error: deploymentInfoError } = await supabase
+    // ========================================================
+    // DEPLOYMENT PERIOD
+    // ========================================================
+
+    const {
+        data: deploymentInfo,
+        error: deploymentInfoError,
+    } = await supabase
         .from("deployments")
         .select("start_date, end_date")
         .eq("id", deploymentId)
         .maybeSingle();
 
     if (deploymentInfoError) {
-        console.error("Deployment dates lookup failed:", deploymentInfoError);
+        console.error(
+            "Deployment dates lookup failed:",
+            deploymentInfoError
+        );
     }
 
-    const startDate = deploymentInfo?.start_date || null;
-    const endDate = deploymentInfo?.end_date || null;
+    const startDate =
+        deploymentInfo?.start_date || null;
 
-    // ---- Holidays (per client, full-day only) ----
+    const endDate =
+        deploymentInfo?.end_date || null;
+
+    // ========================================================
+    // HOLIDAYS
+    // ========================================================
+
     const holidayDates = new Set();
-    const { data: holidays, error: holidayError } = await supabase
+
+    const {
+        data: holidays,
+        error: holidayError,
+    } = await supabase
         .from("holiday_calendar")
         .select("holiday_date")
         .eq("client_id", clientId)
@@ -211,27 +388,88 @@ const recalculateMonthlySummary = async (employeeId, billingMonth) => {
         .gte("holiday_date", monthStart)
         .lt("holiday_date", nextMonth);
 
-    if (holidayError) console.error("Holiday lookup failed:", holidayError);
-    (holidays || []).forEach((h) => holidayDates.add(h.holiday_date));
+    if (holidayError) {
 
-    // ---- Approved leaves ----
-    const leaveDates = new Set();
-    const { data: leaves, error: leaveError } = await supabase
-        .from(LEAVE.table)
-        .select(`${LEAVE.fromColumn}, ${LEAVE.toColumn}`)
-        .eq(LEAVE.employeeColumn, employeeId)
-        .eq(LEAVE.statusColumn, LEAVE.approvedValue)
-        .lt(LEAVE.fromColumn, nextMonth)
-        .gte(LEAVE.toColumn, monthStart);
+        console.error(
+            "Holiday lookup failed:",
+            holidayError
+        );
+    }
 
-    if (leaveError) console.error("Leave lookup failed:", leaveError);
-    (leaves || []).forEach((l) => {
-        const from = l[LEAVE.fromColumn];
-        const to = l[LEAVE.toColumn];
-        for (let d = from; d <= to; d = addDaysISO(d, 1)) leaveDates.add(d);
+    (holidays || []).forEach((holiday) => {
+
+        holidayDates.add(
+            holiday.holiday_date
+        );
     });
 
-    // ---- Days with no attendance row ----
+    // ========================================================
+    // APPROVED LEAVES
+    // ========================================================
+
+    const leaveDates = new Set();
+
+    const {
+        data: leaves,
+        error: leaveError,
+    } = await supabase
+        .from(LEAVE.table)
+        .select(
+            `${LEAVE.fromColumn}, ${LEAVE.toColumn}`
+        )
+        .eq(
+            LEAVE.employeeColumn,
+            employeeId
+        )
+        .eq(
+            LEAVE.statusColumn,
+            LEAVE.approvedValue
+        )
+        .lt(
+            LEAVE.fromColumn,
+            nextMonth
+        )
+        .gte(
+            LEAVE.toColumn,
+            monthStart
+        );
+
+    if (leaveError) {
+
+        console.error(
+            "Leave lookup failed:",
+            leaveError
+        );
+    }
+
+    (leaves || []).forEach((leave) => {
+
+        const from =
+            leave[LEAVE.fromColumn];
+
+        const to =
+            leave[LEAVE.toColumn];
+
+        for (
+            let d = from;
+            d <= to;
+            d = addDaysISO(d, 1)
+        ) {
+
+            // Only keep dates belonging to this month
+            if (
+                d >= monthStart &&
+                d < nextMonth
+            ) {
+                leaveDates.add(d);
+            }
+        }
+    });
+
+    // ========================================================
+    // MISSING ATTENDANCE
+    // ========================================================
+
     const missing = countMissingDays({
         billingMonth,
         rows,
@@ -244,57 +482,132 @@ const recalculateMonthlySummary = async (employeeId, billingMonth) => {
     absentDays += missing.absent;
     leaveDays += missing.leave;
 
-    const totalDays = getDaysInMonth(billingMonth);
+    // ========================================================
+    // WORKING DAYS
+    // ========================================================
+
+    const workingDays = countWorkingDays({
+        billingMonth,
+        holidayDates,
+        leaveDates,
+        startDate,
+        endDate,
+    });
+
+    // ========================================================
+    // LOP
+    //
+    // Every absent day is unpaid.
+    // ========================================================
+
     const lopDays = absentDays;
 
-    // ---- Days inside the deployment period ----
-    const lastDate = `${billingMonth}-${String(totalDays).padStart(2, "0")}`;
-    const periodStart = startDate && startDate > monthStart ? startDate : monthStart;
-    const periodEnd = endDate && endDate < lastDate ? endDate : lastDate;
-    const daysInPeriod =
-        periodEnd < periodStart
-            ? 0
-            : Math.round(
-                  (Date.parse(periodEnd) - Date.parse(periodStart)) / 86400000
-              ) + 1;
+    // ========================================================
+    // PAYABLE DAYS
+    //
+    // Present = 1
+    // Half Day = 0.5
+    // Leave = 0
+    // Absent/LOP = 0
+    // ========================================================
 
-    const payableDays = Math.max(0, daysInPeriod - lopDays - halfDays * 0.5);
+    const payableDays =
+        Math.max(
+            0,
+            presentDays +
+            (halfDays * 0.5)
+        );
+
+    // ========================================================
+    // TOTAL DAYS
+    // ========================================================
+
+    const totalDays =
+        getDaysInMonth(billingMonth);
+
+    // ========================================================
+    // SAVE SUMMARY
+    // ========================================================
 
     const summaryPayload = {
+
         employee_id: employeeId,
+
         client_id: clientId,
+
         deployment_id: deploymentId,
+
         billing_month: billingMonth,
+
         total_days: totalDays,
+
         present_days: presentDays,
+
         absent_days: absentDays,
+
         leave_days: leaveDays,
+
         half_days: halfDays,
+
         lop_days: lopDays,
-        payable_days: payableDays,
-        overtime_hours: Number(overtimeHours.toFixed(2)),
-        updated_at: new Date().toISOString(),
+
+        payable_days: Number(
+            payableDays.toFixed(2)
+        ),
+
+        overtime_hours: Number(
+            overtimeHours.toFixed(2)
+        ),
+
+        updated_at:
+            new Date().toISOString(),
     };
 
-    const { data: summary, error: summaryError } = await supabase
+    const {
+        data: summary,
+        error: summaryError,
+    } = await supabase
         .from("third_party_attendance_summary")
-        .upsert(summaryPayload, { onConflict: "employee_id,billing_month" })
+        .upsert(
+            summaryPayload,
+            {
+                onConflict:
+                    "employee_id,billing_month",
+            }
+        )
         .select(SUMMARY_COLUMNS)
         .single();
 
-    if (summaryError) throw summaryError;
+    if (summaryError) {
+        throw summaryError;
+    }
 
     return {
         ...summary,
-        working_days: presentDays + halfDays * 0.5,
+
+        working_days: workingDays,
+
+        payable_days: Number(
+            payableDays.toFixed(2)
+        ),
     };
 };
 
+// ============================================================
+// EXPORTS
+// ============================================================
+
 module.exports = {
+
     recalculateMonthlySummary,
+
     getTodayIST,
+
     getDaysInMonth,
+
     getMonthRange,
+
     DAILY_COLUMNS,
+
     SUMMARY_COLUMNS,
 };
