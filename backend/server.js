@@ -44,16 +44,14 @@ console.log(
 // MIDDLEWARE
 // =====================================================
 
+
 const allowedOrigins = [
-    "https://third-party-payroll.vercel.app",
     "http://localhost:5173",
-    "saarthi-3rd-party-payroll.vercel.app"
+    "https://saarthi-3rd-party-payroll.vercel.app"
 ];
 
-// Matches ANY preview deployment of this specific project,
-// e.g. https://third-party-payroll-<anything>-poojarane514-1612s-projects.vercel.app
 const previewOriginPattern =
-    /^https:\/\/third-party-payroll-[a-z0-9]+-poojarane514-1612s-projects\.vercel\.app$/;
+    /^https:\/\/(third-party-payroll|saarthi-3rd-party-payroll)-[a-z0-9]+-[a-z0-9-]+\.vercel\.app$/;
 
 const corsOptions = {
     origin: function (origin, callback) {
