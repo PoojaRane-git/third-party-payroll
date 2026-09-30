@@ -47,6 +47,7 @@ console.log(
 
 const allowedOrigins = [
     "http://localhost:5173",
+    "https://third-party-payroll.vercel.app",
     "https://saarthi-3rd-party-payroll.vercel.app"
 ];
 
