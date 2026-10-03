@@ -3,7 +3,7 @@ const allowedOrigins = [
     "http://localhost:5173",
 
     // Personal Vercel deployment
-    "https://third-party-payroll.vercel.app",
+    // "https://third-party-payroll.vercel.app",
 
     // New Talent Corner Vercel deployment
     "https://saarthi-third-party-payroll.vercel.app"
