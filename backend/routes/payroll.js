@@ -12,7 +12,7 @@ const router = express.Router();
 
 const supabase = require("../config/supabase");
 const { generatePayslipPDF } = require("../utils/Payslippdf");
-const { recalculateMonthlySummary } = require("../services/attendanceSummary");
+const { recalculateMonthlySummary } = require("./services/attendanceSummary");
 
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
