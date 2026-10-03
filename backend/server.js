@@ -1,25 +1,22 @@
-// =====================================================
-// CORS CONFIGURATION
-// =====================================================
 
 const allowedOrigins = [
     "http://localhost:5173",
 
-    // Your personal Vercel deployment
+    // Personal Vercel deployment
     "https://third-party-payroll.vercel.app",
 
-    // Talent Corner Vercel deployment
-    "https://saarthi-3rd-party-payroll.vercel.app"
+    // New Talent Corner Vercel deployment
+    "https://saarthi-third-party-payroll.vercel.app"
 ];
 
-// Allow preview deployments belonging to these projects
+// Allow preview deployments
 const previewOriginPattern =
-    /^https:\/\/(?:third-party-payroll|saarthi-3rd-party-payroll)-[a-z0-9-]+\.vercel\.app$/;
+    /^https:\/\/(?:third-party-payroll|saarthi-third-party-payroll)-[a-z0-9-]+\.vercel\.app$/;
 
 const corsOptions = {
     origin: function (origin, callback) {
 
-        // Allow requests without Origin (server-to-server, health checks)
+        // Allow requests without Origin
         if (!origin) {
             return callback(null, true);
         }
@@ -33,7 +30,6 @@ const corsOptions = {
         }
 
         console.error("❌ CORS blocked origin:", origin);
-
         return callback(new Error("Not allowed by CORS"));
     },
 
