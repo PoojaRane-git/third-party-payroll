@@ -44,12 +44,12 @@ console.log(
 // MIDDLEWARE
 // =====================================================
 
-
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://third-party-payroll.vercel.app",
-  "https://saarthi-third-party-payroll.vercel.app",
-];
+const allowedOrigins = "*"
+// const allowedOrigins = [
+//   "http://localhost:5173",
+//   "https://third-party-payroll.vercel.app",
+//   "https://saarthi-third-party-payroll.vercel.app",
+// ];
 
 const previewOriginPattern =
   /^https:\/\/(?:third-party-payroll|saarthi-third-party-payroll)-[a-z0-9-]+\.vercel\.app$/;
